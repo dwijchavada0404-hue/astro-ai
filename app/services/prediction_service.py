@@ -1,10 +1,8 @@
 from typing import Any
 
-from app.astrology.features.base import Prediction
 from app.astrology.features.marriage import MarriageFeature
-from app.astrology.features.spouse_personality import (
-    analyze_spouse_personality,
-)
+from app.astrology.features.evidence_aggregator import aggregate_predictions
+
 
 FEATURES = [
     MarriageFeature(),
@@ -14,12 +12,11 @@ FEATURES = [
 def generate_predictions(chart: dict[str, Any]) -> list[dict[str, Any]]:
     """
     Run all registered prediction features against a validated
-    astrology chart.
+    astrology chart and aggregate the resulting predictions.
     """
 
     predictions: list[dict[str, Any]] = []
 
-    # Run registered feature classes.
     for feature in FEATURES:
         feature_predictions = feature.generate(chart)
 
@@ -33,26 +30,4 @@ def generate_predictions(chart: dict[str, Any]) -> list[dict[str, Any]]:
                 }
             )
 
-    # Spouse personality analysis.
-    personality = analyze_spouse_personality(chart)
-
-    if personality:
-        predictions.append(
-            {
-                "feature": "marriage",
-                "statement": (
-                    "The 7th-house sign indicates the following "
-                    "potential spouse personality traits: "
-                    + ", ".join(personality["traits"])
-                    + "."
-                ),
-                "confidence": personality["confidence"],
-                "evidence": {
-                    "rule": personality["rule"],
-                    "seventh_house_sign": personality["sign"],
-                    "traits": personality["traits"],
-                },
-            }
-        )
-
-    return predictions
+    return aggregate_predictions(predictions)
