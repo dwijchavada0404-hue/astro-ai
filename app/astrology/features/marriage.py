@@ -1,44 +1,18 @@
 from typing import Any
 
 from .base import Prediction, PredictionFeature
-from .marriage_interpretation import (
-    calculate_marriage_score,
-    interpret_marriage_evidence,
-)
+from .marriage_reasoning import analyze_seventh_house
 from .marriage_rules import evaluate_marriage_rules
-
-
-SIGN_LORDS = {
-    "Aries": "Mars",
-    "Taurus": "Venus",
-    "Gemini": "Mercury",
-    "Cancer": "Moon",
-    "Leo": "Sun",
-    "Virgo": "Mercury",
-    "Libra": "Venus",
-    "Scorpio": "Mars",
-    "Sagittarius": "Jupiter",
-    "Capricorn": "Saturn",
-    "Aquarius": "Saturn",
-    "Pisces": "Jupiter",
-}
 
 
 class MarriageFeature(PredictionFeature):
     """
-    Marriage prediction feature.
+    Vedic astrology marriage and relationship prediction feature.
 
-    Pipeline:
-
-        chart
-          ↓
-        raw marriage rules
-          ↓
-        interpreted indicators
-          ↓
-        preliminary score
-          ↓
-        structured Predictions
+    The feature separates:
+    1. Raw astrological evidence
+    2. Interpretation
+    3. User-facing prediction statements
     """
 
     name = "marriage"
@@ -46,75 +20,147 @@ class MarriageFeature(PredictionFeature):
     def generate(self, chart: dict[str, Any]) -> list[Prediction]:
         predictions: list[Prediction] = []
 
-        houses = chart.get("houses", {})
-        planets = chart.get("planets", {})
+        reasoning = analyze_seventh_house(chart)
 
-        seventh_house = houses.get("7")
+        if not reasoning.get("available"):
+            return [
+                Prediction(
+                    feature=self.name,
+                    statement=(
+                        "Marriage analysis could not be completed because "
+                        "7th-house data is unavailable."
+                    ),
+                    confidence=0.0,
+                    evidence=reasoning,
+                )
+            ]
 
-        if not seventh_house:
-            return predictions
+        seventh_house = reasoning["seventh_house"]
+        seventh_lord = reasoning["seventh_lord"]
 
-        seventh_sign = seventh_house.get("sign")
-        seventh_lord = SIGN_LORDS.get(seventh_sign)
+        sign = seventh_house.get("sign")
+        lord_planet = seventh_lord.get("planet")
+        lord_house = seventh_lord.get("house")
+        lord_sign = seventh_lord.get("sign")
 
         # ---------------------------------------------------------
-        # 1. Extract raw astrological evidence
+        # Raw evidence
         # ---------------------------------------------------------
 
-        evidence = evaluate_marriage_rules(
-            chart=chart,
-            seventh_lord=seventh_lord,
+        raw_evidence = evaluate_marriage_rules(
+            chart,
+            lord_planet,
         )
 
         # ---------------------------------------------------------
-        # 2. Interpret the evidence
+        # 1. Spouse personality
         # ---------------------------------------------------------
 
-        interpretations = interpret_marriage_evidence(evidence)
+        sign_traits = {
+            "Aries": ["independent", "direct", "energetic"],
+            "Taurus": ["stable", "practical", "comfort-oriented"],
+            "Gemini": ["communicative", "curious", "adaptable"],
+            "Cancer": ["caring", "emotional", "protective"],
+            "Leo": ["confident", "warm", "expressive"],
+            "Virgo": ["practical", "analytical", "detail-oriented"],
+            "Libra": ["balanced", "social", "relationship-oriented"],
+            "Scorpio": ["intense", "loyal", "private"],
+            "Sagittarius": ["optimistic", "independent", "adventurous"],
+            "Capricorn": ["disciplined", "practical", "ambitious"],
+            "Aquarius": ["independent", "intellectual", "unconventional"],
+            "Pisces": ["empathetic", "sensitive", "imaginative"],
+        }
 
-        # ---------------------------------------------------------
-        # 3. Calculate preliminary score
-        # ---------------------------------------------------------
+        traits = sign_traits.get(sign, [])
 
-        score = calculate_marriage_score(interpretations)
-
-        # ---------------------------------------------------------
-        # 4. Return individual interpreted indicators
-        # ---------------------------------------------------------
-
-        for interpretation in interpretations:
+        if traits:
             predictions.append(
                 Prediction(
                     feature=self.name,
-                    statement=interpretation["indicator"],
-                    confidence=float(
-                        interpretation.get("confidence", 0.5)
+                    statement=(
+                        "The 7th-house sign indicates potential spouse "
+                        f"personality traits: {', '.join(traits)}."
                     ),
-                    evidence=interpretation,
+                    confidence=0.70,
+                    evidence={
+                        "rule": "7th_house_sign_personality",
+                        "seventh_house_sign": sign,
+                        "traits": traits,
+                    },
                 )
             )
 
         # ---------------------------------------------------------
-        # 5. Return overall assessment
+        # 2. 7th lord placement
         # ---------------------------------------------------------
 
-        predictions.append(
-            Prediction(
-                feature=self.name,
-                statement=(
-                    "Preliminary marriage indicator assessment: "
-                    f"{score['assessment']}."
-                ),
-                confidence=0.6,
-                evidence={
-                    "score": score["score"],
-                    "indicator_count": score["indicator_count"],
-                    "seventh_house": seventh_house,
-                    "seventh_lord": seventh_lord,
-                    "raw_evidence": evidence,
-                    "interpretations": interpretations,
-                },
+        if lord_planet and lord_house is not None:
+            predictions.append(
+                Prediction(
+                    feature=self.name,
+                    statement=(
+                        f"The 7th lord, {lord_planet}, is placed in the "
+                        f"{lord_house}th house, making this house an "
+                        "important channel through which marriage and "
+                        "spouse-related matters may manifest."
+                    ),
+                    confidence=0.75,
+                    evidence={
+                        "rule": "seventh_lord_placement",
+                        "planet": lord_planet,
+                        "house": lord_house,
+                        "sign": lord_sign,
+                    },
+                )
             )
-        )
+
+        # ---------------------------------------------------------
+        # 3. Reasoning indicators
+        #
+        # Do NOT repeat the raw seventh-lord placement here because
+        # it has already been converted into a prediction above.
+        # ---------------------------------------------------------
+
+        for indicator in reasoning["indicators"]:
+            if indicator["factor"] == "seventh_lord_house":
+                continue
+
+            predictions.append(
+                Prediction(
+                    feature=self.name,
+                    statement=indicator["interpretation"],
+                    confidence=min(
+                        max(float(indicator.get("strength", 0.5)), 0.0),
+                        1.0,
+                    ),
+                    evidence={
+                        "rule": indicator["factor"],
+                        "value": indicator["value"],
+                    },
+                )
+            )
+
+        # ---------------------------------------------------------
+        # 4. Preserve raw planetary evidence for future synthesis
+        #
+        # We expose this as evidence but do not generate separate
+        # user-facing predictions for Venus/Jupiter/Mars yet.
+        # ---------------------------------------------------------
+
+        if raw_evidence:
+            predictions.append(
+                Prediction(
+                    feature=self.name,
+                    statement=(
+                        "Marriage analysis includes Venus, Jupiter, Mars "
+                        "and 7th-lord placement as supporting evidence."
+                    ),
+                    confidence=0.50,
+                    evidence={
+                        "rule": "marriage_planetary_evidence",
+                        "raw_evidence": raw_evidence,
+                    },
+                )
+            )
 
         return predictions
