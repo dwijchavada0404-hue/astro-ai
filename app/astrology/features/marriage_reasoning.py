@@ -1,9 +1,12 @@
 from typing import Any
 
+from app.astrology.dignity import calculate_dignity
+
 
 # Vedic astrology: natural planetary relationships.
 # This is intentionally kept explicit so the reasoning layer
 # remains transparent and testable.
+
 FRIENDLY_SIGNS = {
     "Sun": {"Aries", "Leo", "Sagittarius"},
     "Moon": {"Taurus", "Cancer", "Scorpio"},
@@ -225,5 +228,53 @@ def analyze_seventh_house(chart: dict[str, Any]) -> dict[str, Any]:
                 "strength": 0.7,
             }
         )
+
+        # Evaluate the dignity of the 7th lord.
+        dignity = calculate_dignity(
+            seventh_lord,
+            lord_data,
+        )
+
+        analysis["seventh_lord"]["dignity"] = dignity
+
+        if dignity["dignity"] == "exalted":
+            indicators.append(
+                {
+                    "factor": "seventh_lord_dignity",
+                    "value": "exalted",
+                    "interpretation": (
+                        "The 7th lord is exalted, indicating strong "
+                        "planetary dignity for spouse and relationship matters."
+                    ),
+                    "strength": 1.0,
+                }
+            )
+
+        elif dignity["dignity"] == "own_sign":
+            indicators.append(
+                {
+                    "factor": "seventh_lord_dignity",
+                    "value": "own_sign",
+                    "interpretation": (
+                        "The 7th lord is in its own sign, strengthening "
+                        "its ability to deliver results related to marriage "
+                        "and spouse matters."
+                    ),
+                    "strength": 0.85,
+                }
+            )
+
+        elif dignity["dignity"] == "debilitated":
+            indicators.append(
+                {
+                    "factor": "seventh_lord_dignity",
+                    "value": "debilitated",
+                    "interpretation": (
+                        "The 7th lord is debilitated, indicating reduced "
+                        "planetary strength for spouse and relationship matters."
+                    ),
+                    "strength": 0.25,
+                }
+            )
 
     return analysis
