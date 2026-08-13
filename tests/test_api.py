@@ -21,7 +21,8 @@ def test_health_endpoint():
     data = response.json()
 
     assert data["status"] == "ok"
-    assert data["service"] == "astro-ai-milestone1"
+    assert data["service"] == "astro-ai"
+    assert data["version"] == "0.4.0"
 
 
 def test_chart_endpoint():
@@ -75,6 +76,7 @@ def test_marriage_endpoint():
 
     marriage = data["marriage"]
 
+    assert "reading" in marriage
     assert "predictions" in marriage
     assert "seventh_house_analysis" in marriage
     assert "planetary_analysis" in marriage
@@ -124,3 +126,56 @@ def test_marriage_primary_timing_period():
     assert primary["antardasha"] == "Venus"
     assert primary["outlook"] == "strongly_supportive"
     assert primary["score"] > 0
+
+
+def test_marriage_reading_endpoint():
+    response = client.post(
+        "/api/v1/marriage-reading",
+        json=TEST_PAYLOAD,
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert "birth" in data
+    assert "reading" in data
+
+    reading = data["reading"]
+
+    assert reading["available"] is True
+
+    assert "overall_outlook" in reading
+    assert "marriage_timing" in reading
+    assert "current_period" in reading
+    assert "relationship_profile" in reading
+    assert "meeting_context" in reading
+    assert "distance_relocation_theme" in reading
+    assert "confidence" in reading
+
+
+def test_marriage_reading_primary_window():
+    response = client.post(
+        "/api/v1/marriage-reading",
+        json=TEST_PAYLOAD,
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    primary_window = (
+        data["reading"]
+        ["marriage_timing"]
+        ["primary_window"]
+    )
+
+    assert primary_window["mahadasha"] == "Venus"
+    assert primary_window["antardasha"] == "Venus"
+
+    assert primary_window["start"] == "2028-03-28"
+
+    assert (
+        primary_window["outlook"]
+        == "strongly_supportive"
+    )
