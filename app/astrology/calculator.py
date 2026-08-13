@@ -11,33 +11,55 @@ from app.astrology.utils import (
     sign_from_longitude,
 )
 
-# Lahiri sidereal mode.
-swe.set_sid_mode(swe.SIDM_LAHIRI)
-
 
 def _planet_id(name: str) -> int:
     return getattr(swe, PLANETS[name])
 
 
-def _calc_sidereal_longitude(jd_ut: float, planet_id: int) -> float:
-    flags = swe.FLG_SWIEPH | swe.FLG_SIDEREAL
+def _calc_sidereal_longitude(
+    jd_ut: float,
+    planet_id: int,
+) -> float:
+    """
+    Calculate Lahiri sidereal planetary longitude.
+    """
 
-    # pysweph 2.10.03 returns (xx, retflags, serr)
-    result = swe.calc_ut(jd_ut, planet_id, flags)
+    flags = (
+        swe.FLG_SWIEPH
+        | swe.FLG_SIDEREAL
+    )
+
+    result = swe.calc_ut(
+        jd_ut,
+        planet_id,
+        flags,
+    )
+
     xx = result[0]
 
     return xx[0] % 360.0
 
 
-def _is_retrograde(jd_ut: float, planet_id: int) -> bool:
+def _is_retrograde(
+    jd_ut: float,
+    planet_id: int,
+) -> bool:
+    """
+    Determine whether a planet is retrograde.
+    """
+
     flags = (
         swe.FLG_SWIEPH
         | swe.FLG_SIDEREAL
         | swe.FLG_SPEED
     )
 
-    # pysweph 2.10.03 returns (xx, retflags, serr)
-    result = swe.calc_ut(jd_ut, planet_id, flags)
+    result = swe.calc_ut(
+        jd_ut,
+        planet_id,
+        flags,
+    )
+
     xx = result[0]
 
     return xx[3] < 0
@@ -48,11 +70,38 @@ def calculate_chart(
     latitude: float,
     longitude: float,
 ) -> dict[str, Any]:
+    """
+    Calculate a Lahiri sidereal Vedic astrology chart.
+
+    Methodology:
+    - Swiss Ephemeris
+    - Lahiri ayanamsa
+    - Sidereal zodiac
+    - Whole Sign houses
+    - Mean lunar node
+    """
 
     if birth_utc.tzinfo is None:
-        raise ValueError("birth_utc must be timezone-aware")
+        raise ValueError(
+            "birth_utc must be timezone-aware"
+        )
 
-    utc = birth_utc.astimezone(timezone.utc)
+    # ---------------------------------------------------------
+    # IMPORTANT:
+    # Explicitly reset Lahiri mode for every chart calculation.
+    #
+    # Swiss Ephemeris sidereal mode is global state, so this
+    # prevents a previous calculation elsewhere in the same
+    # process from affecting this chart.
+    # ---------------------------------------------------------
+
+    swe.set_sid_mode(
+        swe.SIDM_LAHIRI
+    )
+
+    utc = birth_utc.astimezone(
+        timezone.utc
+    )
 
     hour_decimal = (
         utc.hour
@@ -69,88 +118,159 @@ def calculate_chart(
         swe.GREG_CAL,
     )
 
-    # Calculate Ascendant.
-    # We use the standard houses() function because
-    # the application ultimately uses Whole Sign houses.
-    cusps, ascmc = swe.houses(
+    # ---------------------------------------------------------
+    # Ascendant
+    # ---------------------------------------------------------
+    #
+    # houses() returns the tropical Ascendant.
+    # We convert that Ascendant to Lahiri sidereal longitude.
+    #
+    # Whole Sign houses are subsequently derived from the
+    # resulting sidereal Ascendant sign.
+    # ---------------------------------------------------------
+
+    _, ascmc = swe.houses(
         jd_ut,
         latitude,
         longitude,
         b"P",
     )
 
-    # Tropical Ascendant → convert to Lahiri sidereal.
-    ayanamsa = swe.get_ayanamsa_ut(jd_ut)
+    tropical_ascendant = (
+        ascmc[0] % 360.0
+    )
+
+    ayanamsa = swe.get_ayanamsa_ut(
+        jd_ut
+    )
 
     asc_longitude = (
-        ascmc[0] - ayanamsa
+        tropical_ascendant
+        - ayanamsa
     ) % 360.0
 
-    asc_sign, asc_degree, asc_sign_index = (
-        sign_from_longitude(asc_longitude)
+    (
+        asc_sign,
+        asc_degree,
+        asc_sign_index,
+    ) = sign_from_longitude(
+        asc_longitude
     )
+
+    # ---------------------------------------------------------
+    # Planets
+    # ---------------------------------------------------------
 
     planets: dict[str, Any] = {}
 
     for name in PLANETS:
 
-        longitude_value = _calc_sidereal_longitude(
-            jd_ut,
-            _planet_id(name),
+        planet_id = _planet_id(name)
+
+        longitude_value = (
+            _calc_sidereal_longitude(
+                jd_ut,
+                planet_id,
+            )
         )
 
-        sign, degree, sign_index = (
-            sign_from_longitude(longitude_value)
+        (
+            sign,
+            degree,
+            sign_index,
+        ) = sign_from_longitude(
+            longitude_value
         )
 
         planets[name] = {
-            "longitude": round(longitude_value, 8),
+            "longitude": round(
+                longitude_value,
+                8,
+            ),
             "sign": sign,
-            "degree_in_sign": round(degree, 8),
-            "degree_dms": dms(degree),
+            "degree_in_sign": round(
+                degree,
+                8,
+            ),
+            "degree_dms": dms(
+                degree
+            ),
             "house": house_from_sign(
                 sign_index,
                 asc_sign_index,
             ),
-            "nakshatra": nakshatra_from_longitude(
-                longitude_value
+            "nakshatra": (
+                nakshatra_from_longitude(
+                    longitude_value
+                )
             ),
-            "retrograde": _is_retrograde(
-                jd_ut,
-                _planet_id(name),
+            "retrograde": (
+                _is_retrograde(
+                    jd_ut,
+                    planet_id,
+                )
             ),
         }
 
+    # ---------------------------------------------------------
+    # Ketu
+    # ---------------------------------------------------------
+    #
     # Ketu is exactly opposite Rahu.
-    rahu_longitude = planets["Rahu"]["longitude"]
+    # ---------------------------------------------------------
+
+    rahu_longitude = planets[
+        "Rahu"
+    ]["longitude"]
 
     ketu_longitude = (
-        rahu_longitude + 180.0
+        rahu_longitude
+        + 180.0
     ) % 360.0
 
-    ketu_sign, ketu_degree, ketu_sign_index = (
-        sign_from_longitude(ketu_longitude)
+    (
+        ketu_sign,
+        ketu_degree,
+        ketu_sign_index,
+    ) = sign_from_longitude(
+        ketu_longitude
     )
 
     planets["Ketu"] = {
-        "longitude": round(ketu_longitude, 8),
+        "longitude": round(
+            ketu_longitude,
+            8,
+        ),
         "sign": ketu_sign,
-        "degree_in_sign": round(ketu_degree, 8),
-        "degree_dms": dms(ketu_degree),
+        "degree_in_sign": round(
+            ketu_degree,
+            8,
+        ),
+        "degree_dms": dms(
+            ketu_degree
+        ),
         "house": house_from_sign(
             ketu_sign_index,
             asc_sign_index,
         ),
-        "nakshatra": nakshatra_from_longitude(
-            ketu_longitude
+        "nakshatra": (
+            nakshatra_from_longitude(
+                ketu_longitude
+            )
         ),
         "retrograde": True,
     }
 
-    # Whole Sign houses.
+    # ---------------------------------------------------------
+    # Whole Sign houses
+    # ---------------------------------------------------------
+
     houses: dict[str, Any] = {}
 
-    for house_number in range(1, 13):
+    for house_number in range(
+        1,
+        13,
+    ):
 
         sign_index = (
             asc_sign_index
@@ -158,17 +278,33 @@ def calculate_chart(
             - 1
         ) % 12
 
-        sign = SIGNS[sign_index]
+        sign = SIGNS[
+            sign_index
+        ]
 
-        houses[str(house_number)] = {
+        houses[
+            str(house_number)
+        ] = {
             "sign": sign,
             "sign_index": sign_index,
-            "lord": SIGN_LORDS[sign],
+            "lord": SIGN_LORDS[
+                sign
+            ],
         }
+
+    # ---------------------------------------------------------
+    # Final result
+    # ---------------------------------------------------------
 
     return {
         "julian_day_ut": jd_ut,
-
+        "ayanamsa": {
+            "name": "Lahiri",
+            "value": round(
+                ayanamsa,
+                8,
+            ),
+        },
         "ascendant": {
             "longitude": round(
                 asc_longitude,
@@ -183,8 +319,6 @@ def calculate_chart(
                 asc_degree
             ),
         },
-
         "planets": planets,
-
         "houses": houses,
     }

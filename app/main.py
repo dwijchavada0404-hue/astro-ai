@@ -22,11 +22,14 @@ from app.astrology.features.marriage_timing import (
 from app.astrology.features.marriage_timing_synthesis import (
     synthesize_marriage_timing,
 )
+from app.astrology.features.marriage_narrative import (
+    generate_marriage_narrative,
+)
 
 
 app = FastAPI(
     title="Astro AI - Milestone 1",
-    version="0.2.1",
+    version="0.3.0",
     description=(
         "Vedic astrology birth-chart calculation and "
         "marriage prediction API."
@@ -39,7 +42,7 @@ def health():
     return {
         "status": "ok",
         "service": "astro-ai-milestone1",
-        "version": "0.2.1",
+        "version": "0.3.0",
     }
 
 
@@ -106,16 +109,17 @@ def create_marriage_analysis(payload: BirthInput):
     - birth chart
     - marriage predictions
     - 7th-house reasoning
-    - marriage planetary analysis
+    - planetary analysis
     - marriage synthesis
-    - current Dasha marriage analysis
-    - ranked marriage timing periods
-    - marriage timing synthesis
+    - current Dasha analysis
+    - ranked timing periods
+    - timing synthesis
+    - user-facing marriage reading
     """
 
     try:
         # -------------------------------------------------
-        # Build birth chart
+        # Build chart
         # -------------------------------------------------
 
         chart = build_chart(payload)
@@ -158,7 +162,7 @@ def create_marriage_analysis(payload: BirthInput):
         )
 
         # -------------------------------------------------
-        # Current Dasha marriage reasoning
+        # Current Dasha reasoning
         # -------------------------------------------------
 
         current_dasha = analyze_current_dasha_for_marriage(
@@ -183,13 +187,27 @@ def create_marriage_analysis(payload: BirthInput):
         )
 
         # -------------------------------------------------
-        # Final API response
+        # User-facing narrative
+        # -------------------------------------------------
+
+        reading = generate_marriage_narrative(
+            seventh_house_analysis,
+            marriage_planet_analysis,
+            marriage_synthesis,
+            marriage_timing,
+            current_dasha,
+            timing_synthesis,
+        )
+
+        # -------------------------------------------------
+        # Final response
         # -------------------------------------------------
 
         return {
             "birth": chart.get("birth", {}),
             "ascendant": chart.get("ascendant", {}),
             "marriage": {
+                "reading": reading,
                 "predictions": marriage_predictions,
                 "seventh_house_analysis": seventh_house_analysis,
                 "planetary_analysis": marriage_planet_analysis,
