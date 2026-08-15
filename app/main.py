@@ -45,6 +45,19 @@ from app.astrology.features.marriage_narrative import (
 
 
 # ---------------------------------------------------------
+# MARRIAGE QUESTION V2 MODULES
+# ---------------------------------------------------------
+
+from app.astrology.features.marriage_question_intelligence_v2 import (
+    analyze_marriage_question_v2,
+)
+
+from app.astrology.features.marriage_forecast_router_v2 import (
+    route_marriage_question_v2,
+)
+
+
+# ---------------------------------------------------------
 # CAREER MODULES
 # ---------------------------------------------------------
 
@@ -166,6 +179,16 @@ from app.astrology.features.career_forecast_router_v3 import (
 # API REQUEST MODELS
 # =========================================================
 
+class MarriageQuestionV2Request(BaseModel):
+    """
+    Natural-language Marriage Question V2 request.
+    """
+
+    birth: BirthInput
+    question: str
+    reference_moment: datetime
+
+
 class CareerTransitRequest(BaseModel):
     """
     Request body for career transit analysis.
@@ -219,9 +242,11 @@ app = FastAPI(
     version="0.6.0",
     description=(
         "Vedic astrology birth-chart calculation, "
-        "marriage analysis, career analysis, "
-        "Dasha-transit career timing, career forecasting "
-        "and natural-language career-question APIs."
+        "marriage analysis, marriage forecasting, "
+        "natural-language marriage questions, "
+        "career analysis, Dasha-transit career timing, "
+        "career forecasting and natural-language "
+        "career-question APIs."
     ),
 )
 
@@ -942,6 +967,146 @@ def create_marriage_reading(
             status_code=500,
             detail=(
                 f"Marriage reading failed: {exc}"
+            ),
+        ) from exc
+
+
+# =========================================================
+# NATURAL-LANGUAGE MARRIAGE QUESTION V2
+# =========================================================
+
+@app.post(
+    "/api/v1/marriage-question-v2"
+)
+def answer_marriage_question_v2(
+    payload: MarriageQuestionV2Request,
+):
+    """
+    Natural-language Marriage Question Intelligence V2.
+
+    Current forecast engine supports:
+
+        marriage_timing
+        relationship_commitment
+        marriage_delay_challenge
+
+    Other marriage events may be understood by the
+    question-intelligence layer and can be added to the
+    forecast router in later phases.
+    """
+
+    try:
+        reference_moment = (
+            payload.reference_moment
+        )
+
+        _require_timezone(
+            reference_moment,
+            "reference_moment",
+        )
+
+        question = (
+            payload.question.strip()
+        )
+
+        if not question:
+            raise ValueError(
+                "question must not be empty."
+            )
+
+        # ---------------------------------------------
+        # BUILD NATAL CHART
+        # ---------------------------------------------
+
+        chart = build_chart(
+            payload.birth
+        )
+
+        # ---------------------------------------------
+        # QUESTION INTELLIGENCE
+        # ---------------------------------------------
+
+        question_analysis = (
+            analyze_marriage_question_v2(
+                question
+            )
+        )
+
+        # ---------------------------------------------
+        # FORECAST ROUTER
+        # ---------------------------------------------
+
+        route_result = (
+            route_marriage_question_v2(
+                chart,
+                question_analysis,
+                reference_moment,
+            )
+        )
+
+        # ---------------------------------------------
+        # CONTEXT FOR FUTURE CONVERSATIONAL SUPPORT
+        # ---------------------------------------------
+
+        conversation_context = {
+            "question_analysis": (
+                question_analysis
+            ),
+            "route_result": (
+                route_result
+            ),
+        }
+
+        return {
+            "birth": chart.get(
+                "birth",
+                {},
+            ),
+
+            "question": (
+                question
+            ),
+
+            "reference_moment": (
+                reference_moment.isoformat()
+            ),
+
+            "understanding": (
+                question_analysis
+            ),
+
+            "result": (
+                route_result
+            ),
+
+            "conversation_context": (
+                conversation_context
+            ),
+
+            "disclaimer": (
+                "Astrological forecasts describe symbolic "
+                "patterns and periods of stronger or weaker "
+                "relationship support. The results should "
+                "not be treated as guaranteed predictions "
+                "of marriage, relationship formation, "
+                "separation or other personal outcomes."
+            ),
+        }
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(
+                exc
+            ),
+        ) from exc
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Marriage Question V2 analysis failed: "
+                f"{exc}"
             ),
         ) from exc
 
