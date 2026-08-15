@@ -1,6 +1,6 @@
 ﻿from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from app.astrology.features.marriage_forecast_v2 import (
@@ -9,6 +9,10 @@ from app.astrology.features.marriage_forecast_v2 import (
 
 from app.astrology.features.marriage_forecast_router_v2 import (
     route_marriage_question_v2,
+)
+
+from app.astrology.features.spouse_meeting_forecast_v2 import (
+    scan_spouse_meeting_forecast_v2,
 )
 
 
@@ -112,6 +116,310 @@ def _require_timezone(
         raise ValueError(
             f"{field_name} must include a timezone offset."
         )
+
+
+# =========================================================
+# EXPLICIT HORIZON CHECK
+# =========================================================
+
+def _has_explicit_horizon(
+    question_analysis: dict[str, Any],
+) -> bool:
+
+    question = str(
+        question_analysis.get(
+            "normalised_question",
+            question_analysis.get(
+                "original_question",
+                "",
+            ),
+        )
+        or ""
+    ).lower()
+
+    horizon = _safe_dict(
+        question_analysis.get(
+            "forecast_horizon"
+        )
+    )
+
+    horizon_type = str(
+        horizon.get(
+            "type",
+            "",
+        )
+        or ""
+    )
+
+    if horizon_type == (
+        "calendar_year"
+    ):
+        return True
+
+    markers = (
+        "this month",
+        "next month",
+        "this year",
+        "next year",
+        "next 1 month",
+        "next 2 months",
+        "next 3 months",
+        "next 4 months",
+        "next 5 months",
+        "next 6 months",
+        "next 7 months",
+        "next 8 months",
+        "next 9 months",
+        "next 10 months",
+        "next 11 months",
+        "next 12 months",
+        "next 1 year",
+        "next 2 years",
+        "next 3 years",
+    )
+
+    if any(
+        marker in question
+        for marker in markers
+    ):
+        return True
+
+    for year in range(
+        2020,
+        2101,
+    ):
+
+        if str(
+            year
+        ) in question:
+
+            return True
+
+    return False
+
+
+# =========================================================
+# SPOUSE-MEETING FORECAST RANGE
+# =========================================================
+
+def _resolve_spouse_meeting_request(
+    question_analysis: dict[str, Any],
+    reference_moment: datetime,
+) -> dict[str, Any]:
+
+    horizon = _safe_dict(
+        question_analysis.get(
+            "forecast_horizon"
+        )
+    )
+
+    horizon_type = str(
+        horizon.get(
+            "type",
+            "",
+        )
+        or ""
+    )
+
+    step_days = int(
+        question_analysis.get(
+            "recommended_step_days",
+            7,
+        )
+        or 7
+    )
+
+    explicit_horizon = (
+        _has_explicit_horizon(
+            question_analysis
+        )
+    )
+
+    intent = _safe_dict(
+        question_analysis.get(
+            "intent"
+        )
+    )
+
+    question_type = str(
+        intent.get(
+            "question_type",
+            "",
+        )
+        or ""
+    )
+
+    # -----------------------------------------------------
+    # OPEN-ENDED SPOUSE-MEETING TIMING
+    # -----------------------------------------------------
+
+    if (
+        question_type == "timing"
+        and not explicit_horizon
+    ):
+
+        return {
+            "start": (
+                reference_moment
+            ),
+
+            "end": (
+                reference_moment
+                + timedelta(
+                    days=365 * 3,
+                )
+            ),
+
+            "step_days": (
+                step_days
+            ),
+
+            "range_type": (
+                "open_ended_spouse_meeting_36_months"
+            ),
+        }
+
+    # -----------------------------------------------------
+    # CALENDAR YEAR
+    # -----------------------------------------------------
+
+    if horizon_type == (
+        "calendar_year"
+    ):
+
+        year = int(
+            horizon.get(
+                "year"
+            )
+        )
+
+        start = datetime(
+            year,
+            1,
+            1,
+            0,
+            0,
+            0,
+            tzinfo=reference_moment.tzinfo,
+        )
+
+        end = datetime(
+            year,
+            12,
+            31,
+            23,
+            59,
+            59,
+            tzinfo=reference_moment.tzinfo,
+        )
+
+        return {
+            "start": start,
+            "end": end,
+            "step_days": step_days,
+            "range_type": (
+                f"calendar_year_{year}"
+            ),
+        }
+
+    # -----------------------------------------------------
+    # MONTHS
+    # -----------------------------------------------------
+
+    if horizon_type == (
+        "months"
+    ):
+
+        months = int(
+            horizon.get(
+                "value",
+                12,
+            )
+            or 12
+        )
+
+        return {
+            "start": (
+                reference_moment
+            ),
+
+            "end": (
+                reference_moment
+                + timedelta(
+                    days=months * 30.4375,
+                )
+            ),
+
+            "step_days": (
+                step_days
+            ),
+
+            "range_type": (
+                f"next_{months}_months"
+            ),
+        }
+
+    # -----------------------------------------------------
+    # YEARS
+    # -----------------------------------------------------
+
+    if horizon_type == (
+        "years"
+    ):
+
+        years = int(
+            horizon.get(
+                "value",
+                1,
+            )
+            or 1
+        )
+
+        return {
+            "start": (
+                reference_moment
+            ),
+
+            "end": (
+                reference_moment
+                + timedelta(
+                    days=365 * years,
+                )
+            ),
+
+            "step_days": (
+                step_days
+            ),
+
+            "range_type": (
+                f"next_{years}_years"
+            ),
+        }
+
+    # -----------------------------------------------------
+    # FALLBACK
+    # -----------------------------------------------------
+
+    return {
+        "start": (
+            reference_moment
+        ),
+
+        "end": (
+            reference_moment
+            + timedelta(
+                days=365,
+            )
+        ),
+
+        "step_days": (
+            step_days
+        ),
+
+        "range_type": (
+            "default_12_months"
+        ),
+    }
 
 
 # =========================================================
@@ -288,6 +596,117 @@ def _route_standard_single_event(
 
 
 # =========================================================
+# SPOUSE MEETING PROBABILITY
+# =========================================================
+
+def _spouse_meeting_probability(
+    window: dict[str, Any],
+) -> dict[str, Any]:
+
+    peak = _safe_dict(
+        window.get(
+            "peak"
+        )
+    )
+
+    peak_score = _safe_float(
+        peak.get(
+            "score"
+        )
+    )
+
+    confirmation = str(
+        peak.get(
+            "confirmation",
+            "",
+        )
+        or ""
+    )
+
+    if (
+        peak_score >= 0.82
+        and confirmation
+        == "strong_meeting_signal"
+    ):
+
+        return {
+            "outcome": (
+                "very_strong"
+            ),
+
+            "probability_level": (
+                "likely"
+            ),
+
+            "probability_score": (
+                0.90
+            ),
+
+            "probability_language": (
+                "strongly supported"
+            ),
+        }
+
+    if peak_score >= 0.70:
+
+        return {
+            "outcome": (
+                "strong"
+            ),
+
+            "probability_level": (
+                "likely"
+            ),
+
+            "probability_score": (
+                0.82
+            ),
+
+            "probability_language": (
+                "well supported"
+            ),
+        }
+
+    if peak_score >= 0.60:
+
+        return {
+            "outcome": (
+                "moderate"
+            ),
+
+            "probability_level": (
+                "possible"
+            ),
+
+            "probability_score": (
+                0.68
+            ),
+
+            "probability_language": (
+                "moderately supported"
+            ),
+        }
+
+    return {
+        "outcome": (
+            "weak"
+        ),
+
+        "probability_level": (
+            "uncertain"
+        ),
+
+        "probability_score": (
+            0.45
+        ),
+
+        "probability_language": (
+            "weakly supported"
+        ),
+    }
+
+
+# =========================================================
 # SPOUSE MEETING ROUTE
 # =========================================================
 
@@ -297,168 +716,148 @@ def _route_spouse_meeting(
     reference_moment: datetime,
 ) -> dict[str, Any]:
     """
-    Phase-1 spouse-meeting timing proxy.
+    Route spouse-meeting questions through the dedicated
+    spouse-meeting forecast engine.
 
-    The current marriage forecast engine does not yet
-    contain a dedicated spouse_meeting event.
-
-    Relationship / commitment activation is therefore
-    used as the timing proxy, while the output clearly
-    records that proxy relationship.
+    This is no longer a marriage-timing proxy.
     """
 
-    proxy_analysis = dict(
-        question_analysis
-    )
-
-    proxy_analysis[
-        "primary_event"
-    ] = (
-        "relationship_commitment"
-    )
-
-    proxy_analysis[
-        "primary_event_label"
-    ] = (
-        EVENT_LABELS[
-            "relationship_commitment"
-        ]
-    )
-
-    proxy_intent = dict(
-        _safe_dict(
-            question_analysis.get(
-                "intent"
-            )
-        )
-    )
-
-    proxy_intent[
-        "event"
-    ] = (
-        "relationship_commitment"
-    )
-
-    proxy_intent[
-        "event_label"
-    ] = (
-        EVENT_LABELS[
-            "relationship_commitment"
-        ]
-    )
-
-    proxy_analysis[
-        "intent"
-    ] = (
-        proxy_intent
-    )
-
-    # Open-ended meeting questions should search far enough
-    # ahead to discover the strongest relationship-opening
-    # period, similar to open-ended marriage timing.
-    question = str(
-        question_analysis.get(
-            "normalised_question",
-            "",
-        )
-        or ""
-    )
-
-    if (
-        proxy_intent.get(
-            "question_type"
-        )
-        == "timing"
-        and not any(
-            token in question
-            for token in (
-                "next month",
-                "next 3 months",
-                "next 6 months",
-                "next 12 months",
-                "next year",
-                "2026",
-                "2027",
-                "2028",
-                "2029",
-                "2030",
-            )
-        )
-    ):
-        proxy_analysis[
-            "primary_event"
-        ] = (
-            "marriage_timing"
-        )
-
-        proxy_analysis[
-            "primary_event_label"
-        ] = (
-            EVENT_LABELS[
-                "marriage_timing"
-            ]
-        )
-
-        proxy_intent[
-            "event"
-        ] = (
-            "marriage_timing"
-        )
-
-        proxy_intent[
-            "event_label"
-        ] = (
-            EVENT_LABELS[
-                "marriage_timing"
-            ]
-        )
-
-    proxy_result = (
-        route_marriage_question_v2(
-            chart,
-            proxy_analysis,
+    request = (
+        _resolve_spouse_meeting_request(
+            question_analysis,
             reference_moment,
         )
     )
 
-    if not proxy_result.get(
-        "forecast_available"
-    ):
+    forecast = (
+        scan_spouse_meeting_forecast_v2(
+            chart,
+            request[
+                "start"
+            ],
+            request[
+                "end"
+            ],
+            step_days=request[
+                "step_days"
+            ],
+        )
+    )
+
+    intent = _safe_dict(
+        question_analysis.get(
+            "intent"
+        )
+    )
+
+    primary = _safe_dict(
+        forecast.get(
+            "primary_window"
+        )
+    )
+
+    if not primary:
 
         return {
             "available": True,
-            "route": "single_event",
-            "event": "spouse_meeting",
+
+            "route": (
+                "single_event"
+            ),
+
+            "event": (
+                "spouse_meeting"
+            ),
+
             "event_label": (
                 EVENT_LABELS[
                     "spouse_meeting"
                 ]
             ),
-            "proxy_event": (
-                proxy_result.get(
-                    "event"
+
+            "question_type": (
+                intent.get(
+                    "question_type"
                 )
             ),
+
+            "direction": (
+                intent.get(
+                    "direction"
+                )
+            ),
+
+            "parser_confidence": (
+                intent.get(
+                    "confidence"
+                )
+            ),
+
             "reference_moment": (
                 reference_moment.isoformat()
             ),
-            "forecast_available": False,
-            "answer": (
-                "No sufficiently strong relationship-opening "
-                "window was identified in the requested period."
+
+            "forecast_engine": (
+                "spouse_meeting_forecast_v2"
             ),
+
+            "resolved_forecast_request": {
+                "start": (
+                    request[
+                        "start"
+                    ].isoformat()
+                ),
+
+                "end": (
+                    request[
+                        "end"
+                    ].isoformat()
+                ),
+
+                "step_days": (
+                    request[
+                        "step_days"
+                    ]
+                ),
+
+                "range_type": (
+                    request[
+                        "range_type"
+                    ]
+                ),
+            },
+
+            "forecast_available": (
+                False
+            ),
+
+            "outcome": (
+                "no_strong_window"
+            ),
+
+            "confidence": (
+                forecast.get(
+                    "confidence",
+                    0.4,
+                )
+            ),
+
+            "answer": (
+                forecast.get(
+                    "summary"
+                )
+            ),
+
             "primary_window": {},
+
             "secondary_windows": [],
-            "proxy_result": (
-                proxy_result
+
+            "scan_metadata": (
+                forecast.get(
+                    "forecast_period"
+                )
             ),
         }
-
-    primary = _safe_dict(
-        proxy_result.get(
-            "primary_window"
-        )
-    )
 
     peak = _safe_dict(
         primary.get(
@@ -466,12 +865,29 @@ def _route_spouse_meeting(
         )
     )
 
+    probability = (
+        _spouse_meeting_probability(
+            primary
+        )
+    )
+
+    answer = (
+        "The strongest spouse-meeting opportunity "
+        f"runs from {primary.get('start')} to "
+        f"{primary.get('end')}, with peak activation "
+        f"around {peak.get('date')}."
+    )
+
     return {
         "available": True,
 
-        "route": "single_event",
+        "route": (
+            "single_event"
+        ),
 
-        "event": "spouse_meeting",
+        "event": (
+            "spouse_meeting"
+        ),
 
         "event_label": (
             EVENT_LABELS[
@@ -480,12 +896,20 @@ def _route_spouse_meeting(
         ),
 
         "question_type": (
-            _safe_dict(
-                question_analysis.get(
-                    "intent"
-                )
-            ).get(
+            intent.get(
                 "question_type"
+            )
+        ),
+
+        "direction": (
+            intent.get(
+                "direction"
+            )
+        ),
+
+        "parser_confidence": (
+            intent.get(
+                "confidence"
             )
         ),
 
@@ -493,78 +917,109 @@ def _route_spouse_meeting(
             reference_moment.isoformat()
         ),
 
-        "proxy_event": (
-            proxy_result.get(
-                "event"
-            )
+        "forecast_engine": (
+            "spouse_meeting_forecast_v2"
         ),
 
-        "proxy_reason": (
-            "Dedicated spouse-meeting timing is not yet "
-            "separately modelled. The current result uses "
-            "the strongest marriage/relationship activation "
-            "window as a meeting-opportunity proxy."
-        ),
+        "resolved_forecast_request": {
+            "start": (
+                request[
+                    "start"
+                ].isoformat()
+            ),
 
-        "resolved_forecast_request": (
-            proxy_result.get(
-                "resolved_forecast_request"
-            )
-        ),
+            "end": (
+                request[
+                    "end"
+                ].isoformat()
+            ),
 
-        "forecast_available": True,
+            "step_days": (
+                request[
+                    "step_days"
+                ]
+            ),
+
+            "range_type": (
+                request[
+                    "range_type"
+                ]
+            ),
+        },
+
+        "forecast_available": (
+            True
+        ),
 
         "outcome": (
-            proxy_result.get(
+            probability[
                 "outcome"
-            )
+            ]
         ),
 
         "confidence": (
-            proxy_result.get(
-                "confidence"
+            forecast.get(
+                "confidence",
+                0.70,
             )
         ),
 
         "probability_level": (
-            proxy_result.get(
+            probability[
                 "probability_level"
-            )
+            ]
         ),
 
         "probability_score": (
-            proxy_result.get(
+            probability[
                 "probability_score"
-            )
+            ]
+        ),
+
+        "probability_language": (
+            probability[
+                "probability_language"
+            ]
         ),
 
         "confirmation": (
-            proxy_result.get(
+            peak.get(
                 "confirmation"
             )
         ),
 
         "answer": (
-            "The strongest current meeting-opportunity "
-            f"proxy runs from {primary.get('start')} to "
-            f"{primary.get('end')}, with peak activation "
-            f"around {peak.get('date')}."
+            answer
+        ),
+
+        "window": (
+            primary
         ),
 
         "primary_window": (
             primary
         ),
 
+        "peak_date": (
+            peak.get(
+                "date"
+            )
+        ),
+
+        "event_summary": (
+            answer
+        ),
+
         "secondary_windows": (
-            proxy_result.get(
+            forecast.get(
                 "secondary_windows",
                 [],
             )
         ),
 
-        "peak_date": (
-            peak.get(
-                "date"
+        "scan_metadata": (
+            forecast.get(
+                "forecast_period"
             )
         ),
     }
@@ -614,8 +1069,6 @@ def _route_calendar_year_comparison(
         or "marriage_timing"
     )
 
-    # At this stage only the three forecast-engine events
-    # can be directly compared.
     engine_event = (
         event_name
         if event_name
@@ -664,7 +1117,9 @@ def _route_calendar_year_comparison(
 
         results.append(
             {
-                "year": year,
+                "year": (
+                    year
+                ),
 
                 "range_type": (
                     range_type
@@ -738,13 +1193,17 @@ def _route_calendar_year_comparison(
         reverse=True,
     )
 
-    best = ranked[
-        0
-    ]
+    best = (
+        ranked[
+            0
+        ]
+    )
 
-    second = ranked[
-        1
-    ]
+    second = (
+        ranked[
+            1
+        ]
+    )
 
     margin = round(
         (
@@ -793,8 +1252,9 @@ def _route_calendar_year_comparison(
         )
 
         answer = (
-            f"The forecast does not show a large difference "
-            f"between {best['year']} and {second['year']} for "
+            "The forecast does not show a large difference "
+            f"between {best['year']} and {second['year']} "
+            f"for "
             f"{EVENT_LABELS.get(engine_event, engine_event).lower()}."
         )
 
@@ -881,6 +1341,7 @@ def _extract_context_event(
     )
 
     if event_name:
+
         return event_name
 
     prior_result = _safe_dict(
@@ -898,6 +1359,7 @@ def _extract_context_event(
     )
 
     if event_name:
+
         return event_name
 
     return None
@@ -924,12 +1386,23 @@ def _route_follow_up(
 
         return {
             "available": False,
-            "route": "follow_up",
-            "requires_context": True,
-            "context_used": False,
+
+            "route": (
+                "follow_up"
+            ),
+
+            "requires_context": (
+                True
+            ),
+
+            "context_used": (
+                False
+            ),
+
             "reference_moment": (
                 reference_moment.isoformat()
             ),
+
             "reason": (
                 "A previous marriage question is required "
                 "to interpret this follow-up."
@@ -1020,18 +1493,30 @@ def _route_follow_up(
 
         return {
             "available": False,
-            "route": "follow_up",
-            "requires_context": True,
-            "context_used": True,
+
+            "route": (
+                "follow_up"
+            ),
+
+            "requires_context": (
+                True
+            ),
+
+            "context_used": (
+                True
+            ),
+
             "inherited_event": (
                 inherited_event
             ),
+
             "reference_moment": (
                 reference_moment.isoformat()
             ),
+
             "reason": (
-                "The previous event is understood, but its "
-                "forecast engine is not yet implemented."
+                "The previous event is understood, but "
+                "its forecast engine is not yet implemented."
             ),
         }
 
@@ -1047,11 +1532,15 @@ def _route_follow_up(
 
     wrapped[
         "requires_context"
-    ] = True
+    ] = (
+        True
+    )
 
     wrapped[
         "context_used"
-    ] = True
+    ] = (
+        True
+    )
 
     wrapped[
         "inherited_event"
@@ -1123,8 +1612,10 @@ def route_marriage_question_v3(
 
     Supported:
 
-        standard single-event marriage forecasts
-        spouse-meeting proxy forecasts
+        marriage timing
+        relationship commitment
+        marriage delay / challenge
+        dedicated spouse-meeting forecasting
         calendar-year comparisons
         conversational follow-ups
 
@@ -1217,7 +1708,7 @@ def route_marriage_question_v3(
         )
 
     # -----------------------------------------------------
-    # STANDARD FORECAST EVENTS
+    # STANDARD MARRIAGE EVENTS
     # -----------------------------------------------------
 
     if (
@@ -1240,7 +1731,7 @@ def route_marriage_question_v3(
         )
 
     # -----------------------------------------------------
-    # SPOUSE MEETING
+    # DEDICATED SPOUSE MEETING
     # -----------------------------------------------------
 
     if (
@@ -1262,9 +1753,8 @@ def route_marriage_question_v3(
     # SPECIAL EVENTS NOT YET MODELLED
     # -----------------------------------------------------
 
-    if (
-        query_mode
-        == "single_event"
+    if query_mode == (
+        "single_event"
     ):
 
         return (
@@ -1290,7 +1780,7 @@ def route_marriage_question_v3(
         ),
 
         "reason": (
-            "This Marriage Forecast Router V3 mode is not "
-            "yet implemented."
+            "This Marriage Forecast Router V3 mode "
+            "is not yet implemented."
         ),
     }

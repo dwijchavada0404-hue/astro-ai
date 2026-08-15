@@ -260,10 +260,10 @@ def test_v3_calendar_year_comparison():
 
 
 # =========================================================
-# SPOUSE MEETING PROXY
+# DEDICATED SPOUSE MEETING ENGINE
 # =========================================================
 
-def test_v3_spouse_meeting_proxy():
+def test_v3_spouse_meeting_dedicated_engine():
 
     chart = (
         _build_reference_chart()
@@ -292,9 +292,43 @@ def test_v3_spouse_meeting_proxy():
 
     assert (
         result[
-            "proxy_event"
+            "forecast_engine"
         ]
-        == "marriage_timing"
+        == "spouse_meeting_forecast_v2"
+    )
+
+    assert (
+        result[
+            "forecast_available"
+        ]
+        is True
+    )
+
+    assert (
+        result[
+            "resolved_forecast_request"
+        ][
+            "range_type"
+        ]
+        == "open_ended_spouse_meeting_36_months"
+    )
+
+    assert (
+        result[
+            "primary_window"
+        ][
+            "start"
+        ]
+        == "2027-01-30"
+    )
+
+    assert (
+        result[
+            "primary_window"
+        ][
+            "end"
+        ]
+        == "2027-04-03"
     )
 
     assert (
@@ -305,14 +339,35 @@ def test_v3_spouse_meeting_proxy():
         ][
             "date"
         ]
-        == "2028-07-08"
+        == "2027-03-06"
     )
 
     assert (
         result[
-            "forecast_available"
+            "primary_window"
+        ][
+            "peak"
+        ][
+            "score"
         ]
-        is True
+        == 0.889
+    )
+
+    assert (
+        result[
+            "confirmation"
+        ]
+        == "strong_meeting_signal"
+    )
+
+    assert (
+        "proxy_event"
+        not in result
+    )
+
+    assert (
+        "proxy_reason"
+        not in result
     )
 
 
@@ -370,7 +425,7 @@ def test_v3_follow_up_without_context():
 
 
 # =========================================================
-# FOLLOW-UP WITH CONTEXT
+# FOLLOW-UP WITH MARRIAGE CONTEXT
 # =========================================================
 
 def test_v3_follow_up_inherits_marriage_event():
@@ -436,6 +491,83 @@ def test_v3_follow_up_inherits_marriage_event():
             "inherited_event"
         ]
         == "marriage_timing"
+    )
+
+
+# =========================================================
+# FOLLOW-UP WITH SPOUSE-MEETING CONTEXT
+# =========================================================
+
+def test_v3_follow_up_inherits_spouse_meeting_event():
+
+    chart = (
+        _build_reference_chart()
+    )
+
+    first_analysis = (
+        analyze_marriage_question_v3(
+            "When will I meet my future spouse?"
+        )
+    )
+
+    first_result = (
+        route_marriage_question_v3(
+            chart,
+            first_analysis,
+            _reference_moment(),
+        )
+    )
+
+    context = {
+        "question_analysis": (
+            first_analysis
+        ),
+        "route_result": (
+            first_result
+        ),
+    }
+
+    follow_up_analysis = (
+        analyze_marriage_question_v3(
+            "What about 2028?"
+        )
+    )
+
+    follow_up_result = (
+        route_marriage_question_v3(
+            chart,
+            follow_up_analysis,
+            _reference_moment(),
+            previous_context=context,
+        )
+    )
+
+    assert (
+        follow_up_result[
+            "route"
+        ]
+        == "follow_up"
+    )
+
+    assert (
+        follow_up_result[
+            "context_used"
+        ]
+        is True
+    )
+
+    assert (
+        follow_up_result[
+            "inherited_event"
+        ]
+        == "spouse_meeting"
+    )
+
+    assert (
+        follow_up_result[
+            "forecast_engine"
+        ]
+        == "spouse_meeting_forecast_v2"
     )
 
 

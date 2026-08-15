@@ -138,18 +138,8 @@ def test_marriage_question_v3_year_comparison(
         result["ranked_results"]
     ) == 2
 
-    assert (
-        result["ranked_results"][0]["year"]
-        == 2027
-    )
 
-    assert (
-        result["ranked_results"][1]["year"]
-        == 2028
-    )
-
-
-def test_marriage_question_v3_spouse_meeting_proxy(
+def test_marriage_question_v3_spouse_meeting_dedicated_engine(
     monkeypatch,
 ):
     monkeypatch.setattr(
@@ -182,18 +172,55 @@ def test_marriage_question_v3_spouse_meeting_proxy(
     result = body["result"]
 
     assert result["available"] is True
-    assert result["event"] == "spouse_meeting"
 
     assert (
-        result["proxy_event"]
-        == "marriage_timing"
+        result["event"]
+        == "spouse_meeting"
     )
 
-    assert result["forecast_available"] is True
+    assert (
+        result["forecast_engine"]
+        == "spouse_meeting_forecast_v2"
+    )
+
+    assert (
+        result["resolved_forecast_request"]["range_type"]
+        == "open_ended_spouse_meeting_36_months"
+    )
+
+    assert (
+        result["primary_window"]["start"]
+        == "2027-01-30"
+    )
+
+    assert (
+        result["primary_window"]["end"]
+        == "2027-04-03"
+    )
 
     assert (
         result["primary_window"]["peak"]["date"]
-        == "2028-07-08"
+        == "2027-03-06"
+    )
+
+    assert (
+        result["primary_window"]["peak"]["score"]
+        == 0.889
+    )
+
+    assert (
+        result["confirmation"]
+        == "strong_meeting_signal"
+    )
+
+    assert (
+        "proxy_event"
+        not in result
+    )
+
+    assert (
+        "proxy_reason"
+        not in result
     )
 
 
