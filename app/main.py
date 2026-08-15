@@ -1,4 +1,4 @@
-from calendar import monthrange
+﻿from calendar import monthrange
 from copy import deepcopy
 from datetime import datetime
 from typing import Any
@@ -54,6 +54,19 @@ from app.astrology.features.marriage_question_intelligence_v2 import (
 
 from app.astrology.features.marriage_forecast_router_v2 import (
     route_marriage_question_v2,
+)
+
+
+# ---------------------------------------------------------
+# MARRIAGE QUESTION V3 MODULES
+# ---------------------------------------------------------
+
+from app.astrology.features.marriage_question_intelligence_v3 import (
+    analyze_marriage_question_v3,
+)
+
+from app.astrology.features.marriage_forecast_router_v3 import (
+    route_marriage_question_v3,
 )
 
 
@@ -187,6 +200,20 @@ class MarriageQuestionV2Request(BaseModel):
     birth: BirthInput
     question: str
     reference_moment: datetime
+
+
+class MarriageQuestionV3Request(BaseModel):
+    """
+    Natural-language Marriage Question V3 request.
+
+    previous_context is optional and is used for
+    conversational follow-up questions.
+    """
+
+    birth: BirthInput
+    question: str
+    reference_moment: datetime
+    previous_context: dict[str, Any] | None = None
 
 
 class CareerTransitRequest(BaseModel):
@@ -983,16 +1010,126 @@ def answer_marriage_question_v2(
 ):
     """
     Natural-language Marriage Question Intelligence V2.
+    """
 
-    Current forecast engine supports:
+    try:
+        reference_moment = (
+            payload.reference_moment
+        )
 
-        marriage_timing
-        relationship_commitment
-        marriage_delay_challenge
+        _require_timezone(
+            reference_moment,
+            "reference_moment",
+        )
 
-    Other marriage events may be understood by the
-    question-intelligence layer and can be added to the
-    forecast router in later phases.
+        question = (
+            payload.question.strip()
+        )
+
+        if not question:
+            raise ValueError(
+                "question must not be empty."
+            )
+
+        chart = build_chart(
+            payload.birth
+        )
+
+        question_analysis = (
+            analyze_marriage_question_v2(
+                question
+            )
+        )
+
+        route_result = (
+            route_marriage_question_v2(
+                chart,
+                question_analysis,
+                reference_moment,
+            )
+        )
+
+        conversation_context = {
+            "question_analysis": (
+                question_analysis
+            ),
+            "route_result": (
+                route_result
+            ),
+        }
+
+        return {
+            "birth": chart.get(
+                "birth",
+                {},
+            ),
+            "question": (
+                question
+            ),
+            "reference_moment": (
+                reference_moment.isoformat()
+            ),
+            "understanding": (
+                question_analysis
+            ),
+            "result": (
+                route_result
+            ),
+            "conversation_context": (
+                conversation_context
+            ),
+            "disclaimer": (
+                "Astrological forecasts describe symbolic "
+                "patterns and periods of stronger or weaker "
+                "relationship support. The results should "
+                "not be treated as guaranteed predictions "
+                "of marriage, relationship formation, "
+                "separation or other personal outcomes."
+            ),
+        }
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(
+                exc
+            ),
+        ) from exc
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Marriage Question V2 analysis failed: "
+                f"{exc}"
+            ),
+        ) from exc
+
+
+# =========================================================
+# NATURAL-LANGUAGE MARRIAGE QUESTION V3
+# =========================================================
+
+@app.post(
+    "/api/v1/marriage-question-v3"
+)
+def answer_marriage_question_v3(
+    payload: MarriageQuestionV3Request,
+):
+    """
+    Marriage Question Intelligence V3.
+
+    Supported routes currently include:
+
+        single-event marriage timing
+        relationship commitment / challenge
+        spouse-meeting timing proxy
+        calendar-year comparisons
+        conversational follow-ups
+
+    Other specialist marriage events may be parsed
+    correctly but remain intentionally unsupported until
+    dedicated evidence engines are implemented.
     """
 
     try:
@@ -1023,29 +1160,32 @@ def answer_marriage_question_v2(
         )
 
         # ---------------------------------------------
-        # QUESTION INTELLIGENCE
+        # QUESTION INTELLIGENCE V3
         # ---------------------------------------------
 
         question_analysis = (
-            analyze_marriage_question_v2(
+            analyze_marriage_question_v3(
                 question
             )
         )
 
         # ---------------------------------------------
-        # FORECAST ROUTER
+        # ROUTE QUESTION
         # ---------------------------------------------
 
         route_result = (
-            route_marriage_question_v2(
+            route_marriage_question_v3(
                 chart,
                 question_analysis,
                 reference_moment,
+                previous_context=(
+                    payload.previous_context
+                ),
             )
         )
 
         # ---------------------------------------------
-        # CONTEXT FOR FUTURE CONVERSATIONAL SUPPORT
+        # SAVE CONTEXT FOR NEXT FOLLOW-UP
         # ---------------------------------------------
 
         conversation_context = {
@@ -1088,8 +1228,9 @@ def answer_marriage_question_v2(
                 "patterns and periods of stronger or weaker "
                 "relationship support. The results should "
                 "not be treated as guaranteed predictions "
-                "of marriage, relationship formation, "
-                "separation or other personal outcomes."
+                "of marriage, spouse meeting, relationship "
+                "formation, separation or other personal "
+                "outcomes."
             ),
         }
 
@@ -1105,7 +1246,7 @@ def answer_marriage_question_v2(
         raise HTTPException(
             status_code=500,
             detail=(
-                "Marriage Question V2 analysis failed: "
+                "Marriage Question V3 analysis failed: "
                 f"{exc}"
             ),
         ) from exc
@@ -1746,27 +1887,15 @@ def answer_career_question_v3(
                 "question must not be empty."
             )
 
-        # ---------------------------------------------
-        # BUILD NATAL CHART
-        # ---------------------------------------------
-
         chart = build_chart(
             payload.birth
         )
-
-        # ---------------------------------------------
-        # QUESTION INTELLIGENCE V3
-        # ---------------------------------------------
 
         question_analysis = (
             analyze_career_question_v3(
                 question
             )
         )
-
-        # ---------------------------------------------
-        # ROUTE QUESTION
-        # ---------------------------------------------
 
         route_result = (
             route_career_question_v3(
@@ -1778,10 +1907,6 @@ def answer_career_question_v3(
                 ),
             )
         )
-
-        # ---------------------------------------------
-        # SAVE CONTEXT FOR NEXT FOLLOW-UP
-        # ---------------------------------------------
 
         conversation_context = {
             "question_analysis": (
