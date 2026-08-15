@@ -1,3 +1,4 @@
+from calendar import monthrange
 from copy import deepcopy
 from datetime import datetime
 from typing import Any
@@ -109,6 +110,14 @@ from app.astrology.features.career_forecast_narrative import (
     generate_career_forecast_narrative,
 )
 
+# ---------------------------------------------------------
+# CAREER QUESTION MODULE
+# ---------------------------------------------------------
+
+from app.astrology.features.career_question_parser import (
+    parse_career_question,
+)
+
 
 # =========================================================
 # API REQUEST MODELS
@@ -117,10 +126,6 @@ from app.astrology.features.career_forecast_narrative import (
 class CareerTransitRequest(BaseModel):
     """
     Request body for career transit analysis.
-
-    Birth details are kept separate from the transit
-    moment so we can analyse any requested date without
-    changing the natal chart.
     """
 
     birth: BirthInput
@@ -131,17 +136,35 @@ class CareerForecastRequest(BaseModel):
     """
     Request body for a career forecast across
     an explicitly supplied date range.
-
-    Example:
-        start = 2026-08-15T12:00:00+05:30
-        end = 2027-02-15T12:00:00+05:30
-        step_days = 7
     """
 
     birth: BirthInput
     start: datetime
     end: datetime
     step_days: int = 7
+
+
+class CareerQuestionRequest(BaseModel):
+    """
+    Natural-language career question.
+
+    reference_moment establishes what "now",
+    "next 6 months", "next year", etc. mean.
+
+    Example:
+
+        {
+            "birth": {...},
+            "question":
+                "Will I change my job in the next 6 months?",
+            "reference_moment":
+                "2026-08-15T12:00:00+05:30"
+        }
+    """
+
+    birth: BirthInput
+    question: str
+    reference_moment: datetime
 
 
 # =========================================================
@@ -154,8 +177,9 @@ app = FastAPI(
     description=(
         "Vedic astrology birth-chart calculation, "
         "marriage analysis, career analysis, "
-        "Dasha-transit career timing and "
-        "career forecast API."
+        "Dasha-transit career timing, "
+        "career forecasting and natural-language "
+        "career-question API."
     ),
 )
 
@@ -174,8 +198,20 @@ def health():
 
 
 # =========================================================
-# DATETIME VALIDATION
+# GENERIC HELPERS
 # =========================================================
+
+def _safe_dict(
+    value: Any,
+) -> dict[str, Any]:
+    if isinstance(
+        value,
+        dict,
+    ):
+        return value
+
+    return {}
+
 
 def _require_timezone(
     value: datetime,
@@ -196,6 +232,189 @@ def _require_timezone(
 
 
 # =========================================================
+# DATE RANGE HELPERS
+# =========================================================
+
+def _add_months(
+    value: datetime,
+    months: int,
+) -> datetime:
+    """
+    Add calendar months without requiring an
+    additional external dependency.
+
+    Example:
+
+        2026-08-31 + 1 month
+            ->
+        2026-09-30
+    """
+
+    if months < 0:
+        raise ValueError(
+            "months must not be negative."
+        )
+
+    zero_based_month = (
+        value.month
+        - 1
+        + months
+    )
+
+    year = (
+        value.year
+        + (
+            zero_based_month
+            // 12
+        )
+    )
+
+    month = (
+        zero_based_month
+        % 12
+    ) + 1
+
+    final_day = min(
+        value.day,
+        monthrange(
+            year,
+            month,
+        )[1],
+    )
+
+    return value.replace(
+        year=year,
+        month=month,
+        day=final_day,
+    )
+
+
+def _build_question_date_range(
+    parsed_question: dict[str, Any],
+    reference_moment: datetime,
+) -> tuple[datetime, datetime, int]:
+    """
+    Convert the parsed natural-language horizon into
+    an actual forecast start/end range.
+    """
+
+    horizon = _safe_dict(
+        parsed_question.get(
+            "forecast_horizon"
+        )
+    )
+
+    horizon_type = horizon.get(
+        "type"
+    )
+
+    step_days = int(
+        parsed_question.get(
+            "recommended_step_days",
+            7,
+        )
+    )
+
+    if horizon_type == "months":
+
+        months = int(
+            horizon.get(
+                "value",
+                12,
+            )
+        )
+
+        if months < 1:
+            raise ValueError(
+                "Forecast month horizon must be at least 1."
+            )
+
+        start = reference_moment
+
+        end = _add_months(
+            reference_moment,
+            months,
+        )
+
+        return (
+            start,
+            end,
+            step_days,
+        )
+
+    if horizon_type == "years":
+
+        years = int(
+            horizon.get(
+                "value",
+                1,
+            )
+        )
+
+        if years < 1:
+            raise ValueError(
+                "Forecast year horizon must be at least 1."
+            )
+
+        start = reference_moment
+
+        end = _add_months(
+            reference_moment,
+            years * 12,
+        )
+
+        return (
+            start,
+            end,
+            step_days,
+        )
+
+    if horizon_type == (
+        "calendar_year"
+    ):
+
+        year = int(
+            horizon.get(
+                "year"
+            )
+        )
+
+        tzinfo = (
+            reference_moment.tzinfo
+        )
+
+        start = datetime(
+            year,
+            1,
+            1,
+            0,
+            0,
+            0,
+            tzinfo=tzinfo,
+        )
+
+        end = datetime(
+            year + 1,
+            1,
+            1,
+            0,
+            0,
+            0,
+            tzinfo=tzinfo,
+        )
+
+        return (
+            start,
+            end,
+            step_days,
+        )
+
+    raise ValueError(
+        "Unsupported career-question forecast horizon."
+    )
+
+
+# =========================================================
 # INTERNAL DASHA HELPERS
 # =========================================================
 
@@ -204,12 +423,8 @@ def _find_dasha_period_for_moment(
     moment: datetime,
 ) -> dict[str, Any] | None:
     """
-    Find the Vimshottari Mahadasha/Antardasha containing
-    an explicitly requested transit moment.
-
-    Transit analysis therefore uses the Dasha active on
-    the requested date instead of relying on the
-    system-current date.
+    Find the Vimshottari Mahadasha / Antardasha
+    containing an explicitly requested moment.
     """
 
     _require_timezone(
@@ -357,10 +572,8 @@ def _chart_for_requested_moment(
 ) -> dict[str, Any]:
     """
     Return a copy of the natal chart whose
-    dashas.current_period corresponds to the requested
-    transit date.
-
-    The natal chart itself is never mutated.
+    dashas.current_period corresponds to the
+    requested date.
     """
 
     chart_copy = deepcopy(
@@ -397,6 +610,447 @@ def _chart_for_requested_moment(
     ] = requested_period
 
     return chart_copy
+
+
+# =========================================================
+# CAREER QUESTION ANSWER HELPERS
+# =========================================================
+
+def _question_event_data(
+    forecast: dict[str, Any],
+    event_name: str,
+) -> dict[str, Any]:
+    events = _safe_dict(
+        forecast.get(
+            "events"
+        )
+    )
+
+    return _safe_dict(
+        events.get(
+            event_name
+        )
+    )
+
+
+def _build_specific_event_answer(
+    parsed_question: dict[str, Any],
+    forecast: dict[str, Any],
+) -> dict[str, Any]:
+    """
+    Convert the broad forecast into an answer
+    specifically targeted to the user's question.
+
+    This layer does not create new astrology scores.
+    """
+
+    intent = _safe_dict(
+        parsed_question.get(
+            "intent"
+        )
+    )
+
+    event_name = str(
+        intent.get(
+            "event",
+            "general_career",
+        )
+    )
+
+    event_label = str(
+        intent.get(
+            "event_label",
+            event_name,
+        )
+    )
+
+    question_type = str(
+        intent.get(
+            "question_type",
+            "general_outlook",
+        )
+    )
+
+    direction = str(
+        intent.get(
+            "direction",
+            "neutral",
+        )
+    )
+
+    # -----------------------------------------------------
+    # GENERAL CAREER QUESTION
+    # -----------------------------------------------------
+
+    if event_name == "general_career":
+
+        overall = _safe_dict(
+            forecast.get(
+                "overall"
+            )
+        )
+
+        return {
+            "event": (
+                event_name
+            ),
+            "event_label": (
+                event_label
+            ),
+            "question_type": (
+                question_type
+            ),
+            "direction": (
+                direction
+            ),
+            "outcome": (
+                overall.get(
+                    "outlook"
+                )
+            ),
+            "confidence": (
+                overall.get(
+                    "confidence"
+                )
+            ),
+            "answer": (
+                overall.get(
+                    "summary",
+                    (
+                        "No clear general career forecast "
+                        "was available for the requested period."
+                    ),
+                )
+            ),
+            "window": {},
+        }
+
+    event_data = (
+        _question_event_data(
+            forecast,
+            event_name,
+        )
+    )
+
+    available = bool(
+        event_data.get(
+            "available"
+        )
+    )
+
+    window = _safe_dict(
+        event_data.get(
+            "window"
+        )
+    )
+
+    strength = str(
+        event_data.get(
+            "outlook",
+            "no_strong_window",
+        )
+    )
+
+    confidence = (
+        event_data.get(
+            "confidence"
+        )
+    )
+
+    start = window.get(
+        "start"
+    )
+
+    end = window.get(
+        "end"
+    )
+
+    peak_date = window.get(
+        "peak_date"
+    )
+
+    period = window.get(
+        "period"
+    )
+
+    # -----------------------------------------------------
+    # NO STRONG WINDOW
+    # -----------------------------------------------------
+
+    if not available:
+
+        if question_type == "timing":
+
+            answer = (
+                f"No sufficiently strong {event_label.lower()} "
+                "window was identified in the requested period."
+            )
+
+        elif direction == "increase":
+
+            answer = (
+                f"The forecast does not identify a sufficiently "
+                f"strong increase in {event_label.lower()} "
+                "during the requested period."
+            )
+
+        elif direction == "decrease":
+
+            answer = (
+                f"The forecast does not identify a sufficiently "
+                f"clear decrease in {event_label.lower()} "
+                "during the requested period."
+            )
+
+        else:
+
+            answer = (
+                f"No sufficiently strong {event_label.lower()} "
+                "signal was identified in the requested period."
+            )
+
+        return {
+            "event": (
+                event_name
+            ),
+            "event_label": (
+                event_label
+            ),
+            "question_type": (
+                question_type
+            ),
+            "direction": (
+                direction
+            ),
+            "outcome": (
+                "no_strong_window"
+            ),
+            "confidence": (
+                confidence
+            ),
+            "answer": (
+                answer
+            ),
+            "window": {},
+        }
+
+    # -----------------------------------------------------
+    # CAREER PRESSURE + DECREASE QUESTION
+    # -----------------------------------------------------
+
+    if (
+        event_name
+        == "career_pressure_challenge"
+        and direction == "decrease"
+    ):
+
+        answer = (
+            f"A reduction in work pressure is not strongly "
+            f"supported at the beginning of the forecast period. "
+            f"Instead, a {strength.replace('_', ' ')} "
+            f"career-pressure phase is identified from {start} "
+            f"to {end}, with the strongest pressure around "
+            f"{peak_date}. After this identified window ends, "
+            "the specific elevated-pressure signal weakens "
+            "within the scanned period."
+        )
+
+        return {
+            "event": (
+                event_name
+            ),
+            "event_label": (
+                event_label
+            ),
+            "question_type": (
+                question_type
+            ),
+            "direction": (
+                direction
+            ),
+            "outcome": (
+                "decrease_after_pressure_window"
+            ),
+            "confidence": (
+                confidence
+            ),
+            "answer": (
+                answer
+            ),
+            "window": (
+                window
+            ),
+        }
+
+    # -----------------------------------------------------
+    # TIMING QUESTION
+    # -----------------------------------------------------
+
+    if question_type == "timing":
+
+        answer = (
+            f"The strongest {event_label.lower()} window "
+            f"is identified from {start} to {end}, "
+            f"with peak activation around {peak_date}."
+        )
+
+        if period:
+            answer += (
+                f" The peak falls during the "
+                f"{period} period."
+            )
+
+        return {
+            "event": (
+                event_name
+            ),
+            "event_label": (
+                event_label
+            ),
+            "question_type": (
+                question_type
+            ),
+            "direction": (
+                direction
+            ),
+            "outcome": (
+                strength
+            ),
+            "confidence": (
+                confidence
+            ),
+            "answer": (
+                answer
+            ),
+            "window": (
+                window
+            ),
+        }
+
+    # -----------------------------------------------------
+    # JOB CHANGE
+    # -----------------------------------------------------
+
+    if event_name == "job_change":
+
+        answer = (
+            f"The forecast shows a "
+            f"{strength.replace('_', ' ')} "
+            f"job-change or professional-transition signal. "
+            f"The main window runs from {start} to {end}, "
+            f"with the strongest activation around {peak_date}."
+        )
+
+    # -----------------------------------------------------
+    # PROMOTION
+    # -----------------------------------------------------
+
+    elif event_name == (
+        "promotion_recognition"
+    ):
+
+        answer = (
+            f"The forecast shows a "
+            f"{strength.replace('_', ' ')} "
+            f"promotion or professional-recognition signal. "
+            f"The identified window runs from {start} to {end}, "
+            f"with peak activation around {peak_date}."
+        )
+
+    # -----------------------------------------------------
+    # INCOME
+    # -----------------------------------------------------
+
+    elif event_name == "income_gains":
+
+        answer = (
+            f"The forecast shows a "
+            f"{strength.replace('_', ' ')} "
+            f"income or professional-gains signal. "
+            f"The identified window runs from {start} to {end}, "
+            f"with peak activation around {peak_date}."
+        )
+
+    # -----------------------------------------------------
+    # FOREIGN
+    # -----------------------------------------------------
+
+    elif event_name == (
+        "foreign_international_opportunity"
+    ):
+
+        answer = (
+            f"The forecast shows a "
+            f"{strength.replace('_', ' ')} "
+            f"foreign or international-career theme. "
+            f"The identified window runs from {start} to {end}, "
+            f"with peak activation around {peak_date}."
+        )
+
+        confirmation = window.get(
+            "confirmation"
+        )
+
+        if confirmation == "dasha_only":
+            answer += (
+                " The Dasha supports the theme, but "
+                "event-specific transits do not yet provide "
+                "strong confirmation."
+            )
+
+    # -----------------------------------------------------
+    # PRESSURE
+    # -----------------------------------------------------
+
+    elif event_name == (
+        "career_pressure_challenge"
+    ):
+
+        answer = (
+            f"The forecast shows a "
+            f"{strength.replace('_', ' ')} "
+            f"career-pressure phase from {start} to {end}, "
+            f"with the strongest activation around {peak_date}."
+        )
+
+    else:
+
+        answer = (
+            event_data.get(
+                "summary",
+                (
+                    "A relevant career signal was identified "
+                    "within the requested period."
+                ),
+            )
+        )
+
+    return {
+        "event": (
+            event_name
+        ),
+        "event_label": (
+            event_label
+        ),
+        "question_type": (
+            question_type
+        ),
+        "direction": (
+            direction
+        ),
+        "outcome": (
+            strength
+        ),
+        "confidence": (
+            confidence
+        ),
+        "answer": (
+            answer
+        ),
+        "window": (
+            window
+        ),
+    }
 
 
 # =========================================================
@@ -762,10 +1416,6 @@ def create_career_analysis(
             payload
         )
 
-        # -------------------------------------------------
-        # CORE CAREER REASONING
-        # -------------------------------------------------
-
         career_reasoning = (
             analyze_tenth_house(
                 chart
@@ -792,19 +1442,11 @@ def create_career_analysis(
             )
         )
 
-        # -------------------------------------------------
-        # CURRENT DASHA
-        # -------------------------------------------------
-
         current_dasha = (
             analyze_current_dasha_for_career(
                 chart
             )
         )
-
-        # -------------------------------------------------
-        # GENERAL CAREER TIMING
-        # -------------------------------------------------
 
         career_timing = (
             analyze_career_timing(
@@ -819,10 +1461,6 @@ def create_career_analysis(
             )
         )
 
-        # -------------------------------------------------
-        # CAREER NARRATIVE
-        # -------------------------------------------------
-
         reading = (
             generate_career_narrative(
                 career_reasoning,
@@ -835,19 +1473,11 @@ def create_career_analysis(
             )
         )
 
-        # -------------------------------------------------
-        # NATAL CAREER EVENTS
-        # -------------------------------------------------
-
         career_events = (
             analyze_career_events(
                 chart
             )
         )
-
-        # -------------------------------------------------
-        # CAREER EVENT TIMING
-        # -------------------------------------------------
 
         career_event_timing = (
             analyze_career_event_timing(
@@ -861,10 +1491,6 @@ def create_career_analysis(
                 current_dasha,
             )
         )
-
-        # -------------------------------------------------
-        # FINAL RESPONSE
-        # -------------------------------------------------
 
         return {
             "birth": chart.get(
@@ -953,29 +1579,6 @@ def create_career_analysis(
 def create_career_transit_analysis(
     payload: CareerTransitRequest,
 ):
-    """
-    Analyse career events for an explicitly supplied
-    transit moment.
-
-    Pipeline:
-
-        natal chart
-            ->
-        Dasha active on requested date
-            ->
-        career-event Dasha analysis
-            ->
-        sidereal transits
-            ->
-        transit-to-natal-house mapping
-            ->
-        career transit reasoning
-            ->
-        Dasha × Transit confirmation
-
-    The endpoint does not rely on the system clock.
-    """
-
     try:
 
         chart = build_chart(
@@ -991,10 +1594,6 @@ def create_career_transit_analysis(
             "transit_moment",
         )
 
-        # -------------------------------------------------
-        # ALIGN DASHA WITH REQUESTED DATE
-        # -------------------------------------------------
-
         dated_chart = (
             _chart_for_requested_moment(
                 chart,
@@ -1008,10 +1607,6 @@ def create_career_transit_analysis(
             )
         )
 
-        # -------------------------------------------------
-        # DASHA EVENT TIMING
-        # -------------------------------------------------
-
         event_timing = (
             analyze_career_event_timing(
                 dated_chart
@@ -1024,10 +1619,6 @@ def create_career_transit_analysis(
                 current_dasha,
             )
         )
-
-        # -------------------------------------------------
-        # TRANSIT CALCULATION
-        # -------------------------------------------------
 
         transits = calculate_transits(
             transit_moment
@@ -1045,10 +1636,6 @@ def create_career_transit_analysis(
                 mapped_transits
             )
         )
-
-        # -------------------------------------------------
-        # DASHA × TRANSIT SYNTHESIS
-        # -------------------------------------------------
 
         confirmation = (
             synthesize_career_dasha_transits(
@@ -1121,35 +1708,7 @@ def create_career_transit_analysis(
 def create_career_forecast(
     payload: CareerForecastRequest,
 ):
-    """
-    Generate a career forecast across a requested
-    date range.
-
-    Pipeline:
-
-        natal chart
-            ->
-        weekly or custom-resolution forecast scan
-            ->
-        Dasha × Transit event scoring
-            ->
-        nearby strong dates merged into windows
-            ->
-        user-facing forecast narrative
-
-    Example use cases:
-
-        next 3 months
-        next 6 months
-        next 12 months
-        a specific calendar year
-    """
-
     try:
-
-        # -------------------------------------------------
-        # VALIDATE REQUEST
-        # -------------------------------------------------
 
         start = payload.start
         end = payload.end
@@ -1190,17 +1749,9 @@ def create_career_forecast(
                 "10 years."
             )
 
-        # -------------------------------------------------
-        # BUILD NATAL CHART ONCE
-        # -------------------------------------------------
-
         chart = build_chart(
             payload.birth
         )
-
-        # -------------------------------------------------
-        # SCAN FORECAST PERIOD
-        # -------------------------------------------------
 
         scan = scan_career_forecast(
             chart,
@@ -1209,29 +1760,17 @@ def create_career_forecast(
             step_days=step_days,
         )
 
-        # -------------------------------------------------
-        # MERGE STRONG DATES INTO WINDOWS
-        # -------------------------------------------------
-
         windows = (
             build_career_forecast_windows(
                 scan
             )
         )
 
-        # -------------------------------------------------
-        # GENERATE USER-FACING FORECAST
-        # -------------------------------------------------
-
         forecast = (
             generate_career_forecast_narrative(
                 windows
             )
         )
-
-        # -------------------------------------------------
-        # FINAL RESPONSE
-        # -------------------------------------------------
 
         return {
             "birth": chart.get(
@@ -1301,6 +1840,278 @@ def create_career_forecast(
             status_code=500,
             detail=(
                 "Career forecast generation failed: "
+                f"{exc}"
+            ),
+        ) from exc
+
+
+# =========================================================
+# NATURAL-LANGUAGE CAREER QUESTION
+# =========================================================
+
+@app.post(
+    "/api/v1/career-question"
+)
+def answer_career_question(
+    payload: CareerQuestionRequest,
+):
+    """
+    Answer a natural-language career question.
+
+    Pipeline:
+
+        question
+            ->
+        deterministic intent parser
+            ->
+        event + question type + direction
+            ->
+        forecast horizon
+            ->
+        Dasha × transit forecast scan
+            ->
+        practical event windows
+            ->
+        user-facing forecast
+            ->
+        event-specific answer
+
+    Example:
+
+        "Will I change my job in the next 6 months?"
+
+    becomes approximately:
+
+        event:
+            job_change
+
+        direction:
+            change
+
+        forecast:
+            6 months
+
+        resolution:
+            7 days
+    """
+
+    try:
+
+        # -------------------------------------------------
+        # VALIDATE REFERENCE MOMENT
+        # -------------------------------------------------
+
+        reference_moment = (
+            payload.reference_moment
+        )
+
+        _require_timezone(
+            reference_moment,
+            "reference_moment",
+        )
+
+        # -------------------------------------------------
+        # PARSE QUESTION
+        # -------------------------------------------------
+
+        parsed_question = (
+            parse_career_question(
+                payload.question
+            )
+        )
+
+        # -------------------------------------------------
+        # BUILD FORECAST RANGE
+        # -------------------------------------------------
+
+        (
+            start,
+            end,
+            step_days,
+        ) = _build_question_date_range(
+            parsed_question,
+            reference_moment,
+        )
+
+        if end <= start:
+            raise ValueError(
+                "Resolved career-question forecast "
+                "end must be later than start."
+            )
+
+        forecast_span_days = (
+            end - start
+        ).days
+
+        if forecast_span_days > 3650:
+            raise ValueError(
+                "Resolved career-question forecast range "
+                "must not exceed 10 years."
+            )
+
+        # -------------------------------------------------
+        # BUILD NATAL CHART
+        # -------------------------------------------------
+
+        chart = build_chart(
+            payload.birth
+        )
+
+        # -------------------------------------------------
+        # SCAN FORECAST
+        # -------------------------------------------------
+
+        scan = scan_career_forecast(
+            chart,
+            start,
+            end,
+            step_days=step_days,
+        )
+
+        # -------------------------------------------------
+        # BUILD WINDOWS
+        # -------------------------------------------------
+
+        windows = (
+            build_career_forecast_windows(
+                scan
+            )
+        )
+
+        # -------------------------------------------------
+        # BUILD GENERAL FORECAST NARRATIVE
+        # -------------------------------------------------
+
+        forecast = (
+            generate_career_forecast_narrative(
+                windows
+            )
+        )
+
+        # -------------------------------------------------
+        # ANSWER THE SPECIFIC QUESTION
+        # -------------------------------------------------
+
+        answer = (
+            _build_specific_event_answer(
+                parsed_question,
+                forecast,
+            )
+        )
+
+        # -------------------------------------------------
+        # FINAL RESPONSE
+        # -------------------------------------------------
+
+        return {
+            "birth": chart.get(
+                "birth",
+                {},
+            ),
+
+            "question": (
+                payload.question
+            ),
+
+            "reference_moment": (
+                reference_moment.isoformat()
+            ),
+
+            "understanding": (
+                parsed_question
+            ),
+
+            "resolved_forecast_request": {
+                "start": (
+                    start.isoformat()
+                ),
+                "end": (
+                    end.isoformat()
+                ),
+                "step_days": (
+                    step_days
+                ),
+            },
+
+            "answer": (
+                answer
+            ),
+
+            "forecast_context": {
+                "overall": (
+                    forecast.get(
+                        "overall"
+                    )
+                ),
+
+                "target_event": (
+                    _question_event_data(
+                        forecast,
+                        str(
+                            _safe_dict(
+                                parsed_question.get(
+                                    "intent"
+                                )
+                            ).get(
+                                "event",
+                                "general_career",
+                            )
+                        ),
+                    )
+                ),
+            },
+
+            "scan_metadata": {
+                "available": (
+                    scan.get(
+                        "available"
+                    )
+                ),
+                "start": (
+                    scan.get(
+                        "start"
+                    )
+                ),
+                "end": (
+                    scan.get(
+                        "end"
+                    )
+                ),
+                "step_days": (
+                    scan.get(
+                        "step_days"
+                    )
+                ),
+                "snapshot_count": (
+                    scan.get(
+                        "snapshot_count"
+                    )
+                ),
+            },
+
+            "disclaimer": (
+                "Astrological forecasts describe symbolic "
+                "patterns and periods of stronger or weaker "
+                "support. They should not be treated as "
+                "guaranteed predictions of employment, "
+                "promotion, income, relocation or other "
+                "professional outcomes."
+            ),
+        }
+
+    except ValueError as exc:
+
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+
+    except Exception as exc:
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Career question analysis failed: "
                 f"{exc}"
             ),
         ) from exc
