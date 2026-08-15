@@ -22,7 +22,7 @@ def test_health_endpoint():
 
     assert data["status"] == "ok"
     assert data["service"] == "astro-ai"
-    assert data["version"] == "0.4.0"
+    assert data["version"] == "0.5.0"
 
 
 def test_chart_endpoint():

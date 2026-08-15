@@ -59,10 +59,24 @@ from app.astrology.features.career_narrative import (
     generate_career_narrative,
 )
 
+# ---------------------------------------------------------
+# CAREER EVENT MODULES
+# ---------------------------------------------------------
+
+from app.astrology.features.career_events import (
+    analyze_career_events,
+)
+from app.astrology.features.career_event_timing import (
+    analyze_career_event_timing,
+)
+from app.astrology.features.career_event_timing_synthesis import (
+    synthesize_career_event_timing,
+)
+
 
 app = FastAPI(
     title="Astro AI - Milestone 1",
-    version="0.4.0",
+    version="0.5.0",
     description=(
         "Vedic astrology birth-chart calculation, "
         "marriage analysis and career analysis API."
@@ -79,7 +93,7 @@ def health():
     return {
         "status": "ok",
         "service": "astro-ai",
-        "version": "0.4.0",
+        "version": "0.5.0",
     }
 
 
@@ -91,13 +105,13 @@ def health():
     "/api/v1/chart",
     response_model=BirthChart,
 )
-def create_chart(payload: BirthInput):
-    """
-    Generate the complete Vedic birth chart.
-    """
-
+def create_chart(
+    payload: BirthInput,
+):
     try:
-        return build_chart(payload)
+        return build_chart(
+            payload
+        )
 
     except ValueError as exc:
         raise HTTPException(
@@ -108,7 +122,9 @@ def create_chart(payload: BirthInput):
     except Exception as exc:
         raise HTTPException(
             status_code=500,
-            detail=f"Chart calculation failed: {exc}",
+            detail=(
+                f"Chart calculation failed: {exc}"
+            ),
         ) from exc
 
 
@@ -117,13 +133,13 @@ def create_chart(payload: BirthInput):
 # =========================================================
 
 @app.post("/api/v1/predictions")
-def create_predictions(payload: BirthInput):
-    """
-    Generate astrology predictions from the calculated chart.
-    """
-
+def create_predictions(
+    payload: BirthInput,
+):
     try:
-        chart = build_chart(payload)
+        chart = build_chart(
+            payload
+        )
 
         predictions = generate_predictions(
             chart
@@ -159,13 +175,6 @@ def create_predictions(payload: BirthInput):
 def _build_marriage_package(
     payload: BirthInput,
 ) -> dict:
-    """
-    Run the complete marriage-analysis pipeline once.
-
-    Used by both:
-    - /api/v1/marriage
-    - /api/v1/marriage-reading
-    """
 
     chart = build_chart(
         payload
@@ -180,8 +189,7 @@ def _build_marriage_package(
         for prediction in predictions
         if prediction.get(
             "feature"
-        )
-        == "marriage"
+        ) == "marriage"
     ]
 
     seventh_house_analysis = (
@@ -236,16 +244,24 @@ def _build_marriage_package(
     return {
         "chart": chart,
         "reading": reading,
-        "predictions": marriage_predictions,
+        "predictions": (
+            marriage_predictions
+        ),
         "seventh_house_analysis": (
             seventh_house_analysis
         ),
         "planetary_analysis": (
             marriage_planet_analysis
         ),
-        "synthesis": marriage_synthesis,
-        "current_dasha": current_dasha,
-        "timing": marriage_timing,
+        "synthesis": (
+            marriage_synthesis
+        ),
+        "current_dasha": (
+            current_dasha
+        ),
+        "timing": (
+            marriage_timing
+        ),
         "timing_synthesis": (
             timing_synthesis
         ),
@@ -260,17 +276,16 @@ def _build_marriage_package(
 def create_marriage_analysis(
     payload: BirthInput,
 ):
-    """
-    Generate the complete marriage-analysis package.
-    """
-
     try:
-
-        result = _build_marriage_package(
-            payload
+        result = (
+            _build_marriage_package(
+                payload
+            )
         )
 
-        chart = result["chart"]
+        chart = result[
+            "chart"
+        ]
 
         marriage_timing = result[
             "timing"
@@ -286,12 +301,12 @@ def create_marriage_analysis(
                 {},
             ),
             "marriage": {
-                "reading": result[
-                    "reading"
-                ],
-                "predictions": result[
-                    "predictions"
-                ],
+                "reading": (
+                    result["reading"]
+                ),
+                "predictions": (
+                    result["predictions"]
+                ),
                 "seventh_house_analysis": (
                     result[
                         "seventh_house_analysis"
@@ -302,12 +317,16 @@ def create_marriage_analysis(
                         "planetary_analysis"
                     ]
                 ),
-                "synthesis": result[
-                    "synthesis"
-                ],
-                "current_dasha": result[
-                    "current_dasha"
-                ],
+                "synthesis": (
+                    result[
+                        "synthesis"
+                    ]
+                ),
+                "current_dasha": (
+                    result[
+                        "current_dasha"
+                    ]
+                ),
                 "timing": {
                     "seventh_lord": (
                         marriage_timing.get(
@@ -325,9 +344,11 @@ def create_marriage_analysis(
                             [],
                         )
                     ),
-                    "synthesis": result[
-                        "timing_synthesis"
-                    ],
+                    "synthesis": (
+                        result[
+                            "timing_synthesis"
+                        ]
+                    ),
                 },
             },
         }
@@ -351,32 +372,31 @@ def create_marriage_analysis(
 # MARRIAGE READING
 # =========================================================
 
-@app.post("/api/v1/marriage-reading")
+@app.post(
+    "/api/v1/marriage-reading"
+)
 def create_marriage_reading(
     payload: BirthInput,
 ):
-    """
-    Generate the user-facing marriage reading.
-
-    Kept as a separate endpoint for backward compatibility.
-    """
-
     try:
-
-        result = _build_marriage_package(
-            payload
+        result = (
+            _build_marriage_package(
+                payload
+            )
         )
 
-        chart = result["chart"]
+        chart = result[
+            "chart"
+        ]
 
         return {
             "birth": chart.get(
                 "birth",
                 {},
             ),
-            "reading": result[
-                "reading"
-            ],
+            "reading": (
+                result["reading"]
+            ),
         }
 
     except ValueError as exc:
@@ -402,14 +422,10 @@ def create_marriage_reading(
 def create_career_analysis(
     payload: BirthInput,
 ):
-    """
-    Generate the complete career-analysis package.
-    """
-
     try:
 
         # -------------------------------------------------
-        # Build chart
+        # BUILD CHART
         # -------------------------------------------------
 
         chart = build_chart(
@@ -417,7 +433,7 @@ def create_career_analysis(
         )
 
         # -------------------------------------------------
-        # 10th-house reasoning
+        # CORE CAREER REASONING
         # -------------------------------------------------
 
         career_reasoning = (
@@ -426,29 +442,17 @@ def create_career_analysis(
             )
         )
 
-        # -------------------------------------------------
-        # Career interpretation
-        # -------------------------------------------------
-
         career_interpretation = (
             interpret_career(
                 career_reasoning
             )
         )
 
-        # -------------------------------------------------
-        # Career planetary analysis
-        # -------------------------------------------------
-
         career_planet_analysis = (
             analyze_career_planets(
                 chart
             )
         )
-
-        # -------------------------------------------------
-        # Overall career synthesis
-        # -------------------------------------------------
 
         career_synthesis = (
             synthesize_career(
@@ -459,7 +463,7 @@ def create_career_analysis(
         )
 
         # -------------------------------------------------
-        # Current Dasha career reasoning
+        # CURRENT DASHA
         # -------------------------------------------------
 
         current_dasha = (
@@ -469,7 +473,7 @@ def create_career_analysis(
         )
 
         # -------------------------------------------------
-        # Raw career timing
+        # GENERAL CAREER TIMING
         # -------------------------------------------------
 
         career_timing = (
@@ -477,10 +481,6 @@ def create_career_analysis(
                 chart
             )
         )
-
-        # -------------------------------------------------
-        # Practical timing synthesis
-        # -------------------------------------------------
 
         timing_synthesis = (
             synthesize_career_timing(
@@ -490,7 +490,7 @@ def create_career_analysis(
         )
 
         # -------------------------------------------------
-        # User-facing narrative
+        # CAREER NARRATIVE
         # -------------------------------------------------
 
         reading = (
@@ -506,7 +506,34 @@ def create_career_analysis(
         )
 
         # -------------------------------------------------
-        # Final response
+        # NATAL CAREER EVENTS
+        # -------------------------------------------------
+
+        career_events = (
+            analyze_career_events(
+                chart
+            )
+        )
+
+        # -------------------------------------------------
+        # CAREER EVENT TIMING
+        # -------------------------------------------------
+
+        career_event_timing = (
+            analyze_career_event_timing(
+                chart
+            )
+        )
+
+        career_event_timing_synthesis = (
+            synthesize_career_event_timing(
+                career_event_timing,
+                current_dasha,
+            )
+        )
+
+        # -------------------------------------------------
+        # FINAL RESPONSE
         # -------------------------------------------------
 
         return {
@@ -519,22 +546,31 @@ def create_career_analysis(
                 {},
             ),
             "career": {
-                "reading": reading,
+
+                "reading": (
+                    reading
+                ),
+
                 "reasoning": (
                     career_reasoning
                 ),
+
                 "interpretation": (
                     career_interpretation
                 ),
+
                 "planetary_analysis": (
                     career_planet_analysis
                 ),
+
                 "synthesis": (
                     career_synthesis
                 ),
+
                 "current_dasha": (
                     current_dasha
                 ),
+
                 "timing": {
                     "tenth_lord": (
                         career_timing.get(
@@ -554,6 +590,15 @@ def create_career_analysis(
                     ),
                     "synthesis": (
                         timing_synthesis
+                    ),
+                },
+
+                "events": {
+                    "natal_analysis": (
+                        career_events
+                    ),
+                    "timing": (
+                        career_event_timing_synthesis
                     ),
                 },
             },
