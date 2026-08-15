@@ -23,6 +23,10 @@ from app.astrology.features.spouse_traits_reasoning_v2 import (
     analyze_spouse_traits_v2,
 )
 
+from app.astrology.features.spouse_profession_reasoning_v2 import (
+    analyze_spouse_profession_v2,
+)
+
 
 # =========================================================
 # EVENT LABELS
@@ -46,6 +50,9 @@ EVENT_LABELS = {
     ),
     "spouse_traits": (
         "Spouse Traits / Partner Profile"
+    ),
+    "spouse_profession": (
+        "Spouse Profession / Career Profile"
     ),
     "spouse_meeting": (
         "Meeting Future Spouse"
@@ -699,6 +706,817 @@ def _route_spouse_traits(
 
 
 # =========================================================
+# SPOUSE PROFESSION TARGET DETECTION
+# =========================================================
+
+def _detect_spouse_profession_target(
+    question_analysis: dict[str, Any],
+) -> str | None:
+
+    question = str(
+        question_analysis.get(
+            "normalised_question",
+            question_analysis.get(
+                "original_question",
+                "",
+            ),
+        )
+        or ""
+    ).lower()
+
+    target_markers = {
+        "international_work": (
+            "work abroad",
+            "working abroad",
+            "job abroad",
+            "career abroad",
+            "work overseas",
+            "working overseas",
+            "international job",
+            "international career",
+            "work internationally",
+            "working internationally",
+            "foreign job",
+            "foreign career",
+        ),
+
+        "law": (
+            "lawyer",
+            "advocate",
+            "legal profession",
+            "legal career",
+            "legal job",
+            "work in law",
+            "working in law",
+        ),
+
+        "corporate_work": (
+            "corporate job",
+            "corporate career",
+            "corporate work",
+            "work in corporate",
+            "working in corporate",
+            "corporate sector",
+        ),
+
+        "consulting": (
+            "consultant",
+            "consulting",
+            "advisory job",
+            "advisory career",
+            "advisory profession",
+        ),
+
+        "finance": (
+            "finance",
+            "banking",
+            "banker",
+            "financial sector",
+            "financial career",
+            "financial job",
+        ),
+
+        "creative_work": (
+            "creative career",
+            "creative profession",
+            "creative job",
+            "design",
+            "designer",
+            "fashion",
+            "luxury",
+            "media",
+        ),
+
+        "technology": (
+            "technology",
+            "tech job",
+            "tech career",
+            "software",
+            "software engineer",
+            "it job",
+            "it career",
+            "information technology",
+        ),
+
+        "business": (
+            "business",
+            "entrepreneur",
+            "entrepreneurship",
+            "self employed",
+            "self-employed",
+            "own business",
+        ),
+    }
+
+    for (
+        target,
+        markers,
+    ) in target_markers.items():
+
+        if any(
+            marker in question
+            for marker in markers
+        ):
+            return target
+
+    return None
+
+
+# =========================================================
+# SPOUSE PROFESSION TARGET SUPPORT
+# =========================================================
+
+def _evaluate_spouse_profession_target(
+    analysis: dict[str, Any],
+    target: str,
+) -> dict[str, Any]:
+
+    cluster_targets = {
+        "international_work": {
+            "international_knowledge",
+        },
+
+        "law": {
+            "client_advisory",
+            "international_knowledge",
+        },
+
+        "corporate_work": {
+            "structured_professional",
+        },
+
+        "consulting": {
+            "client_advisory",
+            "international_knowledge",
+        },
+
+        "finance": {
+            "finance_risk",
+        },
+
+        "creative_work": {
+            "creative_commercial",
+        },
+
+        "technology": {
+            "technology_networked",
+            "technical_operational",
+        },
+
+        "business": {
+            "client_advisory",
+            "independent_entrepreneurial",
+        },
+    }
+
+    family_targets = {
+        "international_work": {
+            "international_work",
+            "international_unconventional",
+            "international_institutional",
+        },
+
+        "law": {
+            "law_education_advisory",
+            "finance_law_education",
+        },
+
+        "corporate_work": {
+            "structured_corporate",
+            "corporate_responsibility",
+            "management_visibility",
+            "long_term_management",
+        },
+
+        "consulting": {
+            "consulting_guidance",
+            "advisory_consulting",
+            "analysis_consulting",
+            "law_education_advisory",
+            "consulting_partnership",
+        },
+
+        "finance": {
+            "finance_commerce",
+            "finance_law_education",
+            "insurance_specialised_finance",
+        },
+
+        "creative_work": {
+            "creative_commercial",
+            "design_lifestyle",
+            "creative_advisory",
+            "media_entrepreneurship",
+        },
+
+        "technology": {
+            "technology_digital",
+            "technology_information",
+            "technology_commerce",
+            "technical_depth",
+        },
+
+        "business": {
+            "business_client_facing",
+            "consulting_partnership",
+            "entrepreneurial_action",
+            "media_entrepreneurship",
+            "client_relationship",
+            "communication_commerce",
+        },
+    }
+
+    broad_targets = {
+        "international_work",
+        "corporate_work",
+        "business",
+    }
+
+    specific_targets = {
+        "law",
+        "consulting",
+        "finance",
+        "creative_work",
+        "technology",
+    }
+
+    desired_clusters = (
+        cluster_targets.get(
+            target,
+            set(),
+        )
+    )
+
+    desired_families = (
+        family_targets.get(
+            target,
+            set(),
+        )
+    )
+
+    meta_clusters = _safe_list(
+        analysis.get(
+            "meta_clusters"
+        )
+    )
+
+    ranked_families = _safe_list(
+        analysis.get(
+            "ranked_families"
+        )
+    )
+
+    matched_clusters = []
+
+    for item in meta_clusters:
+
+        if not isinstance(
+            item,
+            dict,
+        ):
+            continue
+
+        if (
+            item.get(
+                "cluster"
+            )
+            in desired_clusters
+        ):
+
+            matched_clusters.append(
+                item
+            )
+
+    matched_families = []
+
+    for item in ranked_families:
+
+        if not isinstance(
+            item,
+            dict,
+        ):
+            continue
+
+        if (
+            item.get(
+                "family"
+            )
+            in desired_families
+        ):
+
+            matched_families.append(
+                item
+            )
+
+    strongest_cluster_score = max(
+        (
+            _safe_float(
+                item.get(
+                    "relative_strength"
+                )
+            )
+            for item in matched_clusters
+        ),
+        default=0.0,
+    )
+
+    strongest_family_score = max(
+        (
+            _safe_float(
+                item.get(
+                    "relative_strength"
+                )
+            )
+            for item in matched_families
+        ),
+        default=0.0,
+    )
+
+    # -----------------------------------------------------
+    # TARGET-AWARE SUPPORT SCORING
+    # -----------------------------------------------------
+    #
+    # Broad career-environment questions can legitimately
+    # rely on either a strong meta-cluster or a strong direct
+    # family.
+    #
+    # Specific occupation questions should rely primarily on
+    # direct family evidence. A broad cluster can confirm that
+    # evidence, but should not independently make a specific
+    # job title appear certain.
+    # -----------------------------------------------------
+
+    if target in broad_targets:
+
+        support_score = max(
+            strongest_cluster_score,
+            strongest_family_score,
+        )
+
+    elif target in specific_targets:
+
+        if (
+            strongest_family_score > 0.0
+            and strongest_cluster_score > 0.0
+        ):
+
+            support_score = (
+                strongest_family_score * 0.80
+                + strongest_cluster_score * 0.20
+            )
+
+        elif strongest_family_score > 0.0:
+
+            support_score = (
+                strongest_family_score
+            )
+
+        else:
+
+            support_score = (
+                strongest_cluster_score * 0.70
+            )
+
+    else:
+
+        support_score = max(
+            strongest_family_score,
+            strongest_cluster_score,
+        )
+
+    support_score = min(
+        max(
+            support_score,
+            0.0,
+        ),
+        1.0,
+    )
+
+    if support_score >= 0.80:
+
+        support_level = (
+            "strongly_supported"
+        )
+
+    elif support_score >= 0.60:
+
+        support_level = (
+            "supported"
+        )
+
+    elif support_score >= 0.35:
+
+        support_level = (
+            "possible"
+        )
+
+    else:
+
+        support_level = (
+            "weakly_supported"
+        )
+
+    return {
+        "target": (
+            target
+        ),
+
+        "target_type": (
+            "broad"
+            if target in broad_targets
+            else (
+                "specific"
+                if target in specific_targets
+                else "general"
+            )
+        ),
+
+        "support_level": (
+            support_level
+        ),
+
+        "support_score": round(
+            support_score,
+            3,
+        ),
+
+        "strongest_cluster_score": round(
+            strongest_cluster_score,
+            3,
+        ),
+
+        "strongest_family_score": round(
+            strongest_family_score,
+            3,
+        ),
+
+        "matched_clusters": (
+            matched_clusters
+        ),
+
+        "matched_families": (
+            matched_families
+        ),
+    }
+
+
+# =========================================================
+# SPOUSE PROFESSION TARGET ANSWER
+# =========================================================
+
+def _build_spouse_profession_target_answer(
+    target: str,
+    support: dict[str, Any],
+) -> str:
+
+    support_level = str(
+        support.get(
+            "support_level",
+            "weakly_supported",
+        )
+    )
+
+    descriptions = {
+        "international_work": (
+            "international or cross-border work"
+        ),
+
+        "law": (
+            "law or a closely related advisory profession"
+        ),
+
+        "corporate_work": (
+            "a structured corporate career"
+        ),
+
+        "consulting": (
+            "consulting or advisory work"
+        ),
+
+        "finance": (
+            "finance or financial-sector work"
+        ),
+
+        "creative_work": (
+            "creative-commercial or design-oriented work"
+        ),
+
+        "technology": (
+            "technology or technical work"
+        ),
+
+        "business": (
+            "business, client-facing or entrepreneurial work"
+        ),
+    }
+
+    description = (
+        descriptions.get(
+            target,
+            "this career direction",
+        )
+    )
+
+    if support_level == (
+        "strongly_supported"
+    ):
+
+        return (
+            f"{description.capitalize()} is strongly supported "
+            "within the spouse-career pattern. It appears among "
+            "the more prominent professional directions in the "
+            "chart, although this should still be read as a broad "
+            "career theme rather than a guaranteed job title."
+        )
+
+    if support_level == (
+        "supported"
+    ):
+
+        return (
+            f"{description.capitalize()} is reasonably well "
+            "supported in the spouse-career pattern. The chart "
+            "contains meaningful indicators for this direction, "
+            "but it is not specific enough to treat it as a "
+            "certain occupation."
+        )
+
+    if support_level == (
+        "possible"
+    ):
+
+        return (
+            f"{description.capitalize()} is possible, but it "
+            "appears more as a secondary career theme than the "
+            "dominant professional direction."
+        )
+
+    return (
+        "The current spouse-career evidence does not strongly "
+        f"emphasise {description}. It cannot be ruled out, but "
+        "other professional themes are more prominent."
+    )
+
+
+# =========================================================
+# SPOUSE PROFESSION ROUTE
+# =========================================================
+
+def _route_spouse_profession(
+    chart: dict[str, Any],
+    question_analysis: dict[str, Any],
+    reference_moment: datetime,
+) -> dict[str, Any]:
+
+    intent = _safe_dict(
+        question_analysis.get(
+            "intent"
+        )
+    )
+
+    analysis = (
+        analyze_spouse_profession_v2(
+            chart
+        )
+    )
+
+    target = (
+        _detect_spouse_profession_target(
+            question_analysis
+        )
+    )
+
+    target_support = None
+
+    if (
+        target
+        and analysis.get(
+            "available"
+        )
+    ):
+
+        target_support = (
+            _evaluate_spouse_profession_target(
+                analysis,
+                target,
+            )
+        )
+
+    if not analysis.get(
+        "available"
+    ):
+
+        return {
+            "available": False,
+
+            "route": (
+                "natal_evidence"
+            ),
+
+            "event": (
+                "spouse_profession"
+            ),
+
+            "event_label": (
+                EVENT_LABELS[
+                    "spouse_profession"
+                ]
+            ),
+
+            "question_type": (
+                intent.get(
+                    "question_type"
+                )
+            ),
+
+            "direction": (
+                intent.get(
+                    "direction"
+                )
+            ),
+
+            "parser_confidence": (
+                intent.get(
+                    "confidence"
+                )
+            ),
+
+            "reference_moment": (
+                reference_moment.isoformat()
+            ),
+
+            "evidence_engine": (
+                "spouse_profession_reasoning_v2"
+            ),
+
+            "forecast_type": (
+                "natal_pattern"
+            ),
+
+            "target_profession": (
+                target
+            ),
+
+            "reason": (
+                analysis.get(
+                    "reason"
+                )
+            ),
+        }
+
+    if (
+        target
+        and target_support
+    ):
+
+        answer = (
+            _build_spouse_profession_target_answer(
+                target,
+                target_support,
+            )
+        )
+
+    else:
+
+        answer = (
+            analysis.get(
+                "summary"
+            )
+        )
+
+    return {
+        "available": True,
+
+        "route": (
+            "natal_evidence"
+        ),
+
+        "event": (
+            "spouse_profession"
+        ),
+
+        "event_label": (
+            EVENT_LABELS[
+                "spouse_profession"
+            ]
+        ),
+
+        "question_type": (
+            intent.get(
+                "question_type"
+            )
+        ),
+
+        "direction": (
+            intent.get(
+                "direction"
+            )
+        ),
+
+        "parser_confidence": (
+            intent.get(
+                "confidence"
+            )
+        ),
+
+        "reference_moment": (
+            reference_moment.isoformat()
+        ),
+
+        "evidence_engine": (
+            "spouse_profession_reasoning_v2"
+        ),
+
+        "forecast_type": (
+            "natal_pattern"
+        ),
+
+        "model_version": (
+            analysis.get(
+                "model_version"
+            )
+        ),
+
+        "confidence": (
+            analysis.get(
+                "confidence"
+            )
+        ),
+
+        "answer": (
+            answer
+        ),
+
+        "summary": (
+            analysis.get(
+                "summary"
+            )
+        ),
+
+        "target_profession": (
+            target
+        ),
+
+        "target_analysis": (
+            target_support
+        ),
+
+        "career_style": (
+            analysis.get(
+                "career_style",
+                [],
+            )
+        ),
+
+        "strongest_clusters": (
+            analysis.get(
+                "strongest_clusters",
+                [],
+            )
+        ),
+
+        "meta_clusters": (
+            analysis.get(
+                "meta_clusters",
+                [],
+            )
+        ),
+
+        "strongest_families": (
+            analysis.get(
+                "strongest_families",
+                [],
+            )
+        ),
+
+        "ranked_families": (
+            analysis.get(
+                "ranked_families",
+                [],
+            )
+        ),
+
+        "chart_context": (
+            analysis.get(
+                "chart_context",
+                {},
+            )
+        ),
+
+        "evidence": (
+            analysis.get(
+                "evidence",
+                [],
+            )
+        ),
+
+        "analysis": (
+            analysis
+        ),
+    }
+
+
+# =========================================================
 # LOVE / ARRANGED ROUTE
 # =========================================================
 
@@ -847,92 +1665,128 @@ def _route_love_arranged(
 
     return {
         "available": True,
-        "route": "natal_evidence",
-        "event": event_name,
+
+        "route": (
+            "natal_evidence"
+        ),
+
+        "event": (
+            event_name
+        ),
+
         "event_label": (
             EVENT_LABELS.get(
                 event_name,
                 event_name,
             )
         ),
+
         "question_type": (
             intent.get(
                 "question_type"
             )
         ),
+
         "direction": (
             intent.get(
                 "direction"
             )
         ),
+
         "parser_confidence": (
             intent.get(
                 "confidence"
             )
         ),
+
         "reference_moment": (
             reference_moment.isoformat()
         ),
+
         "evidence_engine": (
             "marriage_love_arranged_reasoning_v2"
         ),
+
         "forecast_type": (
             "natal_pattern"
         ),
-        "outcome": outcome,
+
+        "outcome": (
+            outcome
+        ),
+
         "label": (
             analysis.get(
                 "label"
             )
         ),
+
         "confidence": (
             analysis.get(
                 "confidence"
             )
         ),
+
         "probability_level": (
             probability_level
         ),
+
         "probability_score": round(
             probability_score,
             3,
         ),
-        "answer": answer,
-        "scores": scores,
+
+        "answer": (
+            answer
+        ),
+
+        "scores": (
+            scores
+        ),
+
         "love_probability": (
             love_probability
         ),
+
         "arranged_probability": (
             arranged_probability
         ),
+
         "relevant_indicators": (
             relevant_indicators
         ),
+
         "love_indicators": (
             analysis.get(
                 "love_indicators",
                 [],
             )
         ),
+
         "arranged_indicators": (
             analysis.get(
                 "arranged_indicators",
                 [],
             )
         ),
+
         "general_indicators": (
             analysis.get(
                 "general_indicators",
                 [],
             )
         ),
+
         "chart_context": (
             analysis.get(
                 "chart_context",
                 {},
             )
         ),
-        "analysis": analysis,
+
+        "analysis": (
+            analysis
+        ),
     }
 
 
@@ -971,9 +1825,15 @@ def _spouse_meeting_probability(
     ):
 
         return {
-            "outcome": "very_strong",
-            "probability_level": "likely",
-            "probability_score": 0.90,
+            "outcome": (
+                "very_strong"
+            ),
+            "probability_level": (
+                "likely"
+            ),
+            "probability_score": (
+                0.90
+            ),
             "probability_language": (
                 "strongly supported"
             ),
@@ -982,9 +1842,15 @@ def _spouse_meeting_probability(
     if peak_score >= 0.70:
 
         return {
-            "outcome": "strong",
-            "probability_level": "likely",
-            "probability_score": 0.82,
+            "outcome": (
+                "strong"
+            ),
+            "probability_level": (
+                "likely"
+            ),
+            "probability_score": (
+                0.82
+            ),
             "probability_language": (
                 "well supported"
             ),
@@ -993,18 +1859,30 @@ def _spouse_meeting_probability(
     if peak_score >= 0.60:
 
         return {
-            "outcome": "moderate",
-            "probability_level": "possible",
-            "probability_score": 0.68,
+            "outcome": (
+                "moderate"
+            ),
+            "probability_level": (
+                "possible"
+            ),
+            "probability_score": (
+                0.68
+            ),
             "probability_language": (
                 "moderately supported"
             ),
         }
 
     return {
-        "outcome": "weak",
-        "probability_level": "uncertain",
-        "probability_score": 0.45,
+        "outcome": (
+            "weak"
+        ),
+        "probability_level": (
+            "uncertain"
+        ),
+        "probability_score": (
+            0.45
+        ),
         "probability_language": (
             "weakly supported"
         ),
@@ -1059,63 +1937,95 @@ def _route_spouse_meeting(
 
         return {
             "available": True,
-            "route": "single_event",
-            "event": "spouse_meeting",
+
+            "route": (
+                "single_event"
+            ),
+
+            "event": (
+                "spouse_meeting"
+            ),
+
             "event_label": (
                 EVENT_LABELS[
                     "spouse_meeting"
                 ]
             ),
+
             "question_type": (
                 intent.get(
                     "question_type"
                 )
             ),
+
             "direction": (
                 intent.get(
                     "direction"
                 )
             ),
+
             "parser_confidence": (
                 intent.get(
                     "confidence"
                 )
             ),
+
             "reference_moment": (
                 reference_moment.isoformat()
             ),
+
             "forecast_engine": (
                 "spouse_meeting_forecast_v2"
             ),
+
             "resolved_forecast_request": {
-                "start": request[
-                    "start"
-                ].isoformat(),
-                "end": request[
-                    "end"
-                ].isoformat(),
-                "step_days": request[
-                    "step_days"
-                ],
-                "range_type": request[
-                    "range_type"
-                ],
+                "start": (
+                    request[
+                        "start"
+                    ].isoformat()
+                ),
+                "end": (
+                    request[
+                        "end"
+                    ].isoformat()
+                ),
+                "step_days": (
+                    request[
+                        "step_days"
+                    ]
+                ),
+                "range_type": (
+                    request[
+                        "range_type"
+                    ]
+                ),
             },
-            "forecast_available": False,
-            "outcome": "no_strong_window",
+
+            "forecast_available": (
+                False
+            ),
+
+            "outcome": (
+                "no_strong_window"
+            ),
+
             "confidence": (
                 forecast.get(
                     "confidence",
                     0.4,
                 )
             ),
+
             "answer": (
                 forecast.get(
                     "summary"
                 )
             ),
+
             "primary_window": {},
+
             "secondary_windows": [],
+
             "scan_metadata": (
                 forecast.get(
                     "forecast_period"
@@ -1144,95 +2054,140 @@ def _route_spouse_meeting(
 
     return {
         "available": True,
-        "route": "single_event",
-        "event": "spouse_meeting",
+
+        "route": (
+            "single_event"
+        ),
+
+        "event": (
+            "spouse_meeting"
+        ),
+
         "event_label": (
             EVENT_LABELS[
                 "spouse_meeting"
             ]
         ),
+
         "question_type": (
             intent.get(
                 "question_type"
             )
         ),
+
         "direction": (
             intent.get(
                 "direction"
             )
         ),
+
         "parser_confidence": (
             intent.get(
                 "confidence"
             )
         ),
+
         "reference_moment": (
             reference_moment.isoformat()
         ),
+
         "forecast_engine": (
             "spouse_meeting_forecast_v2"
         ),
+
         "resolved_forecast_request": {
-            "start": request[
-                "start"
-            ].isoformat(),
-            "end": request[
-                "end"
-            ].isoformat(),
-            "step_days": request[
-                "step_days"
-            ],
-            "range_type": request[
-                "range_type"
-            ],
+            "start": (
+                request[
+                    "start"
+                ].isoformat()
+            ),
+            "end": (
+                request[
+                    "end"
+                ].isoformat()
+            ),
+            "step_days": (
+                request[
+                    "step_days"
+                ]
+            ),
+            "range_type": (
+                request[
+                    "range_type"
+                ]
+            ),
         },
-        "forecast_available": True,
+
+        "forecast_available": (
+            True
+        ),
+
         "outcome": (
             probability[
                 "outcome"
             ]
         ),
+
         "confidence": (
             forecast.get(
                 "confidence",
                 0.70,
             )
         ),
+
         "probability_level": (
             probability[
                 "probability_level"
             ]
         ),
+
         "probability_score": (
             probability[
                 "probability_score"
             ]
         ),
+
         "probability_language": (
             probability[
                 "probability_language"
             ]
         ),
+
         "confirmation": (
             peak.get(
                 "confirmation"
             )
         ),
-        "answer": answer,
-        "window": primary,
-        "primary_window": primary,
+
+        "answer": (
+            answer
+        ),
+
+        "window": (
+            primary
+        ),
+
+        "primary_window": (
+            primary
+        ),
+
         "peak_date": (
             peak.get(
                 "date"
             )
         ),
-        "event_summary": answer,
+
+        "event_summary": (
+            answer
+        ),
+
         "secondary_windows": (
             forecast.get(
                 "secondary_windows",
                 [],
             )
         ),
+
         "scan_metadata": (
             forecast.get(
                 "forecast_period"
@@ -1333,46 +2288,62 @@ def _route_calendar_year_comparison(
 
         results.append(
             {
-                "year": year,
-                "range_type": range_type,
-                "event": engine_event,
+                "year": (
+                    year
+                ),
+
+                "range_type": (
+                    range_type
+                ),
+
+                "event": (
+                    engine_event
+                ),
+
                 "available": bool(
                     event_data.get(
                         "available"
                     )
                 ),
+
                 "outlook": (
                     event_data.get(
                         "outlook",
                         "no_strong_window",
                     )
                 ),
+
                 "confidence": (
                     event_data.get(
                         "confidence",
                         0.4,
                     )
                 ),
+
                 "comparison_score": (
                     comparison_score
                 ),
+
                 "primary_window": (
                     event_data.get(
                         "primary_window",
                         {},
                     )
                 ),
+
                 "secondary_windows": (
                     event_data.get(
                         "secondary_windows",
                         [],
                     )
                 ),
+
                 "summary": (
                     event_data.get(
                         "summary"
                     )
                 ),
+
                 "scan_metadata": (
                     forecast.get(
                         "forecast_period"
@@ -1393,13 +2364,17 @@ def _route_calendar_year_comparison(
         reverse=True,
     )
 
-    best = ranked[
-        0
-    ]
+    best = (
+        ranked[
+            0
+        ]
+    )
 
-    second = ranked[
-        1
-    ]
+    second = (
+        ranked[
+            1
+        ]
+    )
 
     margin = round(
         (
@@ -1456,34 +2431,55 @@ def _route_calendar_year_comparison(
 
     return {
         "available": True,
+
         "route": (
             "calendar_year_comparison"
         ),
-        "event": engine_event,
+
+        "event": (
+            engine_event
+        ),
+
         "event_label": (
             EVENT_LABELS.get(
                 engine_event,
                 engine_event,
             )
         ),
+
         "comparison_type": (
             "calendar_years"
         ),
+
         "reference_moment": (
             reference_moment.isoformat()
         ),
-        "years": years,
+
+        "years": (
+            years
+        ),
+
         "best_year": (
             best[
                 "year"
             ]
         ),
+
         "comparison_strength": (
             comparison_strength
         ),
-        "margin": margin,
-        "answer": answer,
-        "ranked_results": ranked,
+
+        "margin": (
+            margin
+        ),
+
+        "answer": (
+            answer
+        ),
+
+        "ranked_results": (
+            ranked
+        ),
     }
 
 
@@ -1561,12 +2557,23 @@ def _route_follow_up(
 
         return {
             "available": False,
-            "route": "follow_up",
-            "requires_context": True,
-            "context_used": False,
+
+            "route": (
+                "follow_up"
+            ),
+
+            "requires_context": (
+                True
+            ),
+
+            "context_used": (
+                False
+            ),
+
             "reference_moment": (
                 reference_moment.isoformat()
             ),
+
             "reason": (
                 "A previous marriage question is required "
                 "to interpret this follow-up."
@@ -1579,11 +2586,15 @@ def _route_follow_up(
 
     inherited_analysis[
         "query_mode"
-    ] = "single_event"
+    ] = (
+        "single_event"
+    )
 
     inherited_analysis[
         "primary_event"
-    ] = inherited_event
+    ] = (
+        inherited_event
+    )
 
     inherited_analysis[
         "primary_event_label"
@@ -1604,7 +2615,9 @@ def _route_follow_up(
 
     inherited_intent[
         "event"
-    ] = inherited_event
+    ] = (
+        inherited_event
+    )
 
     inherited_intent[
         "event_label"
@@ -1617,7 +2630,9 @@ def _route_follow_up(
 
     inherited_analysis[
         "intent"
-    ] = inherited_intent
+    ] = (
+        inherited_intent
+    )
 
     if inherited_event == (
         "spouse_meeting"
@@ -1637,6 +2652,18 @@ def _route_follow_up(
 
         result = (
             _route_spouse_traits(
+                chart,
+                inherited_analysis,
+                reference_moment,
+            )
+        )
+
+    elif inherited_event == (
+        "spouse_profession"
+    ):
+
+        result = (
+            _route_spouse_profession(
                 chart,
                 inherited_analysis,
                 reference_moment,
@@ -1675,15 +2702,27 @@ def _route_follow_up(
 
         return {
             "available": False,
-            "route": "follow_up",
-            "requires_context": True,
-            "context_used": True,
+
+            "route": (
+                "follow_up"
+            ),
+
+            "requires_context": (
+                True
+            ),
+
+            "context_used": (
+                True
+            ),
+
             "inherited_event": (
                 inherited_event
             ),
+
             "reference_moment": (
                 reference_moment.isoformat()
             ),
+
             "reason": (
                 "The previous event is understood, but "
                 "its forecast engine is not yet implemented."
@@ -1696,15 +2735,21 @@ def _route_follow_up(
 
     wrapped[
         "route"
-    ] = "follow_up"
+    ] = (
+        "follow_up"
+    )
 
     wrapped[
         "requires_context"
-    ] = True
+    ] = (
+        True
+    )
 
     wrapped[
         "context_used"
-    ] = True
+    ] = (
+        True
+    )
 
     wrapped[
         "inherited_event"
@@ -1733,17 +2778,26 @@ def _unsupported_special_event(
 
     return {
         "available": False,
-        "route": "single_event",
-        "event": event_name,
+
+        "route": (
+            "single_event"
+        ),
+
+        "event": (
+            event_name
+        ),
+
         "event_label": (
             EVENT_LABELS.get(
                 event_name,
                 event_name,
             )
         ),
+
         "reference_moment": (
             reference_moment.isoformat()
         ),
+
         "reason": (
             "The question is understood correctly, but a "
             "dedicated evidence engine for this marriage "
@@ -1808,6 +2862,10 @@ def route_marriage_question_v3(
         or "general_marriage"
     )
 
+    # -----------------------------------------------------
+    # FOLLOW-UP
+    # -----------------------------------------------------
+
     if query_mode == (
         "follow_up"
     ):
@@ -1821,6 +2879,10 @@ def route_marriage_question_v3(
             )
         )
 
+    # -----------------------------------------------------
+    # COMPARISON
+    # -----------------------------------------------------
+
     if query_mode == (
         "comparison"
     ):
@@ -1833,9 +2895,15 @@ def route_marriage_question_v3(
             )
         )
 
+    # -----------------------------------------------------
+    # STANDARD MARRIAGE FORECAST EVENTS
+    # -----------------------------------------------------
+
     if (
-        query_mode == "single_event"
-        and event_name in (
+        query_mode
+        == "single_event"
+        and event_name
+        in (
             "marriage_timing",
             "relationship_commitment",
             "marriage_delay_challenge",
@@ -1850,8 +2918,13 @@ def route_marriage_question_v3(
             )
         )
 
+    # -----------------------------------------------------
+    # SPOUSE MEETING
+    # -----------------------------------------------------
+
     if (
-        query_mode == "single_event"
+        query_mode
+        == "single_event"
         and event_name
         == "spouse_meeting"
     ):
@@ -1864,8 +2937,13 @@ def route_marriage_question_v3(
             )
         )
 
+    # -----------------------------------------------------
+    # SPOUSE TRAITS
+    # -----------------------------------------------------
+
     if (
-        query_mode == "single_event"
+        query_mode
+        == "single_event"
         and event_name
         == "spouse_traits"
     ):
@@ -1878,9 +2956,34 @@ def route_marriage_question_v3(
             )
         )
 
+    # -----------------------------------------------------
+    # SPOUSE PROFESSION
+    # -----------------------------------------------------
+
     if (
-        query_mode == "single_event"
-        and event_name in (
+        query_mode
+        == "single_event"
+        and event_name
+        == "spouse_profession"
+    ):
+
+        return (
+            _route_spouse_profession(
+                chart,
+                question_analysis,
+                reference_moment,
+            )
+        )
+
+    # -----------------------------------------------------
+    # LOVE / ARRANGED
+    # -----------------------------------------------------
+
+    if (
+        query_mode
+        == "single_event"
+        and event_name
+        in (
             "love_vs_arranged",
             "love_marriage",
             "arranged_marriage",
@@ -1895,6 +2998,10 @@ def route_marriage_question_v3(
             )
         )
 
+    # -----------------------------------------------------
+    # OTHER SINGLE EVENTS
+    # -----------------------------------------------------
+
     if query_mode == (
         "single_event"
     ):
@@ -1908,11 +3015,19 @@ def route_marriage_question_v3(
 
     return {
         "available": False,
-        "route": query_mode,
-        "event": event_name,
+
+        "route": (
+            query_mode
+        ),
+
+        "event": (
+            event_name
+        ),
+
         "reference_moment": (
             reference_moment.isoformat()
         ),
+
         "reason": (
             "This Marriage Forecast Router V3 mode "
             "is not yet implemented."

@@ -13,18 +13,39 @@ from app.astrology.features.marriage_question_intelligence_v2 import (
 # =========================================================
 
 EVENT_LABELS = {
-    "marriage_timing": "Marriage Timing",
-    "relationship_commitment": "Relationship / Commitment",
-    "marriage_delay_challenge": "Marriage Delay / Challenge",
-    "relationship_stability": "Relationship Stability",
+    "marriage_timing": (
+        "Marriage Timing"
+    ),
+    "relationship_commitment": (
+        "Relationship / Commitment"
+    ),
+    "marriage_delay_challenge": (
+        "Marriage Delay / Challenge"
+    ),
+    "relationship_stability": (
+        "Relationship Stability"
+    ),
     "foreign_intercultural_connection": (
         "Foreign / Intercultural Relationship"
     ),
-    "spouse_traits": "Spouse Traits / Partner Profile",
-    "spouse_meeting": "Meeting Future Spouse",
-    "love_marriage": "Love Marriage",
-    "arranged_marriage": "Arranged Marriage",
-    "love_vs_arranged": "Love vs Arranged Marriage",
+    "spouse_traits": (
+        "Spouse Traits / Partner Profile"
+    ),
+    "spouse_profession": (
+        "Spouse Profession / Career Profile"
+    ),
+    "spouse_meeting": (
+        "Meeting Future Spouse"
+    ),
+    "love_marriage": (
+        "Love Marriage"
+    ),
+    "arranged_marriage": (
+        "Arranged Marriage"
+    ),
+    "love_vs_arranged": (
+        "Love vs Arranged Marriage"
+    ),
     "general_marriage": (
         "General Marriage / Relationship Outlook"
     ),
@@ -92,6 +113,7 @@ def _extract_years(
         )
 
         if year not in years:
+
             years.append(
                 year
             )
@@ -107,8 +129,10 @@ def _detect_comparison(
     question: str,
 ) -> dict[str, Any]:
 
-    years = _extract_years(
-        question
+    years = (
+        _extract_years(
+            question
+        )
     )
 
     markers = (
@@ -142,7 +166,9 @@ def _detect_comparison(
 
     return {
         "is_comparison": True,
-        "comparison_type": "calendar_years",
+        "comparison_type": (
+            "calendar_years"
+        ),
         "values": years,
     }
 
@@ -170,8 +196,156 @@ def _detect_follow_up(
     )
 
     return {
-        "is_follow_up": is_follow_up,
-        "requires_context": is_follow_up,
+        "is_follow_up": (
+            is_follow_up
+        ),
+        "requires_context": (
+            is_follow_up
+        ),
+    }
+
+
+# =========================================================
+# SPOUSE PROFESSION DETECTION
+# =========================================================
+
+def _detect_spouse_profession(
+    question: str,
+) -> dict[str, Any] | None:
+
+    spouse_markers = (
+        "spouse",
+        "future spouse",
+        "partner",
+        "future partner",
+        "person i marry",
+        "person i will marry",
+        "husband",
+        "wife",
+    )
+
+    if not any(
+        marker in question
+        for marker in spouse_markers
+    ):
+
+        return None
+
+    general_profession_keywords = (
+        "profession",
+        "career",
+        "job",
+        "occupation",
+        "work for",
+        "do for work",
+        "does for work",
+        "working in",
+        "work in",
+        "work as",
+        "working as",
+        "career field",
+        "professional field",
+    )
+
+    targeted_profession_keywords = (
+        "work abroad",
+        "working abroad",
+        "job abroad",
+        "career abroad",
+        "work overseas",
+        "working overseas",
+        "international job",
+        "international career",
+        "work internationally",
+        "working internationally",
+        "foreign job",
+        "foreign career",
+
+        "lawyer",
+        "advocate",
+        "legal profession",
+        "legal career",
+        "legal job",
+        "work in law",
+        "working in law",
+
+        "corporate job",
+        "corporate career",
+        "corporate work",
+        "work in corporate",
+        "working in corporate",
+        "corporate sector",
+
+        "consultant",
+        "consulting",
+        "advisory job",
+        "advisory career",
+        "advisory profession",
+
+        "finance",
+        "banking",
+        "banker",
+        "financial sector",
+        "financial career",
+        "financial job",
+
+        "designer",
+        "design",
+        "creative career",
+        "creative profession",
+        "creative job",
+        "fashion",
+        "luxury",
+        "media",
+
+        "technology",
+        "tech job",
+        "tech career",
+        "software",
+        "software engineer",
+        "it job",
+        "it career",
+        "information technology",
+
+        "business",
+        "entrepreneur",
+        "entrepreneurship",
+        "self employed",
+        "self-employed",
+        "own business",
+        "run a business",
+        "start a business",
+    )
+
+    matched = []
+
+    for keyword in (
+        general_profession_keywords
+        + targeted_profession_keywords
+    ):
+
+        if keyword in question:
+
+            matched.append(
+                keyword
+            )
+
+    if not matched:
+
+        return None
+
+    return {
+        "event": (
+            "spouse_profession"
+        ),
+        "event_label": (
+            EVENT_LABELS[
+                "spouse_profession"
+            ]
+        ),
+        "matched_keywords": (
+            matched
+        ),
     }
 
 
@@ -209,14 +383,34 @@ def _detect_special_events(
 
         detected.append(
             {
-                "event": "spouse_meeting",
+                "event": (
+                    "spouse_meeting"
+                ),
                 "event_label": (
                     EVENT_LABELS[
                         "spouse_meeting"
                     ]
                 ),
-                "matched_keywords": matched,
+                "matched_keywords": (
+                    matched
+                ),
             }
+        )
+
+    # -----------------------------------------------------
+    # SPOUSE PROFESSION
+    # -----------------------------------------------------
+
+    spouse_profession = (
+        _detect_spouse_profession(
+            question
+        )
+    )
+
+    if spouse_profession:
+
+        detected.append(
+            spouse_profession
         )
 
     # -----------------------------------------------------
@@ -263,13 +457,17 @@ def _detect_special_events(
 
         detected.append(
             {
-                "event": "spouse_traits",
+                "event": (
+                    "spouse_traits"
+                ),
                 "event_label": (
                     EVENT_LABELS[
                         "spouse_traits"
                     ]
                 ),
-                "matched_keywords": matched,
+                "matched_keywords": (
+                    matched
+                ),
             }
         )
 
@@ -295,13 +493,17 @@ def _detect_special_events(
 
         detected.append(
             {
-                "event": "love_vs_arranged",
+                "event": (
+                    "love_vs_arranged"
+                ),
                 "event_label": (
                     EVENT_LABELS[
                         "love_vs_arranged"
                     ]
                 ),
-                "matched_keywords": matched,
+                "matched_keywords": (
+                    matched
+                ),
             }
         )
 
@@ -329,13 +531,17 @@ def _detect_special_events(
 
         detected.append(
             {
-                "event": "love_marriage",
+                "event": (
+                    "love_marriage"
+                ),
                 "event_label": (
                     EVENT_LABELS[
                         "love_marriage"
                     ]
                 ),
-                "matched_keywords": matched,
+                "matched_keywords": (
+                    matched
+                ),
             }
         )
 
@@ -359,13 +565,17 @@ def _detect_special_events(
 
         detected.append(
             {
-                "event": "arranged_marriage",
+                "event": (
+                    "arranged_marriage"
+                ),
                 "event_label": (
                     EVENT_LABELS[
                         "arranged_marriage"
                     ]
                 ),
-                "matched_keywords": matched,
+                "matched_keywords": (
+                    matched
+                ),
             }
         )
 
@@ -412,19 +622,42 @@ def _clean_base_events(
             )
         )
 
-        # Spouse-meeting questions should not also become
-        # spouse-traits questions merely because the phrase
-        # "future spouse" is present.
+        # -------------------------------------------------
+        # SPOUSE MEETING OVERRIDES GENERIC SPOUSE PROFILE
+        # -------------------------------------------------
+
         if (
             "spouse_meeting"
             in special_names
             and event_name
-            == "spouse_traits"
+            in (
+                "spouse_traits",
+                "general_marriage",
+            )
         ):
             continue
 
-        # Explicit spouse-profile questions override generic
-        # marriage-timing matches such as "will I marry".
+        # -------------------------------------------------
+        # SPOUSE PROFESSION OVERRIDES GENERIC PROFILE /
+        # MARRIAGE MATCHES
+        # -------------------------------------------------
+
+        if (
+            "spouse_profession"
+            in special_names
+            and event_name
+            in (
+                "spouse_traits",
+                "marriage_timing",
+                "general_marriage",
+            )
+        ):
+            continue
+
+        # -------------------------------------------------
+        # SPOUSE TRAITS OVERRIDE GENERIC MARRIAGE MATCHES
+        # -------------------------------------------------
+
         if (
             "spouse_traits"
             in special_names
@@ -435,6 +668,10 @@ def _clean_base_events(
             )
         ):
             continue
+
+        # -------------------------------------------------
+        # LOVE VS ARRANGED OVERRIDES GENERIC MATCHES
+        # -------------------------------------------------
 
         if (
             "love_vs_arranged"
@@ -456,6 +693,78 @@ def _clean_base_events(
 
 
 # =========================================================
+# SPECIAL EVENT CONFLICT CLEANUP
+# =========================================================
+
+def _clean_special_event_conflicts(
+    special_events: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+
+    names = {
+        str(
+            item.get(
+                "event",
+                "",
+            )
+        )
+        for item in special_events
+        if isinstance(
+            item,
+            dict,
+        )
+    }
+
+    cleaned = []
+
+    for item in special_events:
+
+        if not isinstance(
+            item,
+            dict,
+        ):
+            continue
+
+        event_name = str(
+            item.get(
+                "event",
+                "",
+            )
+        )
+
+        # A direct spouse-meeting question should remain
+        # a meeting event even though "future spouse"
+        # appears in the wording.
+        if (
+            "spouse_meeting"
+            in names
+            and event_name
+            in (
+                "spouse_traits",
+                "spouse_profession",
+            )
+        ):
+
+            continue
+
+        # A profession-specific spouse question should not
+        # also become a generic spouse-traits question.
+        if (
+            "spouse_profession"
+            in names
+            and event_name
+            == "spouse_traits"
+        ):
+
+            continue
+
+        cleaned.append(
+            item
+        )
+
+    return cleaned
+
+
+# =========================================================
 # EVENT MERGING
 # =========================================================
 
@@ -464,10 +773,16 @@ def _merge_events(
     special_events: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
 
+    cleaned_special = (
+        _clean_special_event_conflicts(
+            special_events
+        )
+    )
+
     cleaned_base = (
         _clean_base_events(
             base_events,
-            special_events,
+            cleaned_special,
         )
     )
 
@@ -477,7 +792,7 @@ def _merge_events(
 
     for item in (
         cleaned_base
-        + special_events
+        + cleaned_special
     ):
 
         if not isinstance(
@@ -523,12 +838,14 @@ def _inject_comparison_event(
     if not comparison.get(
         "is_comparison"
     ):
+
         return detected_events
 
     if not (
         "marriage" in question
         or "marry" in question
     ):
+
         return detected_events
 
     existing_names = {
@@ -544,6 +861,7 @@ def _inject_comparison_event(
         "relationship_stability",
         "foreign_intercultural_connection",
         "spouse_traits",
+        "spouse_profession",
         "spouse_meeting",
         "love_marriage",
         "arranged_marriage",
@@ -553,19 +871,23 @@ def _inject_comparison_event(
     if existing_names.intersection(
         specific_events
     ):
+
         return detected_events
 
     if (
         "marriage_timing"
         in existing_names
     ):
+
         return detected_events
 
     return (
         detected_events
         + [
             {
-                "event": "marriage_timing",
+                "event": (
+                    "marriage_timing"
+                ),
                 "event_label": (
                     EVENT_LABELS[
                         "marriage_timing"
@@ -600,6 +922,7 @@ def _resolve_primary_event(
     priority = (
         "love_vs_arranged",
         "spouse_meeting",
+        "spouse_profession",
         "spouse_traits",
         "love_marriage",
         "arranged_marriage",
@@ -613,6 +936,7 @@ def _resolve_primary_event(
     for event_name in priority:
 
         if event_name in detected_names:
+
             return event_name
 
     if (
@@ -624,7 +948,10 @@ def _resolve_primary_event(
             or "marry" in question
         )
     ):
-        return "marriage_timing"
+
+        return (
+            "marriage_timing"
+        )
 
     base_primary = str(
         base_analysis.get(
@@ -639,9 +966,14 @@ def _resolve_primary_event(
         and base_primary
         != "general_marriage"
     ):
-        return base_primary
 
-    return "general_marriage"
+        return (
+            base_primary
+        )
+
+    return (
+        "general_marriage"
+    )
 
 
 # =========================================================
@@ -658,13 +990,49 @@ def _resolve_question_type(
     if comparison.get(
         "is_comparison"
     ):
-        return "comparison"
+
+        return (
+            "comparison"
+        )
 
     if primary_event in (
         "spouse_traits",
         "love_vs_arranged",
     ):
-        return "general_outlook"
+
+        return (
+            "general_outlook"
+        )
+
+    if (
+        primary_event
+        == "spouse_profession"
+    ):
+
+        probability_prefixes = (
+            "will ",
+            "could ",
+            "can ",
+            "is ",
+            "does ",
+            "do ",
+            "would ",
+        )
+
+        if any(
+            question.startswith(
+                prefix
+            )
+            for prefix in probability_prefixes
+        ):
+
+            return (
+                "probability"
+            )
+
+        return (
+            "general_outlook"
+        )
 
     if (
         question.startswith(
@@ -673,7 +1041,10 @@ def _resolve_question_type(
         or "when will" in question
         or "when do" in question
     ):
-        return "timing"
+
+        return (
+            "timing"
+        )
 
     if any(
         question.startswith(
@@ -681,13 +1052,18 @@ def _resolve_question_type(
         )
         for prefix in (
             "will ",
+            "could ",
             "can ",
             "is ",
             "am i ",
             "do i ",
+            "would ",
         )
     ):
-        return "probability"
+
+        return (
+            "probability"
+        )
 
     base_intent = _safe_dict(
         base_analysis.get(
@@ -716,7 +1092,10 @@ def _resolve_direction(
         primary_event
         == "marriage_delay_challenge"
     ):
-        return "increase"
+
+        return (
+            "increase"
+        )
 
     if primary_event in (
         "marriage_timing",
@@ -726,19 +1105,29 @@ def _resolve_direction(
         "arranged_marriage",
         "foreign_intercultural_connection",
     ):
-        return "occurrence"
+
+        return (
+            "occurrence"
+        )
 
     if primary_event in (
         "spouse_traits",
+        "spouse_profession",
         "love_vs_arranged",
     ):
-        return "neutral"
+
+        return (
+            "neutral"
+        )
 
     if (
         primary_event
         == "relationship_stability"
     ):
-        return "increase"
+
+        return (
+            "increase"
+        )
 
     base_intent = _safe_dict(
         base_analysis.get(
@@ -781,6 +1170,7 @@ def _resolve_confidence(
     if comparison.get(
         "is_comparison"
     ):
+
         return max(
             base_confidence,
             0.82,
@@ -790,15 +1180,19 @@ def _resolve_confidence(
         "love_vs_arranged",
         "spouse_meeting",
         "spouse_traits",
+        "spouse_profession",
         "love_marriage",
         "arranged_marriage",
     ):
+
         return max(
             base_confidence,
             0.82,
         )
 
-    return base_confidence
+    return (
+        base_confidence
+    )
 
 
 # =========================================================
@@ -814,19 +1208,30 @@ def _resolve_query_mode(
     if follow_up.get(
         "is_follow_up"
     ):
-        return "follow_up"
+
+        return (
+            "follow_up"
+        )
 
     if comparison.get(
         "is_comparison"
     ):
-        return "comparison"
+
+        return (
+            "comparison"
+        )
 
     if len(
         detected_events
     ) > 1:
-        return "multi_event"
 
-    return "single_event"
+        return (
+            "multi_event"
+        )
+
+    return (
+        "single_event"
+    )
 
 
 # =========================================================
@@ -847,9 +1252,14 @@ def _resolve_complexity(
         )
         or event_count > 1
     ):
-        return "enhanced"
 
-    return "standard"
+        return (
+            "enhanced"
+        )
+
+    return (
+        "standard"
+    )
 
 
 # =========================================================
@@ -864,6 +1274,7 @@ def analyze_marriage_question_v3(
         question,
         str,
     ):
+
         raise ValueError(
             "question must be a string."
         )
@@ -996,36 +1407,79 @@ def analyze_marriage_question_v3(
     result.update(
         {
             "available": True,
-            "original_question": question,
-            "normalised_question": normalised,
-            "query_mode": query_mode,
-            "complexity": complexity,
-            "primary_event": primary_event,
+
+            "original_question": (
+                question
+            ),
+
+            "normalised_question": (
+                normalised
+            ),
+
+            "query_mode": (
+                query_mode
+            ),
+
+            "complexity": (
+                complexity
+            ),
+
+            "primary_event": (
+                primary_event
+            ),
+
             "primary_event_label": (
                 primary_event_label
             ),
+
             "detected_events": (
                 detected_events
             ),
-            "event_count": event_count,
+
+            "event_count": (
+                event_count
+            ),
+
             "is_multi_event": (
                 event_count > 1
             ),
-            "comparison": comparison,
-            "follow_up": follow_up,
+
+            "comparison": (
+                comparison
+            ),
+
+            "follow_up": (
+                follow_up
+            ),
+
             "intent": {
-                "domain": "marriage",
-                "event": primary_event,
+                "domain": (
+                    "marriage"
+                ),
+
+                "event": (
+                    primary_event
+                ),
+
                 "event_label": (
                     primary_event_label
                 ),
+
                 "question_type": (
                     question_type
                 ),
-                "direction": direction,
-                "confidence": confidence,
+
+                "direction": (
+                    direction
+                ),
+
+                "confidence": (
+                    confidence
+                ),
             },
         }
     )
 
-    return result
+    return (
+        result
+    )
