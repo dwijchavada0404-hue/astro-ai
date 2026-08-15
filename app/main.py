@@ -111,11 +111,14 @@ from app.astrology.features.career_forecast_narrative import (
 )
 
 # ---------------------------------------------------------
-# CAREER QUESTION MODULE
+# CAREER QUESTION MODULES
 # ---------------------------------------------------------
 
 from app.astrology.features.career_question_parser import (
     parse_career_question,
+)
+from app.astrology.features.career_answer_intelligence import (
+    generate_career_question_answer,
 )
 
 
@@ -150,16 +153,6 @@ class CareerQuestionRequest(BaseModel):
 
     reference_moment establishes what "now",
     "next 6 months", "next year", etc. mean.
-
-    Example:
-
-        {
-            "birth": {...},
-            "question":
-                "Will I change my job in the next 6 months?",
-            "reference_moment":
-                "2026-08-15T12:00:00+05:30"
-        }
     """
 
     birth: BirthInput
@@ -240,13 +233,12 @@ def _add_months(
     months: int,
 ) -> datetime:
     """
-    Add calendar months without requiring an
-    additional external dependency.
+    Add calendar months safely.
 
     Example:
 
         2026-08-31 + 1 month
-            ->
+        ->
         2026-09-30
     """
 
@@ -369,9 +361,7 @@ def _build_question_date_range(
             step_days,
         )
 
-    if horizon_type == (
-        "calendar_year"
-    ):
+    if horizon_type == "calendar_year":
 
         year = int(
             horizon.get(
@@ -613,7 +603,7 @@ def _chart_for_requested_moment(
 
 
 # =========================================================
-# CAREER QUESTION ANSWER HELPERS
+# CAREER QUESTION CONTEXT HELPER
 # =========================================================
 
 def _question_event_data(
@@ -631,426 +621,6 @@ def _question_event_data(
             event_name
         )
     )
-
-
-def _build_specific_event_answer(
-    parsed_question: dict[str, Any],
-    forecast: dict[str, Any],
-) -> dict[str, Any]:
-    """
-    Convert the broad forecast into an answer
-    specifically targeted to the user's question.
-
-    This layer does not create new astrology scores.
-    """
-
-    intent = _safe_dict(
-        parsed_question.get(
-            "intent"
-        )
-    )
-
-    event_name = str(
-        intent.get(
-            "event",
-            "general_career",
-        )
-    )
-
-    event_label = str(
-        intent.get(
-            "event_label",
-            event_name,
-        )
-    )
-
-    question_type = str(
-        intent.get(
-            "question_type",
-            "general_outlook",
-        )
-    )
-
-    direction = str(
-        intent.get(
-            "direction",
-            "neutral",
-        )
-    )
-
-    # -----------------------------------------------------
-    # GENERAL CAREER QUESTION
-    # -----------------------------------------------------
-
-    if event_name == "general_career":
-
-        overall = _safe_dict(
-            forecast.get(
-                "overall"
-            )
-        )
-
-        return {
-            "event": (
-                event_name
-            ),
-            "event_label": (
-                event_label
-            ),
-            "question_type": (
-                question_type
-            ),
-            "direction": (
-                direction
-            ),
-            "outcome": (
-                overall.get(
-                    "outlook"
-                )
-            ),
-            "confidence": (
-                overall.get(
-                    "confidence"
-                )
-            ),
-            "answer": (
-                overall.get(
-                    "summary",
-                    (
-                        "No clear general career forecast "
-                        "was available for the requested period."
-                    ),
-                )
-            ),
-            "window": {},
-        }
-
-    event_data = (
-        _question_event_data(
-            forecast,
-            event_name,
-        )
-    )
-
-    available = bool(
-        event_data.get(
-            "available"
-        )
-    )
-
-    window = _safe_dict(
-        event_data.get(
-            "window"
-        )
-    )
-
-    strength = str(
-        event_data.get(
-            "outlook",
-            "no_strong_window",
-        )
-    )
-
-    confidence = (
-        event_data.get(
-            "confidence"
-        )
-    )
-
-    start = window.get(
-        "start"
-    )
-
-    end = window.get(
-        "end"
-    )
-
-    peak_date = window.get(
-        "peak_date"
-    )
-
-    period = window.get(
-        "period"
-    )
-
-    # -----------------------------------------------------
-    # NO STRONG WINDOW
-    # -----------------------------------------------------
-
-    if not available:
-
-        if question_type == "timing":
-
-            answer = (
-                f"No sufficiently strong {event_label.lower()} "
-                "window was identified in the requested period."
-            )
-
-        elif direction == "increase":
-
-            answer = (
-                f"The forecast does not identify a sufficiently "
-                f"strong increase in {event_label.lower()} "
-                "during the requested period."
-            )
-
-        elif direction == "decrease":
-
-            answer = (
-                f"The forecast does not identify a sufficiently "
-                f"clear decrease in {event_label.lower()} "
-                "during the requested period."
-            )
-
-        else:
-
-            answer = (
-                f"No sufficiently strong {event_label.lower()} "
-                "signal was identified in the requested period."
-            )
-
-        return {
-            "event": (
-                event_name
-            ),
-            "event_label": (
-                event_label
-            ),
-            "question_type": (
-                question_type
-            ),
-            "direction": (
-                direction
-            ),
-            "outcome": (
-                "no_strong_window"
-            ),
-            "confidence": (
-                confidence
-            ),
-            "answer": (
-                answer
-            ),
-            "window": {},
-        }
-
-    # -----------------------------------------------------
-    # CAREER PRESSURE + DECREASE QUESTION
-    # -----------------------------------------------------
-
-    if (
-        event_name
-        == "career_pressure_challenge"
-        and direction == "decrease"
-    ):
-
-        answer = (
-            f"A reduction in work pressure is not strongly "
-            f"supported at the beginning of the forecast period. "
-            f"Instead, a {strength.replace('_', ' ')} "
-            f"career-pressure phase is identified from {start} "
-            f"to {end}, with the strongest pressure around "
-            f"{peak_date}. After this identified window ends, "
-            "the specific elevated-pressure signal weakens "
-            "within the scanned period."
-        )
-
-        return {
-            "event": (
-                event_name
-            ),
-            "event_label": (
-                event_label
-            ),
-            "question_type": (
-                question_type
-            ),
-            "direction": (
-                direction
-            ),
-            "outcome": (
-                "decrease_after_pressure_window"
-            ),
-            "confidence": (
-                confidence
-            ),
-            "answer": (
-                answer
-            ),
-            "window": (
-                window
-            ),
-        }
-
-    # -----------------------------------------------------
-    # TIMING QUESTION
-    # -----------------------------------------------------
-
-    if question_type == "timing":
-
-        answer = (
-            f"The strongest {event_label.lower()} window "
-            f"is identified from {start} to {end}, "
-            f"with peak activation around {peak_date}."
-        )
-
-        if period:
-            answer += (
-                f" The peak falls during the "
-                f"{period} period."
-            )
-
-        return {
-            "event": (
-                event_name
-            ),
-            "event_label": (
-                event_label
-            ),
-            "question_type": (
-                question_type
-            ),
-            "direction": (
-                direction
-            ),
-            "outcome": (
-                strength
-            ),
-            "confidence": (
-                confidence
-            ),
-            "answer": (
-                answer
-            ),
-            "window": (
-                window
-            ),
-        }
-
-    # -----------------------------------------------------
-    # JOB CHANGE
-    # -----------------------------------------------------
-
-    if event_name == "job_change":
-
-        answer = (
-            f"The forecast shows a "
-            f"{strength.replace('_', ' ')} "
-            f"job-change or professional-transition signal. "
-            f"The main window runs from {start} to {end}, "
-            f"with the strongest activation around {peak_date}."
-        )
-
-    # -----------------------------------------------------
-    # PROMOTION
-    # -----------------------------------------------------
-
-    elif event_name == (
-        "promotion_recognition"
-    ):
-
-        answer = (
-            f"The forecast shows a "
-            f"{strength.replace('_', ' ')} "
-            f"promotion or professional-recognition signal. "
-            f"The identified window runs from {start} to {end}, "
-            f"with peak activation around {peak_date}."
-        )
-
-    # -----------------------------------------------------
-    # INCOME
-    # -----------------------------------------------------
-
-    elif event_name == "income_gains":
-
-        answer = (
-            f"The forecast shows a "
-            f"{strength.replace('_', ' ')} "
-            f"income or professional-gains signal. "
-            f"The identified window runs from {start} to {end}, "
-            f"with peak activation around {peak_date}."
-        )
-
-    # -----------------------------------------------------
-    # FOREIGN
-    # -----------------------------------------------------
-
-    elif event_name == (
-        "foreign_international_opportunity"
-    ):
-
-        answer = (
-            f"The forecast shows a "
-            f"{strength.replace('_', ' ')} "
-            f"foreign or international-career theme. "
-            f"The identified window runs from {start} to {end}, "
-            f"with peak activation around {peak_date}."
-        )
-
-        confirmation = window.get(
-            "confirmation"
-        )
-
-        if confirmation == "dasha_only":
-            answer += (
-                " The Dasha supports the theme, but "
-                "event-specific transits do not yet provide "
-                "strong confirmation."
-            )
-
-    # -----------------------------------------------------
-    # PRESSURE
-    # -----------------------------------------------------
-
-    elif event_name == (
-        "career_pressure_challenge"
-    ):
-
-        answer = (
-            f"The forecast shows a "
-            f"{strength.replace('_', ' ')} "
-            f"career-pressure phase from {start} to {end}, "
-            f"with the strongest activation around {peak_date}."
-        )
-
-    else:
-
-        answer = (
-            event_data.get(
-                "summary",
-                (
-                    "A relevant career signal was identified "
-                    "within the requested period."
-                ),
-            )
-        )
-
-    return {
-        "event": (
-            event_name
-        ),
-        "event_label": (
-            event_label
-        ),
-        "question_type": (
-            question_type
-        ),
-        "direction": (
-            direction
-        ),
-        "outcome": (
-            strength
-        ),
-        "confidence": (
-            confidence
-        ),
-        "answer": (
-            answer
-        ),
-        "window": (
-            window
-        ),
-    }
 
 
 # =========================================================
@@ -1862,37 +1432,19 @@ def answer_career_question(
 
         question
             ->
-        deterministic intent parser
+        deterministic parser
             ->
-        event + question type + direction
+        event + direction + horizon
             ->
-        forecast horizon
+        forecast scan
             ->
-        Dasha × transit forecast scan
+        forecast windows
             ->
-        practical event windows
+        career forecast narrative
             ->
-        user-facing forecast
+        Career Answer Intelligence
             ->
-        event-specific answer
-
-    Example:
-
-        "Will I change my job in the next 6 months?"
-
-    becomes approximately:
-
-        event:
-            job_change
-
-        direction:
-            change
-
-        forecast:
-            6 months
-
-        resolution:
-            7 days
+        contextual user-facing answer
     """
 
     try:
@@ -1921,7 +1473,7 @@ def answer_career_question(
         )
 
         # -------------------------------------------------
-        # BUILD FORECAST RANGE
+        # RESOLVE FORECAST RANGE
         # -------------------------------------------------
 
         (
@@ -1937,6 +1489,18 @@ def answer_career_question(
             raise ValueError(
                 "Resolved career-question forecast "
                 "end must be later than start."
+            )
+
+        if step_days < 1:
+            raise ValueError(
+                "Resolved career-question step_days "
+                "must be at least 1."
+            )
+
+        if step_days > 31:
+            raise ValueError(
+                "Resolved career-question step_days "
+                "must not exceed 31."
             )
 
         forecast_span_days = (
@@ -1958,7 +1522,7 @@ def answer_career_question(
         )
 
         # -------------------------------------------------
-        # SCAN FORECAST
+        # SCAN FORECAST PERIOD
         # -------------------------------------------------
 
         scan = scan_career_forecast(
@@ -1969,7 +1533,7 @@ def answer_career_question(
         )
 
         # -------------------------------------------------
-        # BUILD WINDOWS
+        # BUILD FORECAST WINDOWS
         # -------------------------------------------------
 
         windows = (
@@ -1989,13 +1553,30 @@ def answer_career_question(
         )
 
         # -------------------------------------------------
-        # ANSWER THE SPECIFIC QUESTION
+        # CAREER ANSWER INTELLIGENCE
         # -------------------------------------------------
 
         answer = (
-            _build_specific_event_answer(
+            generate_career_question_answer(
                 parsed_question,
                 forecast,
+            )
+        )
+
+        # -------------------------------------------------
+        # RESOLVE TARGET EVENT
+        # -------------------------------------------------
+
+        intent = _safe_dict(
+            parsed_question.get(
+                "intent"
+            )
+        )
+
+        target_event = str(
+            intent.get(
+                "event",
+                "general_career",
             )
         )
 
@@ -2047,16 +1628,7 @@ def answer_career_question(
                 "target_event": (
                     _question_event_data(
                         forecast,
-                        str(
-                            _safe_dict(
-                                parsed_question.get(
-                                    "intent"
-                                )
-                            ).get(
-                                "event",
-                                "general_career",
-                            )
-                        ),
+                        target_event,
                     )
                 ),
             },
