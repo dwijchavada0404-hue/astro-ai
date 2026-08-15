@@ -19,6 +19,10 @@ from app.astrology.features.marriage_love_arranged_reasoning_v2 import (
     analyze_love_vs_arranged_marriage_v2,
 )
 
+from app.astrology.features.spouse_traits_reasoning_v2 import (
+    analyze_spouse_traits_v2,
+)
+
 
 # =========================================================
 # EVENT LABELS
@@ -540,6 +544,161 @@ def _route_standard_single_event(
 
 
 # =========================================================
+# SPOUSE TRAITS ROUTE
+# =========================================================
+
+def _route_spouse_traits(
+    chart: dict[str, Any],
+    question_analysis: dict[str, Any],
+    reference_moment: datetime,
+) -> dict[str, Any]:
+
+    intent = _safe_dict(
+        question_analysis.get(
+            "intent"
+        )
+    )
+
+    analysis = (
+        analyze_spouse_traits_v2(
+            chart
+        )
+    )
+
+    if not analysis.get(
+        "available"
+    ):
+
+        return {
+            "available": False,
+            "route": "natal_evidence",
+            "event": "spouse_traits",
+            "event_label": (
+                EVENT_LABELS[
+                    "spouse_traits"
+                ]
+            ),
+            "question_type": (
+                intent.get(
+                    "question_type"
+                )
+            ),
+            "direction": (
+                intent.get(
+                    "direction"
+                )
+            ),
+            "parser_confidence": (
+                intent.get(
+                    "confidence"
+                )
+            ),
+            "reference_moment": (
+                reference_moment.isoformat()
+            ),
+            "evidence_engine": (
+                "spouse_traits_reasoning_v2"
+            ),
+            "forecast_type": (
+                "natal_pattern"
+            ),
+            "reason": (
+                analysis.get(
+                    "reason"
+                )
+            ),
+        }
+
+    return {
+        "available": True,
+        "route": "natal_evidence",
+        "event": "spouse_traits",
+        "event_label": (
+            EVENT_LABELS[
+                "spouse_traits"
+            ]
+        ),
+        "question_type": (
+            intent.get(
+                "question_type"
+            )
+        ),
+        "direction": (
+            intent.get(
+                "direction"
+            )
+        ),
+        "parser_confidence": (
+            intent.get(
+                "confidence"
+            )
+        ),
+        "reference_moment": (
+            reference_moment.isoformat()
+        ),
+        "evidence_engine": (
+            "spouse_traits_reasoning_v2"
+        ),
+        "forecast_type": (
+            "natal_pattern"
+        ),
+        "model_version": (
+            analysis.get(
+                "model_version"
+            )
+        ),
+        "confidence": (
+            analysis.get(
+                "confidence"
+            )
+        ),
+        "answer": (
+            analysis.get(
+                "summary"
+            )
+        ),
+        "summary": (
+            analysis.get(
+                "summary"
+            )
+        ),
+        "profile": (
+            analysis.get(
+                "profile",
+                {},
+            )
+        ),
+        "confidence_by_dimension": (
+            analysis.get(
+                "confidence_by_dimension",
+                {},
+            )
+        ),
+        "blended_traits": (
+            analysis.get(
+                "blended_traits",
+                [],
+            )
+        ),
+        "chart_context": (
+            analysis.get(
+                "chart_context",
+                {},
+            )
+        ),
+        "evidence": (
+            analysis.get(
+                "evidence",
+                [],
+            )
+        ),
+        "analysis": (
+            analysis
+        ),
+    }
+
+
+# =========================================================
 # LOVE / ARRANGED ROUTE
 # =========================================================
 
@@ -688,128 +847,92 @@ def _route_love_arranged(
 
     return {
         "available": True,
-
-        "route": (
-            "natal_evidence"
-        ),
-
-        "event": (
-            event_name
-        ),
-
+        "route": "natal_evidence",
+        "event": event_name,
         "event_label": (
             EVENT_LABELS.get(
                 event_name,
                 event_name,
             )
         ),
-
         "question_type": (
             intent.get(
                 "question_type"
             )
         ),
-
         "direction": (
             intent.get(
                 "direction"
             )
         ),
-
         "parser_confidence": (
             intent.get(
                 "confidence"
             )
         ),
-
         "reference_moment": (
             reference_moment.isoformat()
         ),
-
         "evidence_engine": (
             "marriage_love_arranged_reasoning_v2"
         ),
-
         "forecast_type": (
             "natal_pattern"
         ),
-
-        "outcome": (
-            outcome
-        ),
-
+        "outcome": outcome,
         "label": (
             analysis.get(
                 "label"
             )
         ),
-
         "confidence": (
             analysis.get(
                 "confidence"
             )
         ),
-
         "probability_level": (
             probability_level
         ),
-
         "probability_score": round(
             probability_score,
             3,
         ),
-
-        "answer": (
-            answer
-        ),
-
-        "scores": (
-            scores
-        ),
-
+        "answer": answer,
+        "scores": scores,
         "love_probability": (
             love_probability
         ),
-
         "arranged_probability": (
             arranged_probability
         ),
-
         "relevant_indicators": (
             relevant_indicators
         ),
-
         "love_indicators": (
             analysis.get(
                 "love_indicators",
                 [],
             )
         ),
-
         "arranged_indicators": (
             analysis.get(
                 "arranged_indicators",
                 [],
             )
         ),
-
         "general_indicators": (
             analysis.get(
                 "general_indicators",
                 [],
             )
         ),
-
         "chart_context": (
             analysis.get(
                 "chart_context",
                 {},
             )
         ),
-
-        "analysis": (
-            analysis
-        ),
+        "analysis": analysis,
     }
 
 
@@ -1508,6 +1631,18 @@ def _route_follow_up(
             )
         )
 
+    elif inherited_event == (
+        "spouse_traits"
+    ):
+
+        result = (
+            _route_spouse_traits(
+                chart,
+                inherited_analysis,
+                reference_moment,
+            )
+        )
+
     elif inherited_event in (
         "love_vs_arranged",
         "love_marriage",
@@ -1723,6 +1858,20 @@ def route_marriage_question_v3(
 
         return (
             _route_spouse_meeting(
+                chart,
+                question_analysis,
+                reference_moment,
+            )
+        )
+
+    if (
+        query_mode == "single_event"
+        and event_name
+        == "spouse_traits"
+    ):
+
+        return (
+            _route_spouse_traits(
                 chart,
                 question_analysis,
                 reference_moment,

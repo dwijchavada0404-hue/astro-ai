@@ -185,6 +185,10 @@ def _detect_special_events(
 
     detected = []
 
+    # -----------------------------------------------------
+    # SPOUSE MEETING
+    # -----------------------------------------------------
+
     spouse_meeting_keywords = (
         "meet my future spouse",
         "meet future spouse",
@@ -214,6 +218,64 @@ def _detect_special_events(
                 "matched_keywords": matched,
             }
         )
+
+    # -----------------------------------------------------
+    # SPOUSE TRAITS / PROFILE
+    # -----------------------------------------------------
+
+    spouse_traits_keywords = (
+        "what will my future spouse be like",
+        "what will my spouse be like",
+        "what will my partner be like",
+        "what kind of person will i marry",
+        "what kind of person will i end up marrying",
+        "what kind of personality will my spouse have",
+        "what personality will my spouse have",
+        "what kind of personality will my partner have",
+        "describe my future spouse",
+        "describe my spouse",
+        "describe my future partner",
+        "future spouse personality",
+        "spouse personality",
+        "partner personality",
+        "future spouse traits",
+        "spouse traits",
+        "partner traits",
+        "nature of my spouse",
+        "nature of future spouse",
+        "character of my spouse",
+        "character of future spouse",
+        "how will my spouse be",
+        "how will my future spouse be",
+        "who will i marry",
+        "what type of person will i marry",
+        "what type of spouse will i have",
+        "what kind of spouse will i have",
+    )
+
+    matched = [
+        keyword
+        for keyword in spouse_traits_keywords
+        if keyword in question
+    ]
+
+    if matched:
+
+        detected.append(
+            {
+                "event": "spouse_traits",
+                "event_label": (
+                    EVENT_LABELS[
+                        "spouse_traits"
+                    ]
+                ),
+                "matched_keywords": matched,
+            }
+        )
+
+    # -----------------------------------------------------
+    # LOVE VS ARRANGED
+    # -----------------------------------------------------
 
     love_arranged_keywords = (
         "love marriage or arranged marriage",
@@ -245,6 +307,10 @@ def _detect_special_events(
 
         return detected
 
+    # -----------------------------------------------------
+    # LOVE MARRIAGE
+    # -----------------------------------------------------
+
     love_keywords = (
         "love marriage",
         "marry someone i love",
@@ -272,6 +338,10 @@ def _detect_special_events(
                 "matched_keywords": matched,
             }
         )
+
+    # -----------------------------------------------------
+    # ARRANGED MARRIAGE
+    # -----------------------------------------------------
 
     arranged_keywords = (
         "arranged marriage",
@@ -342,11 +412,27 @@ def _clean_base_events(
             )
         )
 
+        # Spouse-meeting questions should not also become
+        # spouse-traits questions merely because the phrase
+        # "future spouse" is present.
         if (
             "spouse_meeting"
             in special_names
             and event_name
             == "spouse_traits"
+        ):
+            continue
+
+        # Explicit spouse-profile questions override generic
+        # marriage-timing matches such as "will I marry".
+        if (
+            "spouse_traits"
+            in special_names
+            and event_name
+            in (
+                "marriage_timing",
+                "general_marriage",
+            )
         ):
             continue
 
@@ -514,6 +600,7 @@ def _resolve_primary_event(
     priority = (
         "love_vs_arranged",
         "spouse_meeting",
+        "spouse_traits",
         "love_marriage",
         "arranged_marriage",
         "foreign_intercultural_connection",
@@ -521,7 +608,6 @@ def _resolve_primary_event(
         "relationship_stability",
         "relationship_commitment",
         "marriage_timing",
-        "spouse_traits",
     )
 
     for event_name in priority:
@@ -642,6 +728,12 @@ def _resolve_direction(
     ):
         return "occurrence"
 
+    if primary_event in (
+        "spouse_traits",
+        "love_vs_arranged",
+    ):
+        return "neutral"
+
     if (
         primary_event
         == "relationship_stability"
@@ -697,6 +789,7 @@ def _resolve_confidence(
     if primary_event in (
         "love_vs_arranged",
         "spouse_meeting",
+        "spouse_traits",
         "love_marriage",
         "arranged_marriage",
     ):
