@@ -117,8 +117,8 @@ from app.astrology.features.career_forecast_narrative import (
 from app.astrology.features.career_question_parser import (
     parse_career_question,
 )
-from app.astrology.features.career_answer_intelligence import (
-    generate_career_question_answer,
+from app.astrology.features.career_answer_intelligence_v2 import (
+    generate_career_question_answer_v2,
 )
 
 
@@ -1442,7 +1442,9 @@ def answer_career_question(
             ->
         career forecast narrative
             ->
-        Career Answer Intelligence
+        Career Answer Intelligence V2
+            ->
+        probability classification
             ->
         contextual user-facing answer
     """
@@ -1553,11 +1555,11 @@ def answer_career_question(
         )
 
         # -------------------------------------------------
-        # CAREER ANSWER INTELLIGENCE
+        # CAREER ANSWER INTELLIGENCE V2
         # -------------------------------------------------
 
         answer = (
-            generate_career_question_answer(
+            generate_career_question_answer_v2(
                 parsed_question,
                 forecast,
             )
