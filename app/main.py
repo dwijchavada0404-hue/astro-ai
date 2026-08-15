@@ -95,6 +95,20 @@ from app.astrology.features.career_dasha_transit_synthesis import (
     synthesize_career_dasha_transits,
 )
 
+# ---------------------------------------------------------
+# CAREER FORECAST MODULES
+# ---------------------------------------------------------
+
+from app.astrology.features.career_forecast_scanner import (
+    scan_career_forecast,
+)
+from app.astrology.features.career_forecast_windows import (
+    build_career_forecast_windows,
+)
+from app.astrology.features.career_forecast_narrative import (
+    generate_career_forecast_narrative,
+)
+
 
 # =========================================================
 # API REQUEST MODELS
@@ -113,17 +127,35 @@ class CareerTransitRequest(BaseModel):
     transit_moment: datetime
 
 
+class CareerForecastRequest(BaseModel):
+    """
+    Request body for a career forecast across
+    an explicitly supplied date range.
+
+    Example:
+        start = 2026-08-15T12:00:00+05:30
+        end = 2027-02-15T12:00:00+05:30
+        step_days = 7
+    """
+
+    birth: BirthInput
+    start: datetime
+    end: datetime
+    step_days: int = 7
+
+
 # =========================================================
 # APP
 # =========================================================
 
 app = FastAPI(
     title="Astro AI - Milestone 1",
-    version="0.5.0",
+    version="0.6.0",
     description=(
         "Vedic astrology birth-chart calculation, "
-        "marriage analysis, career analysis and "
-        "Dasha-transit career timing API."
+        "marriage analysis, career analysis, "
+        "Dasha-transit career timing and "
+        "career forecast API."
     ),
 )
 
@@ -137,8 +169,30 @@ def health():
     return {
         "status": "ok",
         "service": "astro-ai",
-        "version": "0.5.0",
+        "version": "0.6.0",
     }
+
+
+# =========================================================
+# DATETIME VALIDATION
+# =========================================================
+
+def _require_timezone(
+    value: datetime,
+    field_name: str,
+) -> None:
+    """
+    Ensure an API datetime includes an explicit
+    timezone or UTC offset.
+    """
+
+    if (
+        value.tzinfo is None
+        or value.utcoffset() is None
+    ):
+        raise ValueError(
+            f"{field_name} must include a timezone offset."
+        )
 
 
 # =========================================================
@@ -153,15 +207,15 @@ def _find_dasha_period_for_moment(
     Find the Vimshottari Mahadasha/Antardasha containing
     an explicitly requested transit moment.
 
-    We do this here so transit analysis uses the Dasha
-    active on the transit date instead of relying on the
-    chart's system-current period.
+    Transit analysis therefore uses the Dasha active on
+    the requested date instead of relying on the
+    system-current date.
     """
 
-    if moment.tzinfo is None:
-        raise ValueError(
-            "transit_moment must include a timezone offset."
-        )
+    _require_timezone(
+        moment,
+        "transit_moment",
+    )
 
     mahadashas = dashas.get(
         "mahadashas",
@@ -185,6 +239,7 @@ def _find_dasha_period_for_moment(
         md_start_raw = md.get(
             "start"
         )
+
         md_end_raw = md.get(
             "end"
         )
@@ -238,6 +293,7 @@ def _find_dasha_period_for_moment(
             ad_start_raw = ad.get(
                 "start"
             )
+
             ad_end_raw = ad.get(
                 "end"
             )
@@ -254,16 +310,12 @@ def _find_dasha_period_for_moment(
             ):
                 continue
 
-            ad_start = (
-                datetime.fromisoformat(
-                    ad_start_raw
-                )
+            ad_start = datetime.fromisoformat(
+                ad_start_raw
             )
 
-            ad_end = (
-                datetime.fromisoformat(
-                    ad_end_raw
-                )
+            ad_end = datetime.fromisoformat(
+                ad_end_raw
             )
 
             if (
@@ -359,17 +411,20 @@ def create_chart(
     payload: BirthInput,
 ):
     try:
+
         return build_chart(
             payload
         )
 
     except ValueError as exc:
+
         raise HTTPException(
             status_code=400,
             detail=str(exc),
         ) from exc
 
     except Exception as exc:
+
         raise HTTPException(
             status_code=500,
             detail=(
@@ -382,11 +437,14 @@ def create_chart(
 # GENERAL PREDICTIONS
 # =========================================================
 
-@app.post("/api/v1/predictions")
+@app.post(
+    "/api/v1/predictions"
+)
 def create_predictions(
     payload: BirthInput,
 ):
     try:
+
         chart = build_chart(
             payload
         )
@@ -402,16 +460,20 @@ def create_predictions(
                 "birth",
                 {},
             ),
-            "predictions": predictions,
+            "predictions": (
+                predictions
+            ),
         }
 
     except ValueError as exc:
+
         raise HTTPException(
             status_code=400,
             detail=str(exc),
         ) from exc
 
     except Exception as exc:
+
         raise HTTPException(
             status_code=500,
             detail=(
@@ -494,8 +556,12 @@ def _build_marriage_package(
     )
 
     return {
-        "chart": chart,
-        "reading": reading,
+        "chart": (
+            chart
+        ),
+        "reading": (
+            reading
+        ),
         "predictions": (
             marriage_predictions
         ),
@@ -524,7 +590,9 @@ def _build_marriage_package(
 # MARRIAGE ANALYSIS
 # =========================================================
 
-@app.post("/api/v1/marriage")
+@app.post(
+    "/api/v1/marriage"
+)
 def create_marriage_analysis(
     payload: BirthInput,
 ):
@@ -555,10 +623,14 @@ def create_marriage_analysis(
             ),
             "marriage": {
                 "reading": (
-                    result["reading"]
+                    result[
+                        "reading"
+                    ]
                 ),
                 "predictions": (
-                    result["predictions"]
+                    result[
+                        "predictions"
+                    ]
                 ),
                 "seventh_house_analysis": (
                     result[
@@ -607,12 +679,14 @@ def create_marriage_analysis(
         }
 
     except ValueError as exc:
+
         raise HTTPException(
             status_code=400,
             detail=str(exc),
         ) from exc
 
     except Exception as exc:
+
         raise HTTPException(
             status_code=500,
             detail=(
@@ -649,17 +723,21 @@ def create_marriage_reading(
                 {},
             ),
             "reading": (
-                result["reading"]
+                result[
+                    "reading"
+                ]
             ),
         }
 
     except ValueError as exc:
+
         raise HTTPException(
             status_code=400,
             detail=str(exc),
         ) from exc
 
     except Exception as exc:
+
         raise HTTPException(
             status_code=500,
             detail=(
@@ -672,7 +750,9 @@ def create_marriage_reading(
 # CAREER ANALYSIS
 # =========================================================
 
-@app.post("/api/v1/career")
+@app.post(
+    "/api/v1/career"
+)
 def create_career_analysis(
     payload: BirthInput,
 ):
@@ -681,6 +761,10 @@ def create_career_analysis(
         chart = build_chart(
             payload
         )
+
+        # -------------------------------------------------
+        # CORE CAREER REASONING
+        # -------------------------------------------------
 
         career_reasoning = (
             analyze_tenth_house(
@@ -708,11 +792,19 @@ def create_career_analysis(
             )
         )
 
+        # -------------------------------------------------
+        # CURRENT DASHA
+        # -------------------------------------------------
+
         current_dasha = (
             analyze_current_dasha_for_career(
                 chart
             )
         )
+
+        # -------------------------------------------------
+        # GENERAL CAREER TIMING
+        # -------------------------------------------------
 
         career_timing = (
             analyze_career_timing(
@@ -727,6 +819,10 @@ def create_career_analysis(
             )
         )
 
+        # -------------------------------------------------
+        # CAREER NARRATIVE
+        # -------------------------------------------------
+
         reading = (
             generate_career_narrative(
                 career_reasoning,
@@ -739,11 +835,19 @@ def create_career_analysis(
             )
         )
 
+        # -------------------------------------------------
+        # NATAL CAREER EVENTS
+        # -------------------------------------------------
+
         career_events = (
             analyze_career_events(
                 chart
             )
         )
+
+        # -------------------------------------------------
+        # CAREER EVENT TIMING
+        # -------------------------------------------------
 
         career_event_timing = (
             analyze_career_event_timing(
@@ -757,6 +861,10 @@ def create_career_analysis(
                 current_dasha,
             )
         )
+
+        # -------------------------------------------------
+        # FINAL RESPONSE
+        # -------------------------------------------------
 
         return {
             "birth": chart.get(
@@ -819,12 +927,14 @@ def create_career_analysis(
         }
 
     except ValueError as exc:
+
         raise HTTPException(
             status_code=400,
             detail=str(exc),
         ) from exc
 
     except Exception as exc:
+
         raise HTTPException(
             status_code=500,
             detail=(
@@ -855,22 +965,18 @@ def create_career_transit_analysis(
             ->
         career-event Dasha analysis
             ->
-        Lahiri sidereal transits
+        sidereal transits
             ->
         transit-to-natal-house mapping
             ->
         career transit reasoning
             ->
-        Dasha × transit confirmation
+        Dasha × Transit confirmation
 
     The endpoint does not rely on the system clock.
     """
 
     try:
-
-        # -------------------------------------------------
-        # NATAL CHART
-        # -------------------------------------------------
 
         chart = build_chart(
             payload.birth
@@ -880,19 +986,13 @@ def create_career_transit_analysis(
             payload.transit_moment
         )
 
-        if (
-            transit_moment.tzinfo
-            is None
-            or transit_moment.utcoffset()
-            is None
-        ):
-            raise ValueError(
-                "transit_moment must include "
-                "a timezone offset."
-            )
+        _require_timezone(
+            transit_moment,
+            "transit_moment",
+        )
 
         # -------------------------------------------------
-        # ALIGN DASHA WITH REQUESTED TRANSIT DATE
+        # ALIGN DASHA WITH REQUESTED DATE
         # -------------------------------------------------
 
         dated_chart = (
@@ -957,10 +1057,6 @@ def create_career_transit_analysis(
             )
         )
 
-        # -------------------------------------------------
-        # FINAL RESPONSE
-        # -------------------------------------------------
-
         return {
             "birth": chart.get(
                 "birth",
@@ -998,16 +1094,213 @@ def create_career_transit_analysis(
         }
 
     except ValueError as exc:
+
         raise HTTPException(
             status_code=400,
             detail=str(exc),
         ) from exc
 
     except Exception as exc:
+
         raise HTTPException(
             status_code=500,
             detail=(
                 "Career transit analysis failed: "
+                f"{exc}"
+            ),
+        ) from exc
+
+
+# =========================================================
+# CAREER FORECAST
+# =========================================================
+
+@app.post(
+    "/api/v1/career-forecast"
+)
+def create_career_forecast(
+    payload: CareerForecastRequest,
+):
+    """
+    Generate a career forecast across a requested
+    date range.
+
+    Pipeline:
+
+        natal chart
+            ->
+        weekly or custom-resolution forecast scan
+            ->
+        Dasha × Transit event scoring
+            ->
+        nearby strong dates merged into windows
+            ->
+        user-facing forecast narrative
+
+    Example use cases:
+
+        next 3 months
+        next 6 months
+        next 12 months
+        a specific calendar year
+    """
+
+    try:
+
+        # -------------------------------------------------
+        # VALIDATE REQUEST
+        # -------------------------------------------------
+
+        start = payload.start
+        end = payload.end
+        step_days = payload.step_days
+
+        _require_timezone(
+            start,
+            "start",
+        )
+
+        _require_timezone(
+            end,
+            "end",
+        )
+
+        if end <= start:
+            raise ValueError(
+                "end must be later than start."
+            )
+
+        if step_days < 1:
+            raise ValueError(
+                "step_days must be at least 1."
+            )
+
+        if step_days > 31:
+            raise ValueError(
+                "step_days must not exceed 31."
+            )
+
+        forecast_span_days = (
+            end - start
+        ).days
+
+        if forecast_span_days > 3650:
+            raise ValueError(
+                "Career forecast range must not exceed "
+                "10 years."
+            )
+
+        # -------------------------------------------------
+        # BUILD NATAL CHART ONCE
+        # -------------------------------------------------
+
+        chart = build_chart(
+            payload.birth
+        )
+
+        # -------------------------------------------------
+        # SCAN FORECAST PERIOD
+        # -------------------------------------------------
+
+        scan = scan_career_forecast(
+            chart,
+            start,
+            end,
+            step_days=step_days,
+        )
+
+        # -------------------------------------------------
+        # MERGE STRONG DATES INTO WINDOWS
+        # -------------------------------------------------
+
+        windows = (
+            build_career_forecast_windows(
+                scan
+            )
+        )
+
+        # -------------------------------------------------
+        # GENERATE USER-FACING FORECAST
+        # -------------------------------------------------
+
+        forecast = (
+            generate_career_forecast_narrative(
+                windows
+            )
+        )
+
+        # -------------------------------------------------
+        # FINAL RESPONSE
+        # -------------------------------------------------
+
+        return {
+            "birth": chart.get(
+                "birth",
+                {},
+            ),
+
+            "request": {
+                "start": (
+                    start.isoformat()
+                ),
+                "end": (
+                    end.isoformat()
+                ),
+                "step_days": (
+                    step_days
+                ),
+            },
+
+            "forecast": (
+                forecast
+            ),
+
+            "windows": (
+                windows
+            ),
+
+            "scan_metadata": {
+                "available": (
+                    scan.get(
+                        "available"
+                    )
+                ),
+                "start": (
+                    scan.get(
+                        "start"
+                    )
+                ),
+                "end": (
+                    scan.get(
+                        "end"
+                    )
+                ),
+                "step_days": (
+                    scan.get(
+                        "step_days"
+                    )
+                ),
+                "snapshot_count": (
+                    scan.get(
+                        "snapshot_count"
+                    )
+                ),
+            },
+        }
+
+    except ValueError as exc:
+
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+
+    except Exception as exc:
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Career forecast generation failed: "
                 f"{exc}"
             ),
         ) from exc
