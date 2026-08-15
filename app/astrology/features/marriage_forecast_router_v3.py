@@ -15,6 +15,10 @@ from app.astrology.features.spouse_meeting_forecast_v2 import (
     scan_spouse_meeting_forecast_v2,
 )
 
+from app.astrology.features.marriage_love_arranged_reasoning_v2 import (
+    analyze_love_vs_arranged_marriage_v2,
+)
+
 
 # =========================================================
 # EVENT LABELS
@@ -249,43 +253,26 @@ def _resolve_spouse_meeting_request(
         or ""
     )
 
-    # -----------------------------------------------------
-    # OPEN-ENDED SPOUSE-MEETING TIMING
-    # -----------------------------------------------------
-
     if (
         question_type == "timing"
         and not explicit_horizon
     ):
 
         return {
-            "start": (
-                reference_moment
-            ),
-
+            "start": reference_moment,
             "end": (
                 reference_moment
                 + timedelta(
                     days=365 * 3,
                 )
             ),
-
-            "step_days": (
-                step_days
-            ),
-
+            "step_days": step_days,
             "range_type": (
                 "open_ended_spouse_meeting_36_months"
             ),
         }
 
-    # -----------------------------------------------------
-    # CALENDAR YEAR
-    # -----------------------------------------------------
-
-    if horizon_type == (
-        "calendar_year"
-    ):
+    if horizon_type == "calendar_year":
 
         year = int(
             horizon.get(
@@ -293,42 +280,32 @@ def _resolve_spouse_meeting_request(
             )
         )
 
-        start = datetime(
-            year,
-            1,
-            1,
-            0,
-            0,
-            0,
-            tzinfo=reference_moment.tzinfo,
-        )
-
-        end = datetime(
-            year,
-            12,
-            31,
-            23,
-            59,
-            59,
-            tzinfo=reference_moment.tzinfo,
-        )
-
         return {
-            "start": start,
-            "end": end,
+            "start": datetime(
+                year,
+                1,
+                1,
+                0,
+                0,
+                0,
+                tzinfo=reference_moment.tzinfo,
+            ),
+            "end": datetime(
+                year,
+                12,
+                31,
+                23,
+                59,
+                59,
+                tzinfo=reference_moment.tzinfo,
+            ),
             "step_days": step_days,
             "range_type": (
                 f"calendar_year_{year}"
             ),
         }
 
-    # -----------------------------------------------------
-    # MONTHS
-    # -----------------------------------------------------
-
-    if horizon_type == (
-        "months"
-    ):
+    if horizon_type == "months":
 
         months = int(
             horizon.get(
@@ -339,33 +316,20 @@ def _resolve_spouse_meeting_request(
         )
 
         return {
-            "start": (
-                reference_moment
-            ),
-
+            "start": reference_moment,
             "end": (
                 reference_moment
                 + timedelta(
                     days=months * 30.4375,
                 )
             ),
-
-            "step_days": (
-                step_days
-            ),
-
+            "step_days": step_days,
             "range_type": (
                 f"next_{months}_months"
             ),
         }
 
-    # -----------------------------------------------------
-    # YEARS
-    # -----------------------------------------------------
-
-    if horizon_type == (
-        "years"
-    ):
+    if horizon_type == "years":
 
         years = int(
             horizon.get(
@@ -376,46 +340,28 @@ def _resolve_spouse_meeting_request(
         )
 
         return {
-            "start": (
-                reference_moment
-            ),
-
+            "start": reference_moment,
             "end": (
                 reference_moment
                 + timedelta(
                     days=365 * years,
                 )
             ),
-
-            "step_days": (
-                step_days
-            ),
-
+            "step_days": step_days,
             "range_type": (
                 f"next_{years}_years"
             ),
         }
 
-    # -----------------------------------------------------
-    # FALLBACK
-    # -----------------------------------------------------
-
     return {
-        "start": (
-            reference_moment
-        ),
-
+        "start": reference_moment,
         "end": (
             reference_moment
             + timedelta(
                 days=365,
             )
         ),
-
-        "step_days": (
-            step_days
-        ),
-
+        "step_days": step_days,
         "range_type": (
             "default_12_months"
         ),
@@ -502,9 +448,7 @@ def _calendar_year_range(
     str,
 ]:
 
-    tzinfo = (
-        reference_moment.tzinfo
-    )
+    tzinfo = reference_moment.tzinfo
 
     year_start = datetime(
         year,
@@ -596,6 +540,280 @@ def _route_standard_single_event(
 
 
 # =========================================================
+# LOVE / ARRANGED ROUTE
+# =========================================================
+
+def _route_love_arranged(
+    chart: dict[str, Any],
+    question_analysis: dict[str, Any],
+    reference_moment: datetime,
+) -> dict[str, Any]:
+
+    event_name = str(
+        question_analysis.get(
+            "primary_event",
+            "love_vs_arranged",
+        )
+        or "love_vs_arranged"
+    )
+
+    intent = _safe_dict(
+        question_analysis.get(
+            "intent"
+        )
+    )
+
+    analysis = (
+        analyze_love_vs_arranged_marriage_v2(
+            chart
+        )
+    )
+
+    scores = _safe_dict(
+        analysis.get(
+            "scores"
+        )
+    )
+
+    love_probability = _safe_float(
+        scores.get(
+            "love_probability"
+        )
+    )
+
+    arranged_probability = _safe_float(
+        scores.get(
+            "arranged_probability"
+        )
+    )
+
+    outcome = str(
+        analysis.get(
+            "outcome",
+            "mixed_or_hybrid",
+        )
+    )
+
+    if event_name == (
+        "love_marriage"
+    ):
+
+        probability_score = (
+            love_probability
+        )
+
+        probability_level = (
+            "likely"
+            if probability_score >= 0.68
+            else (
+                "possible"
+                if probability_score >= 0.50
+                else "less_likely"
+            )
+        )
+
+        answer = (
+            "The natal evidence gives love/self-choice "
+            f"marriage a relative support score of "
+            f"{round(probability_score * 100, 1)}%. "
+            f"The overall pattern is classified as "
+            f"{analysis.get('label')}."
+        )
+
+        relevant_indicators = (
+            analysis.get(
+                "love_indicators",
+                [],
+            )
+        )
+
+    elif event_name == (
+        "arranged_marriage"
+    ):
+
+        probability_score = (
+            arranged_probability
+        )
+
+        probability_level = (
+            "likely"
+            if probability_score >= 0.68
+            else (
+                "possible"
+                if probability_score >= 0.50
+                else "less_likely"
+            )
+        )
+
+        answer = (
+            "The natal evidence gives arranged/family-mediated "
+            f"marriage a relative support score of "
+            f"{round(probability_score * 100, 1)}%. "
+            f"The overall pattern is classified as "
+            f"{analysis.get('label')}."
+        )
+
+        relevant_indicators = (
+            analysis.get(
+                "arranged_indicators",
+                [],
+            )
+        )
+
+    else:
+
+        probability_score = max(
+            love_probability,
+            arranged_probability,
+        )
+
+        probability_level = (
+            "mixed"
+            if outcome == "mixed_or_hybrid"
+            else "leaning"
+        )
+
+        answer = (
+            analysis.get(
+                "summary"
+            )
+        )
+
+        relevant_indicators = (
+            analysis.get(
+                "all_indicators",
+                [],
+            )
+        )
+
+    return {
+        "available": True,
+
+        "route": (
+            "natal_evidence"
+        ),
+
+        "event": (
+            event_name
+        ),
+
+        "event_label": (
+            EVENT_LABELS.get(
+                event_name,
+                event_name,
+            )
+        ),
+
+        "question_type": (
+            intent.get(
+                "question_type"
+            )
+        ),
+
+        "direction": (
+            intent.get(
+                "direction"
+            )
+        ),
+
+        "parser_confidence": (
+            intent.get(
+                "confidence"
+            )
+        ),
+
+        "reference_moment": (
+            reference_moment.isoformat()
+        ),
+
+        "evidence_engine": (
+            "marriage_love_arranged_reasoning_v2"
+        ),
+
+        "forecast_type": (
+            "natal_pattern"
+        ),
+
+        "outcome": (
+            outcome
+        ),
+
+        "label": (
+            analysis.get(
+                "label"
+            )
+        ),
+
+        "confidence": (
+            analysis.get(
+                "confidence"
+            )
+        ),
+
+        "probability_level": (
+            probability_level
+        ),
+
+        "probability_score": round(
+            probability_score,
+            3,
+        ),
+
+        "answer": (
+            answer
+        ),
+
+        "scores": (
+            scores
+        ),
+
+        "love_probability": (
+            love_probability
+        ),
+
+        "arranged_probability": (
+            arranged_probability
+        ),
+
+        "relevant_indicators": (
+            relevant_indicators
+        ),
+
+        "love_indicators": (
+            analysis.get(
+                "love_indicators",
+                [],
+            )
+        ),
+
+        "arranged_indicators": (
+            analysis.get(
+                "arranged_indicators",
+                [],
+            )
+        ),
+
+        "general_indicators": (
+            analysis.get(
+                "general_indicators",
+                [],
+            )
+        ),
+
+        "chart_context": (
+            analysis.get(
+                "chart_context",
+                {},
+            )
+        ),
+
+        "analysis": (
+            analysis
+        ),
+    }
+
+
+# =========================================================
 # SPOUSE MEETING PROBABILITY
 # =========================================================
 
@@ -630,18 +848,9 @@ def _spouse_meeting_probability(
     ):
 
         return {
-            "outcome": (
-                "very_strong"
-            ),
-
-            "probability_level": (
-                "likely"
-            ),
-
-            "probability_score": (
-                0.90
-            ),
-
+            "outcome": "very_strong",
+            "probability_level": "likely",
+            "probability_score": 0.90,
             "probability_language": (
                 "strongly supported"
             ),
@@ -650,18 +859,9 @@ def _spouse_meeting_probability(
     if peak_score >= 0.70:
 
         return {
-            "outcome": (
-                "strong"
-            ),
-
-            "probability_level": (
-                "likely"
-            ),
-
-            "probability_score": (
-                0.82
-            ),
-
+            "outcome": "strong",
+            "probability_level": "likely",
+            "probability_score": 0.82,
             "probability_language": (
                 "well supported"
             ),
@@ -670,36 +870,18 @@ def _spouse_meeting_probability(
     if peak_score >= 0.60:
 
         return {
-            "outcome": (
-                "moderate"
-            ),
-
-            "probability_level": (
-                "possible"
-            ),
-
-            "probability_score": (
-                0.68
-            ),
-
+            "outcome": "moderate",
+            "probability_level": "possible",
+            "probability_score": 0.68,
             "probability_language": (
                 "moderately supported"
             ),
         }
 
     return {
-        "outcome": (
-            "weak"
-        ),
-
-        "probability_level": (
-            "uncertain"
-        ),
-
-        "probability_score": (
-            0.45
-        ),
-
+        "outcome": "weak",
+        "probability_level": "uncertain",
+        "probability_score": 0.45,
         "probability_language": (
             "weakly supported"
         ),
@@ -715,12 +897,6 @@ def _route_spouse_meeting(
     question_analysis: dict[str, Any],
     reference_moment: datetime,
 ) -> dict[str, Any]:
-    """
-    Route spouse-meeting questions through the dedicated
-    spouse-meeting forecast engine.
-
-    This is no longer a marriage-timing proxy.
-    """
 
     request = (
         _resolve_spouse_meeting_request(
@@ -760,98 +936,63 @@ def _route_spouse_meeting(
 
         return {
             "available": True,
-
-            "route": (
-                "single_event"
-            ),
-
-            "event": (
-                "spouse_meeting"
-            ),
-
+            "route": "single_event",
+            "event": "spouse_meeting",
             "event_label": (
                 EVENT_LABELS[
                     "spouse_meeting"
                 ]
             ),
-
             "question_type": (
                 intent.get(
                     "question_type"
                 )
             ),
-
             "direction": (
                 intent.get(
                     "direction"
                 )
             ),
-
             "parser_confidence": (
                 intent.get(
                     "confidence"
                 )
             ),
-
             "reference_moment": (
                 reference_moment.isoformat()
             ),
-
             "forecast_engine": (
                 "spouse_meeting_forecast_v2"
             ),
-
             "resolved_forecast_request": {
-                "start": (
-                    request[
-                        "start"
-                    ].isoformat()
-                ),
-
-                "end": (
-                    request[
-                        "end"
-                    ].isoformat()
-                ),
-
-                "step_days": (
-                    request[
-                        "step_days"
-                    ]
-                ),
-
-                "range_type": (
-                    request[
-                        "range_type"
-                    ]
-                ),
+                "start": request[
+                    "start"
+                ].isoformat(),
+                "end": request[
+                    "end"
+                ].isoformat(),
+                "step_days": request[
+                    "step_days"
+                ],
+                "range_type": request[
+                    "range_type"
+                ],
             },
-
-            "forecast_available": (
-                False
-            ),
-
-            "outcome": (
-                "no_strong_window"
-            ),
-
+            "forecast_available": False,
+            "outcome": "no_strong_window",
             "confidence": (
                 forecast.get(
                     "confidence",
                     0.4,
                 )
             ),
-
             "answer": (
                 forecast.get(
                     "summary"
                 )
             ),
-
             "primary_window": {},
-
             "secondary_windows": [],
-
             "scan_metadata": (
                 forecast.get(
                     "forecast_period"
@@ -880,143 +1021,95 @@ def _route_spouse_meeting(
 
     return {
         "available": True,
-
-        "route": (
-            "single_event"
-        ),
-
-        "event": (
-            "spouse_meeting"
-        ),
-
+        "route": "single_event",
+        "event": "spouse_meeting",
         "event_label": (
             EVENT_LABELS[
                 "spouse_meeting"
             ]
         ),
-
         "question_type": (
             intent.get(
                 "question_type"
             )
         ),
-
         "direction": (
             intent.get(
                 "direction"
             )
         ),
-
         "parser_confidence": (
             intent.get(
                 "confidence"
             )
         ),
-
         "reference_moment": (
             reference_moment.isoformat()
         ),
-
         "forecast_engine": (
             "spouse_meeting_forecast_v2"
         ),
-
         "resolved_forecast_request": {
-            "start": (
-                request[
-                    "start"
-                ].isoformat()
-            ),
-
-            "end": (
-                request[
-                    "end"
-                ].isoformat()
-            ),
-
-            "step_days": (
-                request[
-                    "step_days"
-                ]
-            ),
-
-            "range_type": (
-                request[
-                    "range_type"
-                ]
-            ),
+            "start": request[
+                "start"
+            ].isoformat(),
+            "end": request[
+                "end"
+            ].isoformat(),
+            "step_days": request[
+                "step_days"
+            ],
+            "range_type": request[
+                "range_type"
+            ],
         },
-
-        "forecast_available": (
-            True
-        ),
-
+        "forecast_available": True,
         "outcome": (
             probability[
                 "outcome"
             ]
         ),
-
         "confidence": (
             forecast.get(
                 "confidence",
                 0.70,
             )
         ),
-
         "probability_level": (
             probability[
                 "probability_level"
             ]
         ),
-
         "probability_score": (
             probability[
                 "probability_score"
             ]
         ),
-
         "probability_language": (
             probability[
                 "probability_language"
             ]
         ),
-
         "confirmation": (
             peak.get(
                 "confirmation"
             )
         ),
-
-        "answer": (
-            answer
-        ),
-
-        "window": (
-            primary
-        ),
-
-        "primary_window": (
-            primary
-        ),
-
+        "answer": answer,
+        "window": primary,
+        "primary_window": primary,
         "peak_date": (
             peak.get(
                 "date"
             )
         ),
-
-        "event_summary": (
-            answer
-        ),
-
+        "event_summary": answer,
         "secondary_windows": (
             forecast.get(
                 "secondary_windows",
                 [],
             )
         ),
-
         "scan_metadata": (
             forecast.get(
                 "forecast_period"
@@ -1117,62 +1210,46 @@ def _route_calendar_year_comparison(
 
         results.append(
             {
-                "year": (
-                    year
-                ),
-
-                "range_type": (
-                    range_type
-                ),
-
-                "event": (
-                    engine_event
-                ),
-
+                "year": year,
+                "range_type": range_type,
+                "event": engine_event,
                 "available": bool(
                     event_data.get(
                         "available"
                     )
                 ),
-
                 "outlook": (
                     event_data.get(
                         "outlook",
                         "no_strong_window",
                     )
                 ),
-
                 "confidence": (
                     event_data.get(
                         "confidence",
                         0.4,
                     )
                 ),
-
                 "comparison_score": (
                     comparison_score
                 ),
-
                 "primary_window": (
                     event_data.get(
                         "primary_window",
                         {},
                     )
                 ),
-
                 "secondary_windows": (
                     event_data.get(
                         "secondary_windows",
                         [],
                     )
                 ),
-
                 "summary": (
                     event_data.get(
                         "summary"
                     )
                 ),
-
                 "scan_metadata": (
                     forecast.get(
                         "forecast_period"
@@ -1193,17 +1270,13 @@ def _route_calendar_year_comparison(
         reverse=True,
     )
 
-    best = (
-        ranked[
-            0
-        ]
-    )
+    best = ranked[
+        0
+    ]
 
-    second = (
-        ranked[
-            1
-        ]
-    )
+    second = ranked[
+        1
+    ]
 
     margin = round(
         (
@@ -1260,55 +1333,34 @@ def _route_calendar_year_comparison(
 
     return {
         "available": True,
-
         "route": (
             "calendar_year_comparison"
         ),
-
-        "event": (
-            engine_event
-        ),
-
+        "event": engine_event,
         "event_label": (
             EVENT_LABELS.get(
                 engine_event,
                 engine_event,
             )
         ),
-
         "comparison_type": (
             "calendar_years"
         ),
-
         "reference_moment": (
             reference_moment.isoformat()
         ),
-
-        "years": (
-            years
-        ),
-
+        "years": years,
         "best_year": (
             best[
                 "year"
             ]
         ),
-
         "comparison_strength": (
             comparison_strength
         ),
-
-        "margin": (
-            margin
-        ),
-
-        "answer": (
-            answer
-        ),
-
-        "ranked_results": (
-            ranked
-        ),
+        "margin": margin,
+        "answer": answer,
+        "ranked_results": ranked,
     }
 
 
@@ -1386,23 +1438,12 @@ def _route_follow_up(
 
         return {
             "available": False,
-
-            "route": (
-                "follow_up"
-            ),
-
-            "requires_context": (
-                True
-            ),
-
-            "context_used": (
-                False
-            ),
-
+            "route": "follow_up",
+            "requires_context": True,
+            "context_used": False,
             "reference_moment": (
                 reference_moment.isoformat()
             ),
-
             "reason": (
                 "A previous marriage question is required "
                 "to interpret this follow-up."
@@ -1415,15 +1456,11 @@ def _route_follow_up(
 
     inherited_analysis[
         "query_mode"
-    ] = (
-        "single_event"
-    )
+    ] = "single_event"
 
     inherited_analysis[
         "primary_event"
-    ] = (
-        inherited_event
-    )
+    ] = inherited_event
 
     inherited_analysis[
         "primary_event_label"
@@ -1444,9 +1481,7 @@ def _route_follow_up(
 
     inherited_intent[
         "event"
-    ] = (
-        inherited_event
-    )
+    ] = inherited_event
 
     inherited_intent[
         "event_label"
@@ -1459,9 +1494,7 @@ def _route_follow_up(
 
     inherited_analysis[
         "intent"
-    ] = (
-        inherited_intent
-    )
+    ] = inherited_intent
 
     if inherited_event == (
         "spouse_meeting"
@@ -1469,6 +1502,20 @@ def _route_follow_up(
 
         result = (
             _route_spouse_meeting(
+                chart,
+                inherited_analysis,
+                reference_moment,
+            )
+        )
+
+    elif inherited_event in (
+        "love_vs_arranged",
+        "love_marriage",
+        "arranged_marriage",
+    ):
+
+        result = (
+            _route_love_arranged(
                 chart,
                 inherited_analysis,
                 reference_moment,
@@ -1493,27 +1540,15 @@ def _route_follow_up(
 
         return {
             "available": False,
-
-            "route": (
-                "follow_up"
-            ),
-
-            "requires_context": (
-                True
-            ),
-
-            "context_used": (
-                True
-            ),
-
+            "route": "follow_up",
+            "requires_context": True,
+            "context_used": True,
             "inherited_event": (
                 inherited_event
             ),
-
             "reference_moment": (
                 reference_moment.isoformat()
             ),
-
             "reason": (
                 "The previous event is understood, but "
                 "its forecast engine is not yet implemented."
@@ -1526,21 +1561,15 @@ def _route_follow_up(
 
     wrapped[
         "route"
-    ] = (
-        "follow_up"
-    )
+    ] = "follow_up"
 
     wrapped[
         "requires_context"
-    ] = (
-        True
-    )
+    ] = True
 
     wrapped[
         "context_used"
-    ] = (
-        True
-    )
+    ] = True
 
     wrapped[
         "inherited_event"
@@ -1569,26 +1598,17 @@ def _unsupported_special_event(
 
     return {
         "available": False,
-
-        "route": (
-            "single_event"
-        ),
-
-        "event": (
-            event_name
-        ),
-
+        "route": "single_event",
+        "event": event_name,
         "event_label": (
             EVENT_LABELS.get(
                 event_name,
                 event_name,
             )
         ),
-
         "reference_moment": (
             reference_moment.isoformat()
         ),
-
         "reason": (
             "The question is understood correctly, but a "
             "dedicated evidence engine for this marriage "
@@ -1607,27 +1627,6 @@ def route_marriage_question_v3(
     reference_moment: datetime,
     previous_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """
-    Marriage Forecast Router V3.
-
-    Supported:
-
-        marriage timing
-        relationship commitment
-        marriage delay / challenge
-        dedicated spouse-meeting forecasting
-        calendar-year comparisons
-        conversational follow-ups
-
-    Parsed but not yet forecasted:
-
-        love vs arranged marriage
-        love marriage
-        arranged marriage
-        foreign/intercultural relationship
-        spouse traits
-        relationship stability
-    """
 
     if not isinstance(
         chart,
@@ -1674,10 +1673,6 @@ def route_marriage_question_v3(
         or "general_marriage"
     )
 
-    # -----------------------------------------------------
-    # FOLLOW-UP
-    # -----------------------------------------------------
-
     if query_mode == (
         "follow_up"
     ):
@@ -1691,10 +1686,6 @@ def route_marriage_question_v3(
             )
         )
 
-    # -----------------------------------------------------
-    # COMPARISON
-    # -----------------------------------------------------
-
     if query_mode == (
         "comparison"
     ):
@@ -1707,15 +1698,9 @@ def route_marriage_question_v3(
             )
         )
 
-    # -----------------------------------------------------
-    # STANDARD MARRIAGE EVENTS
-    # -----------------------------------------------------
-
     if (
-        query_mode
-        == "single_event"
-        and event_name
-        in (
+        query_mode == "single_event"
+        and event_name in (
             "marriage_timing",
             "relationship_commitment",
             "marriage_delay_challenge",
@@ -1730,13 +1715,8 @@ def route_marriage_question_v3(
             )
         )
 
-    # -----------------------------------------------------
-    # DEDICATED SPOUSE MEETING
-    # -----------------------------------------------------
-
     if (
-        query_mode
-        == "single_event"
+        query_mode == "single_event"
         and event_name
         == "spouse_meeting"
     ):
@@ -1749,9 +1729,22 @@ def route_marriage_question_v3(
             )
         )
 
-    # -----------------------------------------------------
-    # SPECIAL EVENTS NOT YET MODELLED
-    # -----------------------------------------------------
+    if (
+        query_mode == "single_event"
+        and event_name in (
+            "love_vs_arranged",
+            "love_marriage",
+            "arranged_marriage",
+        )
+    ):
+
+        return (
+            _route_love_arranged(
+                chart,
+                question_analysis,
+                reference_moment,
+            )
+        )
 
     if query_mode == (
         "single_event"
@@ -1766,19 +1759,11 @@ def route_marriage_question_v3(
 
     return {
         "available": False,
-
-        "route": (
-            query_mode
-        ),
-
-        "event": (
-            event_name
-        ),
-
+        "route": query_mode,
+        "event": event_name,
         "reference_moment": (
             reference_moment.isoformat()
         ),
-
         "reason": (
             "This Marriage Forecast Router V3 mode "
             "is not yet implemented."

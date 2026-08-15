@@ -572,10 +572,10 @@ def test_v3_follow_up_inherits_spouse_meeting_event():
 
 
 # =========================================================
-# UNSUPPORTED SPECIAL EVENT
+# LOVE VS ARRANGED — NOW SUPPORTED
 # =========================================================
 
-def test_v3_love_vs_arranged_is_understood_but_not_invented():
+def test_v3_love_vs_arranged_supported():
 
     chart = (
         _build_reference_chart()
@@ -606,14 +606,49 @@ def test_v3_love_vs_arranged_is_understood_but_not_invented():
         result[
             "available"
         ]
-        is False
+        is True
     )
 
     assert (
-        "dedicated evidence engine"
-        in result[
-            "reason"
+        result[
+            "route"
         ]
+        == "natal_evidence"
+    )
+
+    assert (
+        result[
+            "evidence_engine"
+        ]
+        == "marriage_love_arranged_reasoning_v2"
+    )
+
+    assert (
+        result[
+            "forecast_type"
+        ]
+        == "natal_pattern"
+    )
+
+    assert (
+        result[
+            "outcome"
+        ]
+        == "mixed_or_hybrid"
+    )
+
+    assert (
+        result[
+            "love_probability"
+        ]
+        == 0.582
+    )
+
+    assert (
+        result[
+            "arranged_probability"
+        ]
+        == 0.418
     )
 
 

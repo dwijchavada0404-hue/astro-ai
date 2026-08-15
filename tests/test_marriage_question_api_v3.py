@@ -246,3 +246,244 @@ def test_marriage_question_v3_rejects_empty_question(
         body["detail"]
         == "question must not be empty."
     )
+
+
+# =========================================================
+# LOVE VS ARRANGED API
+# =========================================================
+
+def test_marriage_question_v3_love_vs_arranged_api(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        chart_service,
+        "resolve_place",
+        _mock_resolve_place,
+    )
+
+    response = client.post(
+        "/api/v1/marriage-question-v3",
+        json=_payload(
+            "Will I have a love marriage or arranged marriage?"
+        ),
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+
+    # Parser / understanding layer
+    assert (
+        body["understanding"]["primary_event"]
+        == "love_vs_arranged"
+    )
+
+    assert (
+        body["understanding"]["query_mode"]
+        == "single_event"
+    )
+
+    # Router / evidence layer
+    result = body["result"]
+
+    assert result["available"] is True
+
+    assert (
+        result["route"]
+        == "natal_evidence"
+    )
+
+    assert (
+        result["event"]
+        == "love_vs_arranged"
+    )
+
+    assert (
+        result["evidence_engine"]
+        == "marriage_love_arranged_reasoning_v2"
+    )
+
+    assert (
+        result["forecast_type"]
+        == "natal_pattern"
+    )
+
+    assert (
+        result["outcome"]
+        == "mixed_or_hybrid"
+    )
+
+    assert (
+        result["label"]
+        == "Mixed / Hybrid Pathway"
+    )
+
+    assert (
+        result["probability_level"]
+        == "mixed"
+    )
+
+    assert (
+        result["love_probability"]
+        == 0.582
+    )
+
+    assert (
+        result["arranged_probability"]
+        == 0.418
+    )
+
+    assert (
+        result["scores"]["margin"]
+        == 0.164
+    )
+
+
+# =========================================================
+# LOVE MARRIAGE API
+# =========================================================
+
+def test_marriage_question_v3_love_marriage_api(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        chart_service,
+        "resolve_place",
+        _mock_resolve_place,
+    )
+
+    response = client.post(
+        "/api/v1/marriage-question-v3",
+        json=_payload(
+            "Will I have a love marriage?"
+        ),
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+
+    assert (
+        body["understanding"]["primary_event"]
+        == "love_marriage"
+    )
+
+    result = body["result"]
+
+    assert result["available"] is True
+
+    assert (
+        result["route"]
+        == "natal_evidence"
+    )
+
+    assert (
+        result["event"]
+        == "love_marriage"
+    )
+
+    assert (
+        result["evidence_engine"]
+        == "marriage_love_arranged_reasoning_v2"
+    )
+
+    assert (
+        result["probability_score"]
+        == 0.582
+    )
+
+    assert (
+        result["probability_level"]
+        == "possible"
+    )
+
+    assert (
+        result["outcome"]
+        == "mixed_or_hybrid"
+    )
+
+    assert len(
+        result["relevant_indicators"]
+    ) >= 1
+
+    assert all(
+        item["category"] == "love"
+        for item in result[
+            "relevant_indicators"
+        ]
+    )
+
+
+# =========================================================
+# ARRANGED MARRIAGE API
+# =========================================================
+
+def test_marriage_question_v3_arranged_marriage_api(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        chart_service,
+        "resolve_place",
+        _mock_resolve_place,
+    )
+
+    response = client.post(
+        "/api/v1/marriage-question-v3",
+        json=_payload(
+            "Will I have an arranged marriage?"
+        ),
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+
+    assert (
+        body["understanding"]["primary_event"]
+        == "arranged_marriage"
+    )
+
+    result = body["result"]
+
+    assert result["available"] is True
+
+    assert (
+        result["route"]
+        == "natal_evidence"
+    )
+
+    assert (
+        result["event"]
+        == "arranged_marriage"
+    )
+
+    assert (
+        result["evidence_engine"]
+        == "marriage_love_arranged_reasoning_v2"
+    )
+
+    assert (
+        result["probability_score"]
+        == 0.418
+    )
+
+    assert (
+        result["probability_level"]
+        == "less_likely"
+    )
+
+    assert (
+        result["outcome"]
+        == "mixed_or_hybrid"
+    )
+
+    assert len(
+        result["relevant_indicators"]
+    ) >= 1
+
+    assert all(
+        item["category"] == "arranged"
+        for item in result[
+            "relevant_indicators"
+        ]
+    )
