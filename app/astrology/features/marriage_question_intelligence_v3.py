@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import re
 from typing import Any
@@ -30,6 +30,9 @@ EVENT_LABELS = {
     ),
     "spouse_traits": (
         "Spouse Traits / Partner Profile"
+    ),
+    "spouse_appearance": (
+        "Spouse Appearance / Physical Profile"
     ),
     "spouse_profession": (
         "Spouse Profession / Career Profile"
@@ -213,19 +216,6 @@ def _detect_foreign_intercultural(
     question: str,
 ) -> dict[str, Any] | None:
 
-    # -----------------------------------------------------
-    # PROFESSION PROTECTION
-    # -----------------------------------------------------
-    #
-    # Questions such as:
-    #
-    #   "Will my spouse work abroad?"
-    #   "Will my spouse have an international career?"
-    #
-    # belong to spouse_profession rather than relationship
-    # background / origin.
-    # -----------------------------------------------------
-
     profession_patterns = (
         r"\bwork(?:ing)? abroad\b",
         r"\bjob abroad\b",
@@ -248,21 +238,6 @@ def _detect_foreign_intercultural(
 
         return None
 
-    # -----------------------------------------------------
-    # RELATIONSHIP-SPECIFIC PATTERNS
-    # -----------------------------------------------------
-    #
-    # Each regex maps to a canonical matched keyword.
-    #
-    # This makes the parser resilient to natural variants:
-    #
-    #   spouse from another country
-    #   spouse be from another country
-    #   spouse come from another country
-    #
-    # while keeping stable evidence metadata.
-    # -----------------------------------------------------
-
     pattern_map = (
         (
             r"\bmarry\s+(?:a\s+)?foreigner\b",
@@ -276,11 +251,6 @@ def _detect_foreign_intercultural(
             r"\bforeign\s+(?:spouse|husband|wife|partner)\b",
             "foreign spouse",
         ),
-
-        # -------------------------------------------------
-        # COUNTRY / ABROAD
-        # -------------------------------------------------
-
         (
             r"\b(?:spouse|future spouse|partner|future partner|husband|wife)"
             r"(?:\s+(?:be|is|come|comes))?\s+from\s+another\s+country\b",
@@ -308,11 +278,6 @@ def _detect_foreign_intercultural(
             r"\bmarry\s+someone\s+from\s+abroad\b",
             "marry someone from abroad",
         ),
-
-        # -------------------------------------------------
-        # INTERCULTURAL / CROSS-CULTURAL
-        # -------------------------------------------------
-
         (
             r"\binter[\s-]?cultural\s+marriage\b",
             "intercultural marriage",
@@ -329,11 +294,6 @@ def _detect_foreign_intercultural(
             r"\bcross[\s-]?cultural\s+relationship\b",
             "cross-cultural relationship",
         ),
-
-        # -------------------------------------------------
-        # CULTURE
-        # -------------------------------------------------
-
         (
             r"\b(?:spouse|future spouse|partner|future partner)"
             r".{0,20}\b(?:different|another)\s+culture\b",
@@ -347,11 +307,6 @@ def _detect_foreign_intercultural(
             r"\b(?:different|another)\s+cultural\s+background\b",
             "different cultural background",
         ),
-
-        # -------------------------------------------------
-        # NATIONALITY
-        # -------------------------------------------------
-
         (
             r"\b(?:spouse|future spouse|partner|future partner)"
             r".{0,20}\b(?:different|another)\s+nationality\b",
@@ -365,11 +320,6 @@ def _detect_foreign_intercultural(
             r"\bdifferent\s+national\s+background\b",
             "different national background",
         ),
-
-        # -------------------------------------------------
-        # RELIGION / INTERFAITH
-        # -------------------------------------------------
-
         (
             r"\bmarry\s+someone\s+from\s+(?:a\s+)?different\s+religion\b",
             "marry someone from a different religion",
@@ -387,11 +337,6 @@ def _detect_foreign_intercultural(
             r"\binter[\s-]?faith\s+relationship\b",
             "interfaith relationship",
         ),
-
-        # -------------------------------------------------
-        # ETHNICITY
-        # -------------------------------------------------
-
         (
             r"\b(?:different|another)\s+ethnicity\b",
             "different ethnicity",
@@ -400,11 +345,6 @@ def _detect_foreign_intercultural(
             r"\bdifferent\s+ethnic\s+background\b",
             "different ethnic background",
         ),
-
-        # -------------------------------------------------
-        # STATE / REGION
-        # -------------------------------------------------
-
         (
             r"\b(?:spouse|future spouse|partner|future partner)"
             r".{0,20}\b(?:different|another)\s+state\b",
@@ -423,11 +363,6 @@ def _detect_foreign_intercultural(
             r"\bmarry\s+someone\s+from\s+(?:a\s+)?(?:different|another)\s+region\b",
             "marry someone from a different region",
         ),
-
-        # -------------------------------------------------
-        # COMMUNITY
-        # -------------------------------------------------
-
         (
             r"\b(?:spouse|future spouse|partner|future partner)"
             r".{0,20}\b(?:different|another)\s+community\b",
@@ -468,17 +403,16 @@ def _detect_foreign_intercultural(
         "event": (
             "foreign_intercultural_connection"
         ),
-
         "event_label": (
             EVENT_LABELS[
                 "foreign_intercultural_connection"
             ]
         ),
-
         "matched_keywords": (
             matched
         ),
     }
+
 
 # =========================================================
 # SPOUSE PROFESSION DETECTION
@@ -625,6 +559,154 @@ def _detect_spouse_profession(
 
 
 # =========================================================
+# SPOUSE APPEARANCE DETECTION
+# =========================================================
+
+def _detect_spouse_appearance(
+    question: str,
+) -> dict[str, Any] | None:
+
+    spouse_markers = (
+        "spouse",
+        "future spouse",
+        "partner",
+        "future partner",
+        "husband",
+        "wife",
+        "person i marry",
+        "person i will marry",
+    )
+
+    if not any(
+        marker in question
+        for marker in spouse_markers
+    ):
+
+        return None
+
+    pattern_map = (
+        (
+            r"\bwhat\s+will\s+(?:my\s+)?(?:future\s+)?"
+            r"(?:spouse|partner|husband|wife)\s+look\s+like\b",
+            "what will my spouse look like",
+        ),
+        (
+            r"\bwhat\s+does\s+(?:my\s+)?(?:future\s+)?"
+            r"(?:spouse|partner|husband|wife)\s+look\s+like\b",
+            "what does my spouse look like",
+        ),
+        (
+            r"\bdescribe\s+(?:my\s+)?(?:future\s+)?"
+            r"(?:spouse|partner|husband|wife)(?:'s)?\s+appearance\b",
+            "describe spouse appearance",
+        ),
+        (
+            r"\bphysical\s+appearance\b",
+            "physical appearance",
+        ),
+        (
+            r"\bappearance\s+of\s+(?:my\s+)?(?:future\s+)?"
+            r"(?:spouse|partner|husband|wife)\b",
+            "spouse appearance",
+        ),
+        (
+            r"\b(?:spouse|future spouse|partner|future partner|husband|wife)"
+            r".{0,30}\b(?:tall|short)\b",
+            "spouse height",
+        ),
+        (
+            r"\b(?:spouse|future spouse|partner|future partner|husband|wife)"
+            r".{0,30}\b(?:height|how tall)\b",
+            "spouse height",
+        ),
+        (
+            r"\b(?:spouse|future spouse|partner|future partner|husband|wife)"
+            r".{0,30}\b(?:slim|slender|lean|athletic|well-built|well built)\b",
+            "spouse build",
+        ),
+        (
+            r"\b(?:spouse|future spouse|partner|future partner|husband|wife)"
+            r".{0,30}\b(?:body type|body build|physique|build)\b",
+            "spouse build",
+        ),
+        (
+            r"\b(?:spouse|future spouse|partner|future partner|husband|wife)"
+            r".{0,30}\b(?:attractive|beautiful|handsome|pretty|good-looking|good looking)\b",
+            "spouse attractiveness",
+        ),
+        (
+            r"\b(?:spouse|future spouse|partner|future partner|husband|wife)"
+            r".{0,30}\b(?:facial features|sharp features|soft features|defined features)\b",
+            "spouse facial features",
+        ),
+        (
+            r"\b(?:spouse|future spouse|partner|future partner|husband|wife)"
+            r"(?:'s)?\s+(?:face|eyes|eye|expression)\b",
+            "spouse facial appearance",
+        ),
+        (
+            r"\b(?:spouse|future spouse|partner|future partner|husband|wife)"
+            r".{0,30}\b(?:youthful|young-looking|young looking|look younger)\b",
+            "spouse youthful appearance",
+        ),
+        (
+            r"\b(?:spouse|future spouse|partner|future partner|husband|wife)"
+            r".{0,30}\b(?:mature-looking|mature looking|look mature|older-looking|older looking)\b",
+            "spouse mature appearance",
+        ),
+        (
+            r"\b(?:spouse|future spouse|partner|future partner|husband|wife)"
+            r".{0,30}\b(?:striking|distinctive)\s+(?:appearance|presence|look)\b",
+            "spouse visual presence",
+        ),
+        (
+            r"\bwhat\s+kind\s+of\s+appearance\s+will\s+"
+            r"(?:my\s+)?(?:future\s+)?(?:spouse|partner|husband|wife)\s+have\b",
+            "spouse appearance",
+        ),
+    )
+
+    matched = []
+
+    for (
+        pattern,
+        canonical_keyword,
+    ) in pattern_map:
+
+        if re.search(
+            pattern,
+            question,
+        ):
+
+            if (
+                canonical_keyword
+                not in matched
+            ):
+
+                matched.append(
+                    canonical_keyword
+                )
+
+    if not matched:
+
+        return None
+
+    return {
+        "event": (
+            "spouse_appearance"
+        ),
+        "event_label": (
+            EVENT_LABELS[
+                "spouse_appearance"
+            ]
+        ),
+        "matched_keywords": (
+            matched
+        ),
+    }
+
+
+# =========================================================
 # SPECIAL EVENT DETECTION
 # =========================================================
 
@@ -702,6 +784,22 @@ def _detect_special_events(
 
         detected.append(
             spouse_profession
+        )
+
+    # -----------------------------------------------------
+    # SPOUSE APPEARANCE
+    # -----------------------------------------------------
+
+    spouse_appearance = (
+        _detect_spouse_appearance(
+            question
+        )
+    )
+
+    if spouse_appearance:
+
+        detected.append(
+            spouse_appearance
         )
 
     # -----------------------------------------------------
@@ -914,26 +1012,18 @@ def _clean_base_events(
             )
         )
 
-        # -------------------------------------------------
-        # SPOUSE MEETING OVERRIDES GENERIC SPOUSE PROFILE
-        # -------------------------------------------------
-
         if (
             "spouse_meeting"
             in special_names
             and event_name
             in (
                 "spouse_traits",
+                "spouse_appearance",
                 "general_marriage",
             )
         ):
 
             continue
-
-        # -------------------------------------------------
-        # FOREIGN / INTERCULTURAL OVERRIDES GENERIC
-        # MARRIAGE / SPOUSE PROFILE MATCHES
-        # -------------------------------------------------
 
         if (
             "foreign_intercultural_connection"
@@ -941,6 +1031,7 @@ def _clean_base_events(
             and event_name
             in (
                 "spouse_traits",
+                "spouse_appearance",
                 "marriage_timing",
                 "general_marriage",
             )
@@ -948,13 +1039,22 @@ def _clean_base_events(
 
             continue
 
-        # -------------------------------------------------
-        # SPOUSE PROFESSION OVERRIDES GENERIC PROFILE /
-        # MARRIAGE MATCHES
-        # -------------------------------------------------
-
         if (
             "spouse_profession"
+            in special_names
+            and event_name
+            in (
+                "spouse_traits",
+                "spouse_appearance",
+                "marriage_timing",
+                "general_marriage",
+            )
+        ):
+
+            continue
+
+        if (
+            "spouse_appearance"
             in special_names
             and event_name
             in (
@@ -965,10 +1065,6 @@ def _clean_base_events(
         ):
 
             continue
-
-        # -------------------------------------------------
-        # SPOUSE TRAITS OVERRIDE GENERIC MARRIAGE MATCHES
-        # -------------------------------------------------
 
         if (
             "spouse_traits"
@@ -981,10 +1077,6 @@ def _clean_base_events(
         ):
 
             continue
-
-        # -------------------------------------------------
-        # LOVE VS ARRANGED OVERRIDES GENERIC MATCHES
-        # -------------------------------------------------
 
         if (
             "love_vs_arranged"
@@ -1046,15 +1138,13 @@ def _clean_special_event_conflicts(
             )
         )
 
-        # A direct spouse-meeting question should remain
-        # a meeting event even though "future spouse"
-        # appears in the wording.
         if (
             "spouse_meeting"
             in names
             and event_name
             in (
                 "spouse_traits",
+                "spouse_appearance",
                 "spouse_profession",
                 "foreign_intercultural_connection",
             )
@@ -1062,32 +1152,33 @@ def _clean_special_event_conflicts(
 
             continue
 
-        # Profession questions such as "Will my spouse work
-        # abroad?" must remain profession questions.
         if (
             "spouse_profession"
             in names
             and event_name
-            == "foreign_intercultural_connection"
+            in (
+                "foreign_intercultural_connection",
+                "spouse_appearance",
+                "spouse_traits",
+            )
         ):
 
             continue
 
-        # A profession-specific spouse question should not
-        # also become a generic spouse-traits question.
-        if (
-            "spouse_profession"
-            in names
-            and event_name
-            == "spouse_traits"
-        ):
-
-            continue
-
-        # A foreign/intercultural spouse question should not
-        # also become a generic spouse-traits question.
         if (
             "foreign_intercultural_connection"
+            in names
+            and event_name
+            in (
+                "spouse_appearance",
+                "spouse_traits",
+            )
+        ):
+
+            continue
+
+        if (
+            "spouse_appearance"
             in names
             and event_name
             == "spouse_traits"
@@ -1202,6 +1293,7 @@ def _inject_comparison_event(
         "relationship_stability",
         "foreign_intercultural_connection",
         "spouse_traits",
+        "spouse_appearance",
         "spouse_profession",
         "spouse_meeting",
         "love_marriage",
@@ -1265,6 +1357,7 @@ def _resolve_primary_event(
         "spouse_meeting",
         "spouse_profession",
         "foreign_intercultural_connection",
+        "spouse_appearance",
         "spouse_traits",
         "love_marriage",
         "arranged_marriage",
@@ -1345,9 +1438,10 @@ def _resolve_question_type(
             "general_outlook"
         )
 
-    if (
-        primary_event
-        == "spouse_profession"
+    if primary_event in (
+        "spouse_profession",
+        "spouse_appearance",
+        "foreign_intercultural_connection",
     ):
 
         probability_prefixes = (
@@ -1357,34 +1451,6 @@ def _resolve_question_type(
             "is ",
             "does ",
             "do ",
-            "would ",
-        )
-
-        if any(
-            question.startswith(
-                prefix
-            )
-            for prefix in probability_prefixes
-        ):
-
-            return (
-                "probability"
-            )
-
-        return (
-            "general_outlook"
-        )
-
-    if (
-        primary_event
-        == "foreign_intercultural_connection"
-    ):
-
-        probability_prefixes = (
-            "will ",
-            "could ",
-            "can ",
-            "is ",
             "would ",
             "am i ",
         )
@@ -1482,6 +1548,7 @@ def _resolve_direction(
 
     if primary_event in (
         "spouse_traits",
+        "spouse_appearance",
         "spouse_profession",
         "love_vs_arranged",
     ):
@@ -1550,6 +1617,7 @@ def _resolve_confidence(
         "love_vs_arranged",
         "spouse_meeting",
         "spouse_traits",
+        "spouse_appearance",
         "spouse_profession",
         "foreign_intercultural_connection",
         "love_marriage",
@@ -1778,72 +1846,55 @@ def analyze_marriage_question_v3(
     result.update(
         {
             "available": True,
-
             "original_question": (
                 question
             ),
-
             "normalised_question": (
                 normalised
             ),
-
             "query_mode": (
                 query_mode
             ),
-
             "complexity": (
                 complexity
             ),
-
             "primary_event": (
                 primary_event
             ),
-
             "primary_event_label": (
                 primary_event_label
             ),
-
             "detected_events": (
                 detected_events
             ),
-
             "event_count": (
                 event_count
             ),
-
             "is_multi_event": (
                 event_count > 1
             ),
-
             "comparison": (
                 comparison
             ),
-
             "follow_up": (
                 follow_up
             ),
-
             "intent": {
                 "domain": (
                     "marriage"
                 ),
-
                 "event": (
                     primary_event
                 ),
-
                 "event_label": (
                     primary_event_label
                 ),
-
                 "question_type": (
                     question_type
                 ),
-
                 "direction": (
                     direction
                 ),
-
                 "confidence": (
                     confidence
                 ),
