@@ -1,0 +1,42 @@
+name: Integrate spouse education
+
+on:
+  push:
+    branches:
+      - feature/spouse-education
+    paths:
+      - tools/integrate_spouse_education_v3.py
+      - .github/workflows/spouse-education-integration.yml
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/spouse-education
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Apply integration
+        run: python tools/integrate_spouse_education_v3.py
+
+      - name: Commit generated integration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/astrology/features/marriage_question_intelligence_v3.py app/astrology/features/marriage_forecast_router_v3.py tests/test_spouse_education_intelligence_v3.py tests/test_spouse_education_router_v3.py tests/test_spouse_education_api_v3.py
+          if git diff --cached --quiet; then
+            echo "No generated changes"
+          else
+            git commit -m "Integrate spouse education into marriage API v3"
+            git push origin HEAD:feature/spouse-education
+          fi
