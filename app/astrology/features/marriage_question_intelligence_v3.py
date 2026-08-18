@@ -34,6 +34,9 @@ EVENT_LABELS = {
     "spouse_appearance": (
         "Spouse Appearance / Physical Profile"
     ),
+    "spouse_education": (
+        "Spouse Education / Intellectual Profile"
+    ),
     "spouse_profession": (
         "Spouse Profession / Career Profile"
     ),
@@ -559,6 +562,21 @@ def _detect_spouse_profession(
 
 
 # =========================================================
+# SPOUSE EDUCATION DETECTION
+# =========================================================
+
+def _detect_spouse_education(question: str) -> dict[str, Any] | None:
+    spouse_markers=("spouse","future spouse","partner","future partner","husband","wife","person i marry","person i will marry")
+    if not any(x in question for x in spouse_markers): return None
+    patterns=((r"\beducation\b","spouse education"),(r"\beducated\b","spouse educated"),(r"\bqualification\b","spouse qualification"),(r"\bqualified\b","spouse qualification"),(r"\bdegree\b","spouse degree"),(r"\bpostgraduate\b","spouse higher education"),(r"\bpost graduate\b","spouse higher education"),(r"\bmasters?\s+degree\b","spouse higher education"),(r"\bmaster's\s+degree\b","spouse higher education"),(r"\bdoctorate\b","spouse higher education"),(r"\bphd\b","spouse higher education"),(r"\bstudy\s+abroad\b","spouse international education"),(r"\bstudied\s+abroad\b","spouse international education"),(r"\beducated\s+abroad\b","spouse international education"),(r"\bforeign\s+university\b","spouse international education"),(r"\bstudy\s+law\b","spouse law education"),(r"\blaw\s+degree\b","spouse law education"),(r"\bstudy\s+design\b","spouse creative education"),(r"\bdesign\s+degree\b","spouse creative education"),(r"\bfinance\s+degree\b","spouse finance education"),(r"\bcommerce\s+(?:degree|background)\b","spouse commerce education"),(r"\bresearch\s+degree\b","spouse research education"),(r"\btechnical\s+(?:education|degree)\b","spouse technical education"),(r"\bcomputer\s+science\b","spouse technical education"),(r"\bprofessional\s+(?:qualification|degree)\b","spouse professional qualification"),(r"\bprofessionally\s+qualified\b","spouse professional qualification"),(r"\bchartered\s+accountant\b","spouse professional qualification"),(r"\bca\s+qualification\b","spouse professional qualification"),(r"\bmba\b","spouse professional qualification"),(r"\bintelligent\b","spouse intellect"),(r"\bintellectual\b","spouse intellect"),(r"\banalytical\b","spouse intellect"),(r"\bacademic[-\s]minded\b","spouse intellect"),(r"\blearning\s+style\b","spouse intellect"))
+    matched=[]
+    for pattern,label in patterns:
+        if re.search(pattern,question) and label not in matched: matched.append(label)
+    if not matched:return None
+    return {"event":"spouse_education","event_label":EVENT_LABELS["spouse_education"],"matched_keywords":matched}
+
+
+# =========================================================
 # SPOUSE APPEARANCE DETECTION
 # =========================================================
 
@@ -785,6 +803,14 @@ def _detect_special_events(
         detected.append(
             spouse_profession
         )
+
+    # -----------------------------------------------------
+    # SPOUSE EDUCATION
+    # -----------------------------------------------------
+
+    spouse_education = _detect_spouse_education(question)
+    if spouse_education:
+        detected.append(spouse_education)
 
     # -----------------------------------------------------
     # SPOUSE APPEARANCE
@@ -1054,6 +1080,12 @@ def _clean_base_events(
             continue
 
         if (
+            "spouse_education" in special_names
+            and event_name in ("spouse_profession","spouse_traits","spouse_appearance","marriage_timing","general_marriage")
+        ):
+            continue
+
+        if (
             "spouse_appearance"
             in special_names
             and event_name
@@ -1150,6 +1182,12 @@ def _clean_special_event_conflicts(
             )
         ):
 
+            continue
+
+        if (
+            "spouse_education" in names
+            and event_name in ("spouse_profession","foreign_intercultural_connection","spouse_appearance","spouse_traits")
+        ):
             continue
 
         if (
@@ -1294,6 +1332,7 @@ def _inject_comparison_event(
         "foreign_intercultural_connection",
         "spouse_traits",
         "spouse_appearance",
+        "spouse_education",
         "spouse_profession",
         "spouse_meeting",
         "love_marriage",
@@ -1355,6 +1394,7 @@ def _resolve_primary_event(
     priority = (
         "love_vs_arranged",
         "spouse_meeting",
+        "spouse_education",
         "spouse_profession",
         "foreign_intercultural_connection",
         "spouse_appearance",
@@ -1441,6 +1481,7 @@ def _resolve_question_type(
     if primary_event in (
         "spouse_profession",
         "spouse_appearance",
+        "spouse_education",
         "foreign_intercultural_connection",
     ):
 
@@ -1549,6 +1590,7 @@ def _resolve_direction(
     if primary_event in (
         "spouse_traits",
         "spouse_appearance",
+        "spouse_education",
         "spouse_profession",
         "love_vs_arranged",
     ):
@@ -1618,6 +1660,7 @@ def _resolve_confidence(
         "spouse_meeting",
         "spouse_traits",
         "spouse_appearance",
+        "spouse_education",
         "spouse_profession",
         "foreign_intercultural_connection",
         "love_marriage",
