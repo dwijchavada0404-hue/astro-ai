@@ -154,6 +154,7 @@ def _detect_target(question: str) -> dict[str, Any]:
         (
             "creative_education",
             (
+                "study design",
                 "design degree",
                 "design education",
                 "creative education",
