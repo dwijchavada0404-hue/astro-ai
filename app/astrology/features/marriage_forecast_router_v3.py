@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from datetime import datetime, timedelta
 from typing import Any
@@ -25,6 +25,10 @@ from app.astrology.features.spouse_traits_reasoning_v2 import (
 
 from app.astrology.features.spouse_appearance_reasoning_v2 import (
     analyze_spouse_appearance_v2,
+)
+
+from app.astrology.features.spouse_education_reasoning_v2 import (
+    analyze_spouse_education_v2,
 )
 
 from app.astrology.features.spouse_profession_reasoning_v2 import (
@@ -61,6 +65,9 @@ EVENT_LABELS = {
     ),
     "spouse_appearance": (
         "Spouse Appearance / Physical Profile"
+    ),
+    "spouse_education": (
+        "Spouse Education / Intellectual Profile"
     ),
     "spouse_profession": (
         "Spouse Profession / Career Profile"
@@ -714,6 +721,19 @@ def _route_spouse_traits(
             analysis
         ),
     }
+
+
+# =========================================================
+# SPOUSE EDUCATION ROUTE
+# =========================================================
+
+def _route_spouse_education(chart: dict[str, Any], question_analysis: dict[str, Any], reference_moment: datetime) -> dict[str, Any]:
+    intent=_safe_dict(question_analysis.get("intent"))
+    question=str(question_analysis.get("original_question",question_analysis.get("normalised_question","")) or "")
+    analysis=analyze_spouse_education_v2(chart,question)
+    result={"available":bool(analysis.get("available")),"route":"natal_evidence","event":"spouse_education","event_label":EVENT_LABELS["spouse_education"],"question_type":intent.get("question_type"),"direction":intent.get("direction"),"parser_confidence":intent.get("confidence"),"reference_moment":reference_moment.isoformat(),"evidence_engine":"spouse_education_reasoning_v2","forecast_type":"natal_pattern","model_version":analysis.get("model_version"),"question":analysis.get("question",question),"normalised_question":analysis.get("normalised_question",str(question_analysis.get("normalised_question","") or "")),"target":analysis.get("target"),"target_label":analysis.get("target_label"),"matched_keywords":analysis.get("matched_keywords",[]),"support_score":analysis.get("support_score"),"support_level":analysis.get("support_level"),"support_label":analysis.get("support_label"),"confidence":analysis.get("confidence"),"answer":analysis.get("answer"),"summary":analysis.get("summary"),"limitation":analysis.get("limitation"),"strongest_themes":analysis.get("strongest_themes",[]),"evidence_count":analysis.get("evidence_count",0),"evidence":analysis.get("evidence",[]),"natal_profile":analysis.get("natal_profile",{}),"natal_analysis":analysis.get("natal_analysis",{}),"analysis":analysis}
+    if not analysis.get("available"): result["reason"]=analysis.get("reason")
+    return result
 
 
 # =========================================================
@@ -3206,6 +3226,12 @@ def _route_follow_up(
         )
 
     elif inherited_event == (
+        "spouse_education"
+    ):
+
+        result = _route_spouse_education(chart, inherited_analysis, reference_moment)
+
+    elif inherited_event == (
         "spouse_profession"
     ):
 
@@ -3532,6 +3558,13 @@ def route_marriage_question_v3(
                 reference_moment,
             )
         )
+
+    # -----------------------------------------------------
+    # SPOUSE EDUCATION
+    # -----------------------------------------------------
+
+    if query_mode == "single_event" and event_name == "spouse_education":
+        return _route_spouse_education(chart, question_analysis, reference_moment)
 
     # -----------------------------------------------------
     # SPOUSE PROFESSION
