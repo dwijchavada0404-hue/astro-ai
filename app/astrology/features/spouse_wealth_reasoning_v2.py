@@ -57,15 +57,15 @@ def _normalise(value: str) -> str:
 def _detect_target(question: str) -> dict[str, Any]:
     q = _normalise(question)
     patterns = (
-        ("wealthy", ("wealthy", "rich", "affluent", "well off", "well-off", "financially strong")),
+        ("family_wealth", ("family wealth", "wealthy family", "rich family", "inherited wealth", "inheritance")),
         ("financially_stable", ("financially stable", "stable financially", "stable income", "money stable")),
-        ("business_wealth", ("business family", "business wealth", "business income", "entrepreneurial wealth", "own business")),
+        ("business_wealth", ("business family", "business wealth", "business income", "entrepreneurial wealth", "own business", "own a business")),
         ("professional_income", ("professional income", "salary", "salaried", "high earning professional", "professional earnings")),
         ("property_assets", ("property", "real estate", "assets", "asset rich", "asset-rich")),
-        ("family_wealth", ("family wealth", "wealthy family", "rich family", "inherited wealth", "inheritance")),
         ("international_income", ("foreign income", "international income", "earn abroad", "income abroad", "overseas income")),
         ("finance_skill", ("good with money", "financially intelligent", "money management", "financial skill", "finance minded")),
         ("speculative_income", ("speculative", "trading income", "stock market", "variable income", "high risk income")),
+        ("wealthy", ("wealthy", "rich", "affluent", "well off", "well-off", "financially strong")),
     )
     for target, words in patterns:
         matched = [word for word in words if word in q]
