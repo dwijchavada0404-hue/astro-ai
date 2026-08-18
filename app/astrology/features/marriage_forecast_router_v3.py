@@ -27,6 +27,10 @@ from app.astrology.features.spouse_profession_reasoning_v2 import (
     analyze_spouse_profession_v2,
 )
 
+from app.astrology.features.marriage_foreign_intercultural_reasoning_v1 import (
+    analyze_foreign_intercultural_relationship_v1,
+)
+
 
 # =========================================================
 # EVENT LABELS
@@ -1517,6 +1521,234 @@ def _route_spouse_profession(
 
 
 # =========================================================
+# FOREIGN / INTERCULTURAL ROUTE
+# =========================================================
+
+def _route_foreign_intercultural_connection(
+    chart: dict[str, Any],
+    question_analysis: dict[str, Any],
+    reference_moment: datetime,
+) -> dict[str, Any]:
+
+    intent = _safe_dict(
+        question_analysis.get(
+            "intent"
+        )
+    )
+
+    analysis = (
+        analyze_foreign_intercultural_relationship_v1(
+            chart
+        )
+    )
+
+    if not analysis.get(
+        "available"
+    ):
+
+        return {
+            "available": False,
+
+            "route": (
+                "natal_evidence"
+            ),
+
+            "event": (
+                "foreign_intercultural_connection"
+            ),
+
+            "event_label": (
+                EVENT_LABELS[
+                    "foreign_intercultural_connection"
+                ]
+            ),
+
+            "question_type": (
+                intent.get(
+                    "question_type"
+                )
+            ),
+
+            "direction": (
+                intent.get(
+                    "direction"
+                )
+            ),
+
+            "parser_confidence": (
+                intent.get(
+                    "confidence"
+                )
+            ),
+
+            "reference_moment": (
+                reference_moment.isoformat()
+            ),
+
+            "evidence_engine": (
+                "marriage_foreign_intercultural_reasoning_v1"
+            ),
+
+            "forecast_type": (
+                "natal_pattern"
+            ),
+
+            "reason": (
+                analysis.get(
+                    "reason"
+                )
+            ),
+        }
+
+    return {
+        "available": True,
+
+        "route": (
+            "natal_evidence"
+        ),
+
+        "event": (
+            "foreign_intercultural_connection"
+        ),
+
+        "event_label": (
+            EVENT_LABELS[
+                "foreign_intercultural_connection"
+            ]
+        ),
+
+        "question_type": (
+            intent.get(
+                "question_type"
+            )
+        ),
+
+        "direction": (
+            intent.get(
+                "direction"
+            )
+        ),
+
+        "parser_confidence": (
+            intent.get(
+                "confidence"
+            )
+        ),
+
+        "reference_moment": (
+            reference_moment.isoformat()
+        ),
+
+        "evidence_engine": (
+            "marriage_foreign_intercultural_reasoning_v1"
+        ),
+
+        "forecast_type": (
+            "natal_pattern"
+        ),
+
+        "model_version": (
+            analysis.get(
+                "model_version"
+            )
+        ),
+
+        "outcome": (
+            analysis.get(
+                "outcome"
+            )
+        ),
+
+        "label": (
+            analysis.get(
+                "label"
+            )
+        ),
+
+        "confidence": (
+            analysis.get(
+                "confidence"
+            )
+        ),
+
+        "probability_level": (
+            analysis.get(
+                "probability_level"
+            )
+        ),
+
+        "probability_score": (
+            analysis.get(
+                "support_score"
+            )
+        ),
+
+        "support_score": (
+            analysis.get(
+                "support_score"
+            )
+        ),
+
+        "answer": (
+            analysis.get(
+                "summary"
+            )
+        ),
+
+        "summary": (
+            analysis.get(
+                "summary"
+            )
+        ),
+
+        "scores": (
+            analysis.get(
+                "scores",
+                {},
+            )
+        ),
+
+        "primary_indicators": (
+            analysis.get(
+                "primary_indicators",
+                [],
+            )
+        ),
+
+        "secondary_indicators": (
+            analysis.get(
+                "secondary_indicators",
+                [],
+            )
+        ),
+
+        "context_indicators": (
+            analysis.get(
+                "context_indicators",
+                [],
+            )
+        ),
+
+        "indicators": (
+            analysis.get(
+                "indicators",
+                [],
+            )
+        ),
+
+        "chart_context": (
+            analysis.get(
+                "chart_context",
+                {},
+            )
+        ),
+
+        "analysis": (
+            analysis
+        ),
+    }
+
+# =========================================================
 # LOVE / ARRANGED ROUTE
 # =========================================================
 
@@ -2670,6 +2902,17 @@ def _route_follow_up(
             )
         )
 
+    elif inherited_event == (
+        "foreign_intercultural_connection"
+    ):
+
+        result = (
+            _route_foreign_intercultural_connection(
+                chart,
+                inherited_analysis,
+                reference_moment,
+            )
+        )
     elif inherited_event in (
         "love_vs_arranged",
         "love_marriage",
@@ -2976,6 +3219,24 @@ def route_marriage_question_v3(
         )
 
     # -----------------------------------------------------
+    # FOREIGN / INTERCULTURAL RELATIONSHIP
+    # -----------------------------------------------------
+
+    if (
+        query_mode
+        == "single_event"
+        and event_name
+        == "foreign_intercultural_connection"
+    ):
+
+        return (
+            _route_foreign_intercultural_connection(
+                chart,
+                question_analysis,
+                reference_moment,
+            )
+        )
+    # -----------------------------------------------------
     # LOVE / ARRANGED
     # -----------------------------------------------------
 
@@ -3033,3 +3294,4 @@ def route_marriage_question_v3(
             "is not yet implemented."
         ),
     }
+
