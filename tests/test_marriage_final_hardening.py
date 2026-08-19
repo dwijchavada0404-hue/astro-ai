@@ -36,6 +36,31 @@ def chart():
             "Rahu": {"house": 9, "sign": "Capricorn"},
             "Ketu": {"house": 3, "sign": "Cancer"},
         },
+        # Timing routes require a Dasha period covering every scanned moment.
+        "dashas": {
+            "mahadashas": [
+                {
+                    "planet": "Venus",
+                    "start": "2020-01-01T00:00:00+00:00",
+                    "end": "2040-01-01T00:00:00+00:00",
+                    "antardashas": [
+                        {
+                            "planet": "Jupiter",
+                            "start": "2020-01-01T00:00:00+00:00",
+                            "end": "2040-01-01T00:00:00+00:00",
+                        }
+                    ],
+                }
+            ],
+            "current_period": {
+                "mahadasha": "Venus",
+                "antardasha": "Jupiter",
+                "mahadasha_start": "2020-01-01T00:00:00+00:00",
+                "mahadasha_end": "2040-01-01T00:00:00+00:00",
+                "antardasha_start": "2020-01-01T00:00:00+00:00",
+                "antardasha_end": "2040-01-01T00:00:00+00:00",
+            },
+        },
     }
 
 
@@ -76,10 +101,21 @@ def test_unrelated_question_does_not_get_false_marriage_answer(chart):
 
 
 def test_follow_up_keeps_previous_marriage_context(chart):
-    first = _route(chart, "Could I relocate after marriage?")
-    second = _route(chart, "What about abroad?", previous_context=first)
+    first_question = "Could I relocate after marriage?"
+    first_analysis = analyze_marriage_question_v3(first_question)
+    first = route_marriage_question_v3(
+        chart,
+        first_analysis,
+        reference_moment=datetime(2026, 8, 19, 12, 0, tzinfo=timezone.utc),
+    )
+    previous_context = {
+        "question_analysis": first_analysis,
+        "route_result": first,
+    }
+    second = _route(chart, "What about abroad?", previous_context=previous_context)
     assert isinstance(second, dict)
     assert second
+    assert second.get("context_used") is True
     assert second.get("available", True) is not False
 
 
