@@ -67,12 +67,14 @@ def test_financial_stability_uses_financial_profile_engine_and_legacy_target():
     assert result["answer"]
 
 
-def test_entrepreneurial_question_maps_to_business_wealth():
+def test_standalone_entrepreneurial_question_remains_profession():
     _, result = _route("Could my future spouse be entrepreneurial?")
 
-    assert result["event"] == "spouse_wealth"
-    assert result["target"] == "business_wealth"
-    assert result["analysis"]["financial_profile_analysis"]["target"] == "entrepreneurial"
+    # A standalone entrepreneurial question is about career orientation rather
+    # than financial condition. Financial-profile routing should only take over
+    # when the question explicitly asks about money, income, wealth, stability,
+    # assets, or an overall financial profile.
+    assert result["event"] == "spouse_profession"
 
 
 def test_variable_income_maps_to_speculative_income():
