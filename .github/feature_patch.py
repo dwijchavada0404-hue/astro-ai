@@ -33,8 +33,6 @@ if priority_anchor not in s:
     raise RuntimeError("anchor not found: priority")
 s = s.replace(priority_anchor, '        "spouse_family_background",\n        "married_life_quality",\n        "spouse_education",\n', 1)
 s = replace_once(s, '    if primary_event in (\n        "spouse_traits",\n        "love_vs_arranged",\n    ):\n', '    if primary_event in (\n        "spouse_traits",\n        "love_vs_arranged",\n        "married_life_quality",\n    ):\n', "question type")
-# V3 currently derives direction from the V2 intent; no separate neutral-event tuple exists here.
-s = replace_once(s, '        "spouse_age_profile",\n        "love_marriage",\n', '        "spouse_age_profile",\n        "married_life_quality",\n        "love_marriage",\n', "confidence")
 p.write_text(s, encoding="utf-8")
 
 
