@@ -37,6 +37,9 @@ EVENT_LABELS = {
     "spouse_education": (
         "Spouse Education / Intellectual Profile"
     ),
+    "spouse_wealth": (
+        "Spouse Wealth / Financial Profile"
+    ),
     "spouse_profession": (
         "Spouse Profession / Career Profile"
     ),
@@ -577,6 +580,46 @@ def _detect_spouse_education(question: str) -> dict[str, Any] | None:
 
 
 # =========================================================
+# SPOUSE WEALTH DETECTION
+# =========================================================
+
+def _detect_spouse_wealth(question: str) -> dict[str, Any] | None:
+    spouse_markers = (
+        "spouse", "future spouse", "partner", "future partner",
+        "husband", "wife", "person i marry", "person i will marry",
+    )
+    if not any(marker in question for marker in spouse_markers):
+        return None
+
+    patterns = (
+        (r"\bfinancial\s+profile\b", "spouse financial profile"),
+        (r"\bfinancial\s+background\b", "spouse financial background"),
+        (r"\bfinancially\s+stable\b", "spouse financial stability"),
+        (r"\bfinancial\s+stability\b", "spouse financial stability"),
+        (r"\b(?:wealthy|rich|affluent|well[- ]off)\b", "spouse wealth"),
+        (r"\b(?:family\s+wealth|wealthy\s+family|rich\s+family)\b", "spouse family wealth"),
+        (r"\b(?:inherited\s+wealth|inheritance)\b", "spouse inherited wealth"),
+        (r"\b(?:own\s+property|property\s+assets?|asset[- ]rich|real\s+estate\s+assets?)\b", "spouse property assets"),
+        (r"\b(?:professional\s+income|high\s+income|high\s+salary|salary\s+level)\b", "spouse professional income"),
+        (r"\b(?:business\s+wealth|business\s+income|entrepreneurial\s+wealth)\b", "spouse business wealth"),
+        (r"\b(?:foreign\s+income|international\s+income|income\s+abroad|earn\s+abroad|overseas\s+income)\b", "spouse international income"),
+        (r"\b(?:good\s+with\s+money|money\s+management|financially\s+intelligent|financial\s+skill)\b", "spouse financial skill"),
+        (r"\b(?:speculative\s+income|trading\s+income|stock\s+market\s+income|variable\s+income|high[- ]risk\s+income)\b", "spouse speculative income"),
+    )
+    matched = []
+    for pattern, label in patterns:
+        if re.search(pattern, question) and label not in matched:
+            matched.append(label)
+    if not matched:
+        return None
+    return {
+        "event": "spouse_wealth",
+        "event_label": EVENT_LABELS["spouse_wealth"],
+        "matched_keywords": matched,
+    }
+
+
+# =========================================================
 # SPOUSE APPEARANCE DETECTION
 # =========================================================
 
@@ -811,6 +854,14 @@ def _detect_special_events(
     spouse_education = _detect_spouse_education(question)
     if spouse_education:
         detected.append(spouse_education)
+
+    # -----------------------------------------------------
+    # SPOUSE WEALTH / FINANCIAL PROFILE
+    # -----------------------------------------------------
+
+    spouse_wealth = _detect_spouse_wealth(question)
+    if spouse_wealth:
+        detected.append(spouse_wealth)
 
     # -----------------------------------------------------
     # SPOUSE APPEARANCE
@@ -1086,6 +1137,12 @@ def _clean_base_events(
             continue
 
         if (
+            "spouse_wealth" in special_names
+            and event_name in ("spouse_profession","spouse_traits","spouse_appearance","marriage_timing","general_marriage")
+        ):
+            continue
+
+        if (
             "spouse_appearance"
             in special_names
             and event_name
@@ -1182,6 +1239,12 @@ def _clean_special_event_conflicts(
             )
         ):
 
+            continue
+
+        if (
+            "spouse_wealth" in names
+            and event_name in ("spouse_profession","foreign_intercultural_connection","spouse_appearance","spouse_traits")
+        ):
             continue
 
         if (
@@ -1333,6 +1396,7 @@ def _inject_comparison_event(
         "spouse_traits",
         "spouse_appearance",
         "spouse_education",
+        "spouse_wealth",
         "spouse_profession",
         "spouse_meeting",
         "love_marriage",
@@ -1394,6 +1458,7 @@ def _resolve_primary_event(
     priority = (
         "love_vs_arranged",
         "spouse_meeting",
+        "spouse_wealth",
         "spouse_education",
         "spouse_profession",
         "foreign_intercultural_connection",
@@ -1482,6 +1547,7 @@ def _resolve_question_type(
         "spouse_profession",
         "spouse_appearance",
         "spouse_education",
+        "spouse_wealth",
         "foreign_intercultural_connection",
     ):
 
@@ -1591,6 +1657,7 @@ def _resolve_direction(
         "spouse_traits",
         "spouse_appearance",
         "spouse_education",
+        "spouse_wealth",
         "spouse_profession",
         "love_vs_arranged",
     ):
@@ -1661,6 +1728,7 @@ def _resolve_confidence(
         "spouse_traits",
         "spouse_appearance",
         "spouse_education",
+        "spouse_wealth",
         "spouse_profession",
         "foreign_intercultural_connection",
         "love_marriage",
