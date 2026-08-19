@@ -49,6 +49,9 @@ EVENT_LABELS = {
     "married_life_quality": (
         "Married Life / Relationship Quality"
     ),
+    "relationship_challenges": (
+        "Relationship Challenges / Stress & Repair"
+    ),
     "spouse_profession": (
         "Spouse Profession / Career Profile"
     ),
@@ -923,6 +926,32 @@ def _detect_married_life_quality(question: str) -> dict[str, Any] | None:
         return None
     return {"event": "married_life_quality", "event_label": EVENT_LABELS["married_life_quality"], "matched_keywords": matched}
 
+
+# =========================================================
+# RELATIONSHIP CHALLENGES DETECTION
+# =========================================================
+
+def _detect_relationship_challenges(question: str) -> dict[str, Any] | None:
+    patterns = (
+        (r"\b(?:marriage|relationship)\s+(?:conflict|conflicts|fights?|arguments?)\b", "relationship conflict"),
+        (r"\b(?:conflict|fights?|arguments?)\s+in\s+(?:my\s+)?(?:marriage|relationship)\b", "relationship conflict"),
+        (r"\bemotional(?:ly)?\s+(?:distance|distant|withdrawal|withdrawn)\b", "emotional distance"),
+        (r"\b(?:unstable|instability|unpredictable)\s+(?:marriage|relationship)\b", "relationship instability"),
+        (r"\b(?:marriage|relationship)\s+(?:be\s+|feel\s+|become\s+)?(?:unstable|instability|unpredictable)\b", "relationship instability"),
+        (r"\bcommitment\s+(?:delay|delays|pressure|difficulty|difficulties)\b", "commitment pressure"),
+        (r"\b(?:repair|reconcile|reconciliation|recover)\b.{0,24}\b(?:marriage|relationship)\b", "relationship repair"),
+        (r"\b(?:marriage|relationship)\b.{0,24}\b(?:repair|reconcile|reconciliation|recover)\b", "relationship repair"),
+        (r"\brelationship\s+challenges?\b", "relationship challenges"),
+        (r"\bmarital\s+(?:conflict|stress|challenges?)\b", "marital challenges"),
+    )
+    matched = []
+    for pattern, label in patterns:
+        if re.search(pattern, question) and label not in matched:
+            matched.append(label)
+    if not matched:
+        return None
+    return {"event": "relationship_challenges", "event_label": EVENT_LABELS["relationship_challenges"], "matched_keywords": matched}
+
 # =========================================================
 # SPECIAL EVENT DETECTION
 # =========================================================
@@ -932,6 +961,10 @@ def _detect_special_events(
 ) -> list[dict[str, Any]]:
 
     detected = []
+
+    relationship_challenges = _detect_relationship_challenges(question)
+    if relationship_challenges:
+        detected.append(relationship_challenges)
 
     married_life_quality = _detect_married_life_quality(question)
     if married_life_quality:
@@ -1368,6 +1401,12 @@ def _clean_base_events(
             continue
 
         if (
+            "relationship_challenges" in special_names
+            and event_name in ("general_marriage", "relationship_stability", "marriage_delay_challenge", "marriage_timing")
+        ):
+            continue
+
+        if (
             "married_life_quality" in special_names
             and event_name in ("general_marriage", "relationship_stability", "marriage_timing")
         ):
@@ -1674,6 +1713,7 @@ def _resolve_primary_event(
         "spouse_meeting",
         "spouse_wealth",
         "spouse_family_background",
+        "relationship_challenges",
         "married_life_quality",
         "spouse_education",
         "spouse_profession",
