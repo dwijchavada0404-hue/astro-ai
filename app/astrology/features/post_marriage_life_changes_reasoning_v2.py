@@ -29,7 +29,10 @@ def _detect_target(question: str) -> tuple[str, list[str]]:
         ("career_shift", ("career change", "career shift", "job change", "work change", "profession change", "career after marriage")),
         ("financial_change", ("financial change", "finances change", "money change", "income change", "financially after marriage", "wealth after marriage")),
         ("family_responsibility", ("family responsibility", "family responsibilities", "responsibilities increase", "more responsibility")),
-        ("lifestyle_change", ("lifestyle change", "life change", "daily life change", "domestic life", "home life change")),
+        # Keep broad wording such as "how could my life change after marriage?"
+        # as a general synthesis request. Lifestyle targeting should require a
+        # clearly domestic/day-to-day lifestyle cue.
+        ("lifestyle_change", ("lifestyle change", "daily life change", "domestic life", "home life change")),
     )
     for target, keywords in patterns:
         matched = [keyword for keyword in keywords if keyword in question]
