@@ -1,4 +1,4 @@
-﻿from calendar import monthrange
+from calendar import monthrange
 from copy import deepcopy
 from datetime import datetime
 from typing import Any
@@ -67,6 +67,10 @@ from app.astrology.features.marriage_question_intelligence_v3 import (
 
 from app.astrology.features.marriage_forecast_router_v3 import (
     route_marriage_question_v3,
+)
+
+from app.astrology.features.marriage_synthesis_reasoning_v2 import (
+    synthesize_marriage_profile_v2,
 )
 
 
@@ -214,6 +218,14 @@ class MarriageQuestionV3Request(BaseModel):
     question: str
     reference_moment: datetime
     previous_context: dict[str, Any] | None = None
+
+
+class MarriageSynthesisV2Request(BaseModel):
+    """Full Marriage synthesis request."""
+
+    birth: BirthInput
+    reference_moment: datetime
+    include_timing: bool = True
 
 
 class CareerTransitRequest(BaseModel):
@@ -1961,3 +1973,34 @@ def answer_career_question_v3(
                 f"{exc}"
             ),
         ) from exc
+
+# =========================================================
+# FULL MARRIAGE SYNTHESIS V2
+# =========================================================
+
+@app.post(
+    "/api/v1/marriage-synthesis-v2"
+)
+def create_marriage_synthesis_v2(
+    payload: MarriageSynthesisV2Request,
+):
+    """Build one coherent marriage profile from the existing V3 engines."""
+    try:
+        chart = build_chart(payload.birth)
+        synthesis = synthesize_marriage_profile_v2(
+            chart,
+            payload.reference_moment,
+            include_timing=payload.include_timing,
+        )
+        return {
+            "birth": chart.get("birth", {}),
+            "synthesis": synthesis,
+        }
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Marriage synthesis generation failed: {exc}",
+        ) from exc
+
