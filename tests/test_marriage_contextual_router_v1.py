@@ -54,13 +54,16 @@ def test_married_user_is_clarified_before_timing_scan():
     assert result["relationship_status"] == "married"
 
 
-def test_single_user_open_ended_question_gets_bidirectional_route():
+def test_single_user_open_ended_question_gets_bidirectional_enrichment():
     analysis = analyze_marriage_question_v3("When will I get married?")
     result = route_marriage_question_contextual_v1(
         _chart(), analysis, _ref(), relationship_status="single",
         lookback_years=2, lookahead_years=2,
     )
-    assert result["route"] == "bidirectional_marriage_timing"
+    assert result["route"] == "single_event"
+    assert result["event"] == "marriage_timing"
+    assert result["timing_mode"] == "bidirectional"
+    assert result["forecast_type"] == "past_future_comparison"
     assert "past" in result
     assert "future" in result
     assert result["relationship_status"] == "single"
@@ -72,6 +75,8 @@ def test_divorced_open_ended_question_is_marked_for_remarriage_context():
         _chart(), analysis, _ref(), relationship_status="divorced",
         lookback_years=2, lookahead_years=2,
     )
-    assert result["route"] == "bidirectional_marriage_timing"
+    assert result["route"] == "single_event"
+    assert result["event"] == "marriage_timing"
+    assert result["timing_mode"] == "bidirectional"
     assert result["context_interpretation"] == "remarriage_timing"
     assert "remarriage" in result["future"]["interpretation"]
