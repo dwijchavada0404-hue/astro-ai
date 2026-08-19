@@ -69,6 +69,10 @@ from app.astrology.features.marriage_forecast_router_v3 import (
     route_marriage_question_v3,
 )
 
+from app.astrology.features.marriage_contextual_router_v1 import (
+    route_marriage_question_contextual_v1,
+)
+
 from app.astrology.features.marriage_synthesis_reasoning_v2 import (
     synthesize_marriage_profile_v2,
 )
@@ -218,6 +222,7 @@ class MarriageQuestionV3Request(BaseModel):
     question: str
     reference_moment: datetime
     previous_context: dict[str, Any] | None = None
+    relationship_status: str | None = None
 
 
 class MarriageSynthesisV2Request(BaseModel):
@@ -1186,10 +1191,13 @@ def answer_marriage_question_v3(
         # ---------------------------------------------
 
         route_result = (
-            route_marriage_question_v3(
+            route_marriage_question_contextual_v1(
                 chart,
                 question_analysis,
                 reference_moment,
+                relationship_status=(
+                    payload.relationship_status
+                ),
                 previous_context=(
                     payload.previous_context
                 ),
