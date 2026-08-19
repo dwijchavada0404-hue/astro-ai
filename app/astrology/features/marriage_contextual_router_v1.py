@@ -98,6 +98,21 @@ def route_marriage_question_contextual_v1(
             "lookahead_years": lookahead_years,
             "timing_mode": "bidirectional",
         }
+
+        # Preserve the established V3 single-event forecast contract for
+        # existing API consumers while exposing the richer bidirectional data.
+        future_forecast = _safe_dict(result.get("future_forecast"))
+        future_events = _safe_dict(future_forecast.get("events"))
+        future_event = _safe_dict(future_events.get("marriage_timing"))
+        future_window = result.get("future", {}).get("strongest_window") if isinstance(result.get("future"), dict) else None
+        primary_window = future_event.get("primary_window") or future_window
+        result["forecast_available"] = bool(future_event.get("available", primary_window is not None))
+        result["primary_window"] = primary_window
+        if "supporting_windows" in future_event:
+            result["supporting_windows"] = future_event.get("supporting_windows")
+        if "forecast" in future_event:
+            result["forecast"] = future_event.get("forecast")
+
         result["context_guard"] = guard
         if guard.get("action") == "reinterpret":
             result["context_interpretation"] = guard.get("interpretation")
