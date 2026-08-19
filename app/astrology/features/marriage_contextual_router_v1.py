@@ -91,6 +91,13 @@ def route_marriage_question_contextual_v1(
         result["route"] = "single_event"
         result["timing_mode"] = "bidirectional"
         result["forecast_type"] = "past_future_comparison"
+        result["resolved_forecast_request"] = {
+            "range_type": "open_ended_marriage_timing_36_months",
+            "reference_moment": reference_moment.isoformat(),
+            "lookback_years": lookback_years,
+            "lookahead_years": lookahead_years,
+            "timing_mode": "bidirectional",
+        }
         result["context_guard"] = guard
         if guard.get("action") == "reinterpret":
             result["context_interpretation"] = guard.get("interpretation")
