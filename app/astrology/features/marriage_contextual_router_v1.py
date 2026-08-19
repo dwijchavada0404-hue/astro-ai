@@ -18,22 +18,45 @@ def _is_open_ended_marriage_timing(question_analysis: dict[str, Any]) -> bool:
     event = str(question_analysis.get("primary_event") or question_analysis.get("event") or "")
     intent = _safe_dict(question_analysis.get("intent"))
     qtype = str(intent.get("question_type") or "")
-    horizon = _safe_dict(question_analysis.get("forecast_horizon"))
-    horizon_type = str(horizon.get("type") or "")
     question = str(
         question_analysis.get("normalised_question")
         or question_analysis.get("original_question")
         or ""
     ).lower()
 
-    timing_like = event == "marriage_timing" or (
-        qtype == "timing" and ("marri" in question or "wedding" in question)
+    # V3 may attach a default forecast_horizon even when the user did not
+    # explicitly request one. Open-ended detection therefore relies on the
+    # user's actual wording rather than the presence of that derived field.
+    timing_like = (
+        event == "marriage_timing"
+        or ("when" in question and ("marri" in question or "wedding" in question))
+        or (qtype == "timing" and ("marri" in question or "wedding" in question))
     )
-    explicit_horizon = bool(horizon_type) or any(
+
+    explicit_horizon = any(
         token in question
         for token in (
-            "this month", "next month", "this year", "next year",
-            "next 1 year", "next 2 years", "next 3 years",
+            "this month",
+            "next month",
+            "this year",
+            "next year",
+            "next 1 month",
+            "next 2 months",
+            "next 3 months",
+            "next 4 months",
+            "next 5 months",
+            "next 6 months",
+            "next 7 months",
+            "next 8 months",
+            "next 9 months",
+            "next 10 months",
+            "next 11 months",
+            "next 12 months",
+            "next 1 year",
+            "next 2 years",
+            "next 3 years",
+            "next 4 years",
+            "next 5 years",
         )
     ) or any(str(year) in question for year in range(2020, 2101))
 
