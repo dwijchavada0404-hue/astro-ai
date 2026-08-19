@@ -7,20 +7,6 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
     return text.replace(old, new, 1)
 
 
-def replace_in_function(text: str, function_name: str, old: str, new: str, label: str) -> str:
-    marker = f"def {function_name}("
-    start = text.find(marker)
-    if start < 0:
-        raise RuntimeError(f"missing function: {function_name}")
-    next_def = text.find("\ndef ", start + len(marker))
-    end = len(text) if next_def < 0 else next_def + 1
-    block = text[start:end]
-    if old not in block:
-        raise RuntimeError(f"missing anchor: {label}")
-    block = block.replace(old, new, 1)
-    return text[:start] + block + text[end:]
-
-
 # ---------------- Intelligence V3 ----------------
 p = Path("app/astrology/features/marriage_question_intelligence_v3.py")
 s = p.read_text()
@@ -30,7 +16,7 @@ s = replace_once(s,
 '''    "spouse_family_background": (\n        "Spouse Family / Social Background"\n    ),\n    "spouse_age_profile": (\n        "Spouse Age / Maturity Profile"\n    ),\n''', "intelligence label")
 
 marker = "# =========================================================\n# SPECIAL EVENT DETECTION\n# =========================================================\n"
-detector = '''# =========================================================\n# SPOUSE AGE / MATURITY DETECTION\n# =========================================================\n\ndef _detect_spouse_age_profile(question: str) -> dict[str, Any] | None:\n    if re.search(r"\\b(?:what|which)\\s+age\\b.{0,25}\\b(?:marry|married|marriage)\\b", question):\n        return None\n\n    spouse_context = (\n        "spouse", "future spouse", "partner", "future partner",\n        "husband", "wife", "person i marry", "person i will marry",\n    )\n    if not any(value in question for value in spouse_context):\n        return None\n\n    pattern_map = (\n        (r"\\bolder(?:\\s+than\\s+me)?\\b", "older spouse"),\n        (r"\\belder(?:\\s+than\\s+me)?\\b", "older spouse"),\n        (r"\\bmore\\s+mature(?:\\s+than\\s+me)?\\b", "more mature spouse"),\n        (r"\\byounger(?:\\s+than\\s+me)?\\b", "younger spouse"),\n        (r"\\byouthful\\b", "younger spouse"),\n        (r"\\b(?:same|similar)\\s+age\\b", "similar age spouse"),\n        (r"\\bclose\\s+in\\s+age\\b", "similar age spouse"),\n        (r"\\baround\\s+my\\s+age\\b", "similar age spouse"),\n        (r"\\bage\\s+(?:profile|difference|gap)\\b", "spouse age profile"),\n        (r"\\b(?:age|maturity)\\s+profile\\b", "spouse age profile"),\n    )\n    matched = []\n    for pattern, keyword in pattern_map:\n        if re.search(pattern, question) and keyword not in matched:\n            matched.append(keyword)\n    if not matched:\n        return None\n    return {\n        "event": "spouse_age_profile",\n        "event_label": EVENT_LABELS["spouse_age_profile"],\n        "matched_keywords": matched,\n    }\n\n\n'''
+detector = '''# =========================================================\n# SPOUSE AGE / MATURITY DETECTION\n# =========================================================\n\ndef _detect_spouse_age_profile(question: str) -> dict[str, Any] | None:\n    # Protect marriage-timing questions such as \"At what age will I get married?\".\n    if re.search(r"\\b(?:what|which)\\s+age\\b.{0,25}\\b(?:marry|married|marriage)\\b", question):\n        return None\n\n    spouse_context = (\n        "spouse", "future spouse", "partner", "future partner",\n        "husband", "wife", "person i marry", "person i will marry",\n    )\n    if not any(value in question for value in spouse_context):\n        return None\n\n    pattern_map = (\n        (r"\\bolder(?:\\s+than\\s+me)?\\b", "older spouse"),\n        (r"\\belder(?:\\s+than\\s+me)?\\b", "older spouse"),\n        (r"\\bmore\\s+mature(?:\\s+than\\s+me)?\\b", "more mature spouse"),\n        (r"\\byounger(?:\\s+than\\s+me)?\\b", "younger spouse"),\n        (r"\\byouthful\\b", "younger spouse"),\n        (r"\\b(?:same|similar)\\s+age\\b", "similar age spouse"),\n        (r"\\bclose\\s+in\\s+age\\b", "similar age spouse"),\n        (r"\\baround\\s+my\\s+age\\b", "similar age spouse"),\n        (r"\\bage\\s+(?:profile|difference|gap)\\b", "spouse age profile"),\n        (r"\\b(?:age|maturity)\\s+profile\\b", "spouse age profile"),\n    )\n    matched = []\n    for pattern, keyword in pattern_map:\n        if re.search(pattern, question) and keyword not in matched:\n            matched.append(keyword)\n    if not matched:\n        return None\n    return {\n        "event": "spouse_age_profile",\n        "event_label": EVENT_LABELS["spouse_age_profile"],\n        "matched_keywords": matched,\n    }\n\n\n'''
 s = replace_once(s, marker, detector + marker, "intelligence detector location")
 
 anchor = '''def _detect_special_events(\n    question: str,\n) -> list[dict[str, Any]]:\n\n    detected = []\n'''
@@ -62,23 +48,30 @@ s = replace_once(
     "confidence function",
 )
 
-cleanup = '''        if (\n            "spouse_age_profile" in special_names\n            and event_name in ("spouse_traits", "general_marriage", "marriage_timing")\n        ):\n            continue\n\n'''
-s = replace_in_function(
-    s,
-    "_clean_base_events",
-    "        cleaned.append(\n            raw_item\n        )\n",
-    cleanup + "        cleaned.append(\n            raw_item\n        )\n",
-    "base cleanup append",
-)
+cleanup_anchor = '''def _clean_base_events(\n    base_events: list[Any],\n    special_events: list[dict[str, Any]],\n) -> list[dict[str, Any]]:\n'''
+cleanup_insertion = '''\n    # spouse_age_profile is handled below through special_names; age-specific\n    # questions should not retain generic spouse/marriage detections.\n'''
+s = replace_once(s, cleanup_anchor, cleanup_anchor + cleanup_insertion, "base cleanup function")
 
-conflict = '''        if (\n            "spouse_age_profile" in names\n            and event_name == "spouse_traits"\n        ):\n            continue\n\n'''
-s = replace_in_function(
-    s,
-    "_clean_special_event_conflicts",
-    "        cleaned.append(\n            item\n        )\n",
-    conflict + "        cleaned.append(\n            item\n        )\n",
-    "special cleanup append",
-)
+# Put the actual cleanup before the first cleaned.append(raw_item) call within the function.
+base_start = s.index("def _clean_base_events(")
+base_end = s.index("def _clean_special_event_conflicts(", base_start)
+base_block = s[base_start:base_end]
+needle = '''        cleaned.append(\n            raw_item\n        )\n'''
+replacement = '''        if (\n            "spouse_age_profile" in special_names\n            and event_name in ("spouse_traits", "general_marriage", "marriage_timing")\n        ):\n            continue\n\n''' + needle
+if needle not in base_block:
+    raise RuntimeError("missing anchor: base cleanup append")
+base_block = base_block.replace(needle, replacement, 1)
+s = s[:base_start] + base_block + s[base_end:]
+
+special_start = s.index("def _clean_special_event_conflicts(")
+special_end = s.index("def _merge_events(", special_start)
+special_block = s[special_start:special_end]
+needle = '''        cleaned.append(\n            item\n        )\n'''
+replacement = '''        if (\n            "spouse_age_profile" in names\n            and event_name == "spouse_traits"\n        ):\n            continue\n\n''' + needle
+if needle not in special_block:
+    raise RuntimeError("missing anchor: special conflict append")
+special_block = special_block.replace(needle, replacement, 1)
+s = s[:special_start] + special_block + s[special_end:]
 
 p.write_text(s)
 
@@ -99,8 +92,14 @@ route_marker = "# =========================================================\n# S
 route = '''# =========================================================\n# SPOUSE AGE / MATURITY ROUTE\n# =========================================================\n\ndef _route_spouse_age_profile(chart: dict[str, Any], question_analysis: dict[str, Any], reference_moment: datetime) -> dict[str, Any]:\n    intent = _safe_dict(question_analysis.get("intent"))\n    question = str(question_analysis.get("original_question", question_analysis.get("normalised_question", "")) or "")\n    analysis = analyze_spouse_age_profile_v2(chart, question)\n    if not analysis.get("available"):\n        return {\n            "available": False, "route": "natal_evidence", "event": "spouse_age_profile",\n            "event_label": EVENT_LABELS["spouse_age_profile"],\n            "question_type": intent.get("question_type"), "direction": intent.get("direction"),\n            "parser_confidence": intent.get("confidence"), "reference_moment": reference_moment.isoformat(),\n            "evidence_engine": "spouse_age_profile_reasoning_v2", "forecast_type": "natal_pattern",\n            "reason": analysis.get("reason"),\n        }\n    result = dict(analysis)\n    result.update({\n        "available": True, "route": "natal_evidence", "event": "spouse_age_profile",\n        "event_label": EVENT_LABELS["spouse_age_profile"],\n        "question_type": intent.get("question_type"), "direction": intent.get("direction"),\n        "parser_confidence": intent.get("confidence"), "reference_moment": reference_moment.isoformat(),\n        "evidence_engine": "spouse_age_profile_reasoning_v2", "forecast_type": "natal_pattern",\n    })\n    return result\n\n\n'''
 s = replace_once(s, route_marker, route + route_marker, "router route location")
 
-dispatch_anchor = '''    if primary_event == (\n        "spouse_family_background"\n    ):\n'''
-dispatch = '''    if primary_event == "spouse_age_profile":\n        return _route_spouse_age_profile(chart, question_analysis, reference_moment)\n\n'''
+# Main single-event dispatch uses one-line style for family background.
+dispatch_anchor = '''    if query_mode == "single_event" and event_name == "spouse_family_background":\n        return _route_spouse_family_background(chart, question_analysis, reference_moment)\n'''
+dispatch = '''    if query_mode == "single_event" and event_name == "spouse_age_profile":\n        return _route_spouse_age_profile(chart, question_analysis, reference_moment)\n\n'''
 s = replace_once(s, dispatch_anchor, dispatch + dispatch_anchor, "router dispatch")
+
+# Follow-up dispatch should inherit the new event as well.
+followup_anchor = '''    elif inherited_event == (\n        "spouse_family_background"\n    ):\n\n        result = _route_spouse_family_background(chart, inherited_analysis, reference_moment)\n'''
+followup = '''    elif inherited_event == (\n        "spouse_age_profile"\n    ):\n\n        result = _route_spouse_age_profile(chart, inherited_analysis, reference_moment)\n\n'''
+s = replace_once(s, followup_anchor, followup + followup_anchor, "router follow-up dispatch")
 
 p.write_text(s)
