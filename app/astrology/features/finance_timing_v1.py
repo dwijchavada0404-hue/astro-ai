@@ -32,7 +32,7 @@ def _parse_dt(value: Any, tzinfo) -> datetime | None:
 def _wealth_lords(chart: dict[str, Any]) -> set[str]:
     houses = _safe_dict(chart.get("houses"))
     lords: set[str] = set()
-    for number in (2, 5, 8, 9, 11):
+    for number in (2, 5, 8, 9, 10, 11):
         h = _safe_dict(houses.get(str(number)) or houses.get(number))
         lord = h.get("lord")
         if isinstance(lord, str) and lord:
@@ -52,24 +52,58 @@ def _period_score(period: dict[str, Any], wealth_lords: set[str], natal_score: f
     return round(min(1.0, score), 3)
 
 
+def _append_period(
+    periods: list[dict[str, Any]],
+    raw: dict[str, Any],
+    reference_moment: datetime,
+    major_lord: str | None = None,
+) -> None:
+    start = _parse_dt(raw.get("start"), reference_moment.tzinfo)
+    end = _parse_dt(raw.get("end"), reference_moment.tzinfo)
+    if not start or not end or end <= start:
+        return
+    enriched = dict(raw)
+    enriched["start_dt"] = start
+    enriched["end_dt"] = end
+    if major_lord and not enriched.get("major_lord") and not enriched.get("mahadasha"):
+        enriched["major_lord"] = major_lord
+    periods.append(enriched)
+
+
 def _collect_periods(chart: dict[str, Any], reference_moment: datetime) -> list[dict[str, Any]]:
-    raw = (
-        chart.get("dasha_periods")
-        or chart.get("dashas")
-        or chart.get("vimshottari")
-        or []
-    )
+    """Normalize flat or nested Vimshottari structures into timing periods."""
     periods: list[dict[str, Any]] = []
-    for item in _safe_list(raw):
-        if not isinstance(item, dict):
-            continue
-        start = _parse_dt(item.get("start"), reference_moment.tzinfo)
-        end = _parse_dt(item.get("end"), reference_moment.tzinfo)
-        if start and end and end > start:
-            enriched = dict(item)
-            enriched["start_dt"] = start
-            enriched["end_dt"] = end
-            periods.append(enriched)
+
+    # Legacy/flat structures.
+    for key in ("dasha_periods", "vimshottari"):
+        for item in _safe_list(chart.get(key)):
+            if isinstance(item, dict):
+                _append_period(periods, item, reference_moment)
+
+    # Production chart structure: dashas -> mahadashas -> antardashas.
+    dashas = chart.get("dashas")
+    if isinstance(dashas, list):
+        for item in dashas:
+            if isinstance(item, dict):
+                _append_period(periods, item, reference_moment)
+    elif isinstance(dashas, dict):
+        for md_raw in _safe_list(dashas.get("mahadashas")):
+            if not isinstance(md_raw, dict):
+                continue
+            major = md_raw.get("planet") if isinstance(md_raw.get("planet"), str) else None
+            antardashas = _safe_list(md_raw.get("antardashas"))
+            if antardashas:
+                for ad_raw in antardashas:
+                    if not isinstance(ad_raw, dict):
+                        continue
+                    normalized = dict(ad_raw)
+                    normalized["antardasha"] = ad_raw.get("planet") or ad_raw.get("antardasha")
+                    _append_period(periods, normalized, reference_moment, major_lord=major)
+            else:
+                normalized_md = dict(md_raw)
+                normalized_md["major_lord"] = major
+                _append_period(periods, normalized_md, reference_moment)
+
     return periods
 
 
