@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.astrology.features.spouse_financial_profile_reasoning_v2 import (
+    analyze_spouse_financial_profile_v2,
+)
 from app.astrology.features.spouse_wealth_reasoning_v1 import analyze_spouse_wealth_v1
 
 
@@ -28,6 +31,14 @@ TARGET_THEMES = {
     "international_income": {"international_income", "business_commercial"},
     "finance_skill": {"financial_analysis", "business_commercial", "professional_income"},
     "speculative_income": {"variable_speculative", "business_commercial", "international_income"},
+}
+
+FINANCIAL_PROFILE_TARGET_MAP = {
+    "general": "general",
+    "affluent": "wealthy",
+    "stable": "financially_stable",
+    "entrepreneurial": "business_wealth",
+    "variable": "speculative_income",
 }
 
 
@@ -72,6 +83,57 @@ def _detect_target(question: str) -> dict[str, Any]:
         if matched:
             return {"target": target, "target_label": TARGET_LABELS[target], "matched_keywords": matched}
     return {"target": "general", "target_label": TARGET_LABELS["general"], "matched_keywords": []}
+
+
+def _use_financial_profile_engine(question: str) -> bool:
+    q = _normalise(question)
+    markers = (
+        "financial profile",
+        "financially stable",
+        "financial stability",
+        "entrepreneur",
+        "entrepreneurial",
+        "own business",
+        "variable income",
+        "unstable income",
+        "unconventional income",
+        "unconventional earning",
+        "financial ups and downs",
+    )
+    return any(marker in q for marker in markers)
+
+
+def _adapt_financial_profile_result(result: dict[str, Any]) -> dict[str, Any]:
+    financial_target = str(result.get("target", "general") or "general")
+    target = FINANCIAL_PROFILE_TARGET_MAP.get(financial_target, "general")
+    natal_analysis = _safe_dict(result.get("natal_profile"))
+    adapted = {
+        "available": bool(result.get("available")),
+        "event": "spouse_wealth",
+        "model_version": "v2",
+        "question": result.get("question"),
+        "normalised_question": result.get("normalised_question"),
+        "target": target,
+        "target_label": TARGET_LABELS[target],
+        "matched_keywords": result.get("matched_keywords", []),
+        "support_score": result.get("support_score"),
+        "support_level": result.get("support_level"),
+        "support_label": result.get("support_label"),
+        "confidence": result.get("confidence"),
+        "answer": result.get("answer"),
+        "summary": result.get("summary"),
+        "limitation": result.get("limitation"),
+        "strongest_themes": result.get("strongest_themes", []),
+        "evidence_count": result.get("evidence_count", 0),
+        "evidence": result.get("evidence", []),
+        "natal_profile": _safe_dict(natal_analysis.get("profile")),
+        "natal_analysis": natal_analysis,
+        "financial_profile_analysis": result,
+        "reasoning_engine": "spouse_financial_profile_reasoning_v2",
+    }
+    if not result.get("available"):
+        adapted["reason"] = result.get("reason")
+    return adapted
 
 
 def _extract_evidence(v1: dict[str, Any], target: str) -> list[dict[str, Any]]:
@@ -155,6 +217,11 @@ def analyze_spouse_wealth_v2(chart: dict[str, Any], question: str) -> dict[str, 
     if not normalised:
         raise ValueError("question must not be empty.")
 
+    if _use_financial_profile_engine(question):
+        return _adapt_financial_profile_result(
+            analyze_spouse_financial_profile_v2(chart, question)
+        )
+
     target_data = _detect_target(question)
     target = str(target_data["target"])
     v1 = analyze_spouse_wealth_v1(chart)
@@ -200,4 +267,5 @@ def analyze_spouse_wealth_v2(chart: dict[str, Any], question: str) -> dict[str, 
         "evidence": evidence,
         "natal_profile": _safe_dict(v1.get("profile")),
         "natal_analysis": v1,
+        "reasoning_engine": "spouse_wealth_reasoning_v2",
     }
