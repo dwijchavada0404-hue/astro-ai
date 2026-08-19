@@ -55,6 +55,9 @@ EVENT_LABELS = {
     "marriage_compatibility_dynamics": (
         "Marriage Compatibility / Partner Dynamics"
     ),
+    "post_marriage_life_changes": (
+        "Post-Marriage Life Changes"
+    ),
     "spouse_profession": (
         "Spouse Profession / Career Profile"
     ),
@@ -990,6 +993,30 @@ def _detect_relationship_challenges(question: str) -> dict[str, Any] | None:
         return None
     return {"event": "relationship_challenges", "event_label": EVENT_LABELS["relationship_challenges"], "matched_keywords": matched}
 
+
+# =========================================================
+# POST-MARRIAGE LIFE CHANGES DETECTION
+# =========================================================
+
+def _detect_post_marriage_life_changes(question: str) -> dict[str, Any] | None:
+    patterns = (
+        (r"\blife\s+change\s+after\s+marriage\b", "post-marriage life change"),
+        (r"\bafter\s+marriage\b.{0,28}\b(?:relocate|relocation|move|career|job|finances?|money|lifestyle|responsibilit|abroad|overseas|international)\b", "post-marriage change"),
+        (r"\b(?:relocate|relocation|move\s+(?:city|cities|abroad|overseas)|change\s+city)\b.{0,28}\bafter\s+marriage\b", "post-marriage relocation"),
+        (r"\b(?:career|job|profession)\s+(?:change|shift)\b.{0,28}\bafter\s+marriage\b", "post-marriage career change"),
+        (r"\b(?:finances?|money|income|wealth)\b.{0,28}\bafter\s+marriage\b", "post-marriage financial change"),
+        (r"\b(?:lifestyle|daily\s+life|home\s+life|domestic\s+life)\b.{0,28}\bafter\s+marriage\b", "post-marriage lifestyle change"),
+        (r"\bfamily\s+responsibilit(?:y|ies)\b.{0,28}\bafter\s+marriage\b", "post-marriage responsibility change"),
+        (r"\b(?:move|live|settle)\s+(?:abroad|overseas)\b.{0,28}\bafter\s+marriage\b", "post-marriage international exposure"),
+    )
+    matched = []
+    for pattern, label in patterns:
+        if re.search(pattern, question) and label not in matched:
+            matched.append(label)
+    if not matched:
+        return None
+    return {"event": "post_marriage_life_changes", "event_label": EVENT_LABELS["post_marriage_life_changes"], "matched_keywords": matched}
+
 # =========================================================
 # SPECIAL EVENT DETECTION
 # =========================================================
@@ -999,6 +1026,10 @@ def _detect_special_events(
 ) -> list[dict[str, Any]]:
 
     detected = []
+
+    post_marriage_life_changes = _detect_post_marriage_life_changes(question)
+    if post_marriage_life_changes:
+        detected.append(post_marriage_life_changes)
 
     relationship_challenges = _detect_relationship_challenges(question)
     if relationship_challenges:
@@ -1443,6 +1474,12 @@ def _clean_base_events(
             continue
 
         if (
+            "post_marriage_life_changes" in special_names
+            and event_name in ("general_marriage", "marriage_timing", "relationship_stability")
+        ):
+            continue
+
+        if (
             "relationship_challenges" in special_names
             and event_name in ("general_marriage", "relationship_stability", "marriage_delay_challenge", "marriage_timing")
         ):
@@ -1768,6 +1805,7 @@ def _resolve_primary_event(
         "spouse_meeting",
         "spouse_wealth",
         "spouse_family_background",
+        "post_marriage_life_changes",
         "relationship_challenges",
         "marriage_compatibility_dynamics",
         "married_life_quality",
