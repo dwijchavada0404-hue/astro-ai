@@ -36,27 +36,11 @@ def _is_open_ended_marriage_timing(question_analysis: dict[str, Any]) -> bool:
     explicit_horizon = any(
         token in question
         for token in (
-            "this month",
-            "next month",
-            "this year",
-            "next year",
-            "next 1 month",
-            "next 2 months",
-            "next 3 months",
-            "next 4 months",
-            "next 5 months",
-            "next 6 months",
-            "next 7 months",
-            "next 8 months",
-            "next 9 months",
-            "next 10 months",
-            "next 11 months",
-            "next 12 months",
-            "next 1 year",
-            "next 2 years",
-            "next 3 years",
-            "next 4 years",
-            "next 5 years",
+            "this month", "next month", "this year", "next year",
+            "next 1 month", "next 2 months", "next 3 months", "next 4 months",
+            "next 5 months", "next 6 months", "next 7 months", "next 8 months",
+            "next 9 months", "next 10 months", "next 11 months", "next 12 months",
+            "next 1 year", "next 2 years", "next 3 years", "next 4 years", "next 5 years",
         )
     ) or any(str(year) in question for year in range(2020, 2101))
 
@@ -77,6 +61,9 @@ def route_marriage_question_contextual_v1(
     Open-ended marriage-timing questions automatically receive a bidirectional
     past + future scan. Explicit date/year questions keep the existing V3 route.
     Known status conflicts are clarified before astrology is run.
+
+    Bidirectional timing preserves the established public V3 event/route contract
+    while exposing richer past/future data through timing_mode and forecast_type.
     """
     guard = guard_marriage_question(question_analysis, relationship_status)
 
@@ -100,7 +87,10 @@ def route_marriage_question_contextual_v1(
             lookback_years=lookback_years,
             lookahead_years=lookahead_years,
         )
-        result["route"] = "bidirectional_marriage_timing"
+        result["event"] = "marriage_timing"
+        result["route"] = "single_event"
+        result["timing_mode"] = "bidirectional"
+        result["forecast_type"] = "past_future_comparison"
         result["context_guard"] = guard
         if guard.get("action") == "reinterpret":
             result["context_interpretation"] = guard.get("interpretation")
