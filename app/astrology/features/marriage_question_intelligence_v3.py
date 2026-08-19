@@ -1333,7 +1333,7 @@ def _clean_special_event_conflicts(
 
         if (
             "spouse_family_background" in names
-            and event_name in ("spouse_profession","foreign_intercultural_connection","spouse_appearance","spouse_traits")
+            and event_name in ("spouse_education","spouse_profession","foreign_intercultural_connection","spouse_appearance","spouse_traits")
         ):
             continue
 
