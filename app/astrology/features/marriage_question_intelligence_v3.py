@@ -937,7 +937,7 @@ def _detect_relationship_challenges(question: str) -> dict[str, Any] | None:
         (r"\b(?:conflict|fights?|arguments?)\s+in\s+(?:my\s+)?(?:marriage|relationship)\b", "relationship conflict"),
         (r"\bemotional(?:ly)?\s+(?:distance|distant|withdrawal|withdrawn)\b", "emotional distance"),
         (r"\b(?:unstable|instability|unpredictable)\s+(?:marriage|relationship)\b", "relationship instability"),
-        (r"\b(?:marriage|relationship)\s+(?:unstable|instability|unpredictable)\b", "relationship instability"),
+        (r"\b(?:marriage|relationship)\s+(?:be\s+|feel\s+|become\s+)?(?:unstable|instability|unpredictable)\b", "relationship instability"),
         (r"\bcommitment\s+(?:delay|delays|pressure|difficulty|difficulties)\b", "commitment pressure"),
         (r"\b(?:repair|reconcile|reconciliation|recover)\b.{0,24}\b(?:marriage|relationship)\b", "relationship repair"),
         (r"\b(?:marriage|relationship)\b.{0,24}\b(?:repair|reconcile|reconciliation|recover)\b", "relationship repair"),

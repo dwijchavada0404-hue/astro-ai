@@ -59,7 +59,8 @@ def test_conflict_question_routes_to_relationship_challenges():
 def test_emotional_distance_question_routes_to_relationship_challenges():
     _, result = _route("Could there be emotional distance in my relationship?")
     assert result["event"] == "relationship_challenges"
-    assert result["target"] == "emotional_distance"
+    assert result["target"] == "distance"
+    assert result["analysis"]["analysis"]["requested_profiles"] == ["emotional_distance"]
 
 
 def test_instability_question_routes_to_relationship_challenges():
