@@ -46,6 +46,9 @@ EVENT_LABELS = {
     "spouse_age_profile": (
         "Spouse Age / Maturity Profile"
     ),
+    "married_life_quality": (
+        "Married Life / Relationship Quality"
+    ),
     "spouse_profession": (
         "Spouse Profession / Career Profile"
     ),
@@ -884,6 +887,42 @@ def _detect_spouse_age_profile(question: str) -> dict[str, Any] | None:
     }
 
 
+
+# =========================================================
+# MARRIED LIFE / RELATIONSHIP QUALITY DETECTION
+# =========================================================
+
+def _detect_married_life_quality(question: str) -> dict[str, Any] | None:
+    spouse_profile_terms = (
+        "spouse profession", "spouse career", "spouse education",
+        "spouse appearance", "spouse wealth", "spouse age",
+        "family background",
+    )
+    if any(term in question for term in spouse_profile_terms):
+        return None
+    patterns = (
+        (r"\bmarried\s+life\b", "married life"),
+        (r"\bmarital\s+(?:harmony|quality|stability|relationship)\b", "marital relationship quality"),
+        (r"\bmarriage\s+(?:be\s+)?(?:happy|harmonious|stable|peaceful|supportive|passionate)\b", "marriage quality"),
+        (r"\bhappy\s+marriage\b", "happy marriage"),
+        (r"\bharmonious\s+marriage\b", "harmonious marriage"),
+        (r"\bstable\s+marriage\b", "stable marriage"),
+        (r"\bmarriage\s+last\b", "marriage stability"),
+        (r"\blong[- ]lasting\s+marriage\b", "marriage stability"),
+        (r"\bpassionate\s+marriage\b", "passionate marriage"),
+        (r"\bstrong\s+chemistry\b", "relationship chemistry"),
+        (r"\bmarriage\s+(?:have\s+)?(?:ups\s+and\s+downs|conflict|challenges)\b", "marriage variability"),
+        (r"\bunconventional\s+marriage\b", "unconventional marriage"),
+        (r"\brelationship\s+(?:be\s+)?(?:stable|harmonious|supportive|passionate)\b", "relationship quality"),
+    )
+    matched = []
+    for pattern, label in patterns:
+        if re.search(pattern, question) and label not in matched:
+            matched.append(label)
+    if not matched:
+        return None
+    return {"event": "married_life_quality", "event_label": EVENT_LABELS["married_life_quality"], "matched_keywords": matched}
+
 # =========================================================
 # SPECIAL EVENT DETECTION
 # =========================================================
@@ -893,6 +932,10 @@ def _detect_special_events(
 ) -> list[dict[str, Any]]:
 
     detected = []
+
+    married_life_quality = _detect_married_life_quality(question)
+    if married_life_quality:
+        detected.append(married_life_quality)
 
     spouse_age_profile = _detect_spouse_age_profile(question)
     if spouse_age_profile:
@@ -1324,6 +1367,12 @@ def _clean_base_events(
         ):
             continue
 
+        if (
+            "married_life_quality" in special_names
+            and event_name in ("general_marriage", "relationship_stability", "marriage_timing")
+        ):
+            continue
+
         cleaned.append(
             raw_item
         )
@@ -1443,6 +1492,12 @@ def _clean_special_event_conflicts(
         ):
             continue
 
+        if (
+            "married_life_quality" in names
+            and event_name in ("spouse_traits",)
+        ):
+            continue
+
         cleaned.append(
             item
         )
@@ -1555,6 +1610,7 @@ def _inject_comparison_event(
         "spouse_wealth",
         "spouse_family_background",
         "spouse_age_profile",
+        "married_life_quality",
         "spouse_profession",
         "spouse_meeting",
         "love_marriage",
@@ -1618,6 +1674,7 @@ def _resolve_primary_event(
         "spouse_meeting",
         "spouse_wealth",
         "spouse_family_background",
+        "married_life_quality",
         "spouse_education",
         "spouse_profession",
         "foreign_intercultural_connection",
@@ -1697,6 +1754,7 @@ def _resolve_question_type(
     if primary_event in (
         "spouse_traits",
         "love_vs_arranged",
+        "married_life_quality",
     ):
 
         return (

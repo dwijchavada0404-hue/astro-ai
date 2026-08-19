@@ -43,6 +43,10 @@ from app.astrology.features.spouse_age_profile_reasoning_v2 import (
     analyze_spouse_age_profile_v2,
 )
 
+from app.astrology.features.married_life_quality_reasoning_v2 import (
+    analyze_married_life_quality_v2,
+)
+
 from app.astrology.features.spouse_profession_reasoning_v2 import (
     analyze_spouse_profession_v2,
 )
@@ -89,6 +93,9 @@ EVENT_LABELS = {
     ),
     "spouse_age_profile": (
         "Spouse Age / Maturity Profile"
+    ),
+    "married_life_quality": (
+        "Married Life / Relationship Quality"
     ),
     "spouse_profession": (
         "Spouse Profession / Career Profile"
@@ -1160,6 +1167,20 @@ def _route_spouse_appearance(
             analysis
         ),
     }
+
+
+# =========================================================
+# MARRIED LIFE / RELATIONSHIP QUALITY ROUTE
+# =========================================================
+
+def _route_married_life_quality(chart: dict[str, Any], question_analysis: dict[str, Any], reference_moment: datetime) -> dict[str, Any]:
+    intent = _safe_dict(question_analysis.get("intent"))
+    question = str(question_analysis.get("original_question", question_analysis.get("normalised_question", "")) or "")
+    analysis = analyze_married_life_quality_v2(chart, question)
+    result = {"available": bool(analysis.get("available")), "route": "natal_evidence", "event": "married_life_quality", "event_label": EVENT_LABELS["married_life_quality"], "question_type": intent.get("question_type"), "direction": intent.get("direction"), "parser_confidence": intent.get("confidence"), "reference_moment": reference_moment.isoformat(), "evidence_engine": "married_life_quality_reasoning_v2", "forecast_type": "natal_pattern", "model_version": analysis.get("model_version"), "question": analysis.get("question", question), "normalised_question": analysis.get("normalised_question", str(question_analysis.get("normalised_question", "") or "")), "target": analysis.get("target"), "target_label": analysis.get("target_label"), "matched_keywords": analysis.get("matched_keywords", []), "requested_profile": analysis.get("requested_profile"), "support_score": analysis.get("support_score"), "support_level": analysis.get("support_level"), "support_label": analysis.get("support_label"), "confidence": analysis.get("confidence"), "answer": analysis.get("answer"), "summary": analysis.get("summary"), "limitation": analysis.get("limitation"), "strongest_themes": analysis.get("strongest_themes", []), "evidence_count": analysis.get("evidence_count", 0), "evidence": analysis.get("evidence", []), "natal_profile": analysis.get("natal_profile", {}), "analysis": analysis}
+    if not analysis.get("available"):
+        result["reason"] = analysis.get("reason")
+    return result
 
 # =========================================================
 # SPOUSE PROFESSION TARGET DETECTION
@@ -3407,6 +3428,12 @@ def _route_follow_up(
         result = _route_spouse_family_background(chart, inherited_analysis, reference_moment)
 
     elif inherited_event == (
+        "married_life_quality"
+    ):
+
+        result = _route_married_life_quality(chart, inherited_analysis, reference_moment)
+
+    elif inherited_event == (
         "spouse_profession"
     ):
 
@@ -3757,6 +3784,13 @@ def route_marriage_question_v3(
 
     if query_mode == "single_event" and event_name == "spouse_family_background":
         return _route_spouse_family_background(chart, question_analysis, reference_moment)
+
+    # -----------------------------------------------------
+    # MARRIED LIFE / RELATIONSHIP QUALITY
+    # -----------------------------------------------------
+
+    if query_mode == "single_event" and event_name == "married_life_quality":
+        return _route_married_life_quality(chart, question_analysis, reference_moment)
 
     # -----------------------------------------------------
     # SPOUSE PROFESSION
