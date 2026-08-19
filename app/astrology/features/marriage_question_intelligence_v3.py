@@ -849,6 +849,9 @@ def _detect_spouse_age_profile(question: str) -> dict[str, Any] | None:
     if re.search(r"\b(?:what|which)\s+age\b.{0,25}\b(?:marry|married|marriage)\b", question):
         return None
 
+    if re.search(r"\blook\s+(?:youthful|mature)\b", question):
+        return None
+
     spouse_context = (
         "spouse", "future spouse", "partner", "future partner",
         "husband", "wife", "person i marry", "person i will marry",
