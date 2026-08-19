@@ -1621,6 +1621,7 @@ def _resolve_primary_event(
         "spouse_education",
         "spouse_profession",
         "foreign_intercultural_connection",
+        "spouse_age_profile",
         "spouse_appearance",
         "spouse_traits",
         "love_marriage",
