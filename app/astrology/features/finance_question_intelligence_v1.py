@@ -20,7 +20,8 @@ FINANCE_INTENTS: dict[str, tuple[str, ...]] = {
         "gains", "network", "connections", "opportunities", "multiple income", "side income",
     ),
     "speculation_creativity": (
-        "speculation", "speculative", "trading", "stock market", "shares", "investment",
+        "speculation", "speculative", "trading", "trade", "stock market", "stocks", "stock",
+        "shares", "share market", "investment", "investments", "invest", "investing",
         "creative income", "risky investment",
     ),
     "joint_assets_inheritance": (
