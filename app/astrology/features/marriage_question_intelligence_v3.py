@@ -52,6 +52,9 @@ EVENT_LABELS = {
     "relationship_challenges": (
         "Relationship Challenges / Stress & Repair"
     ),
+    "marriage_compatibility_dynamics": (
+        "Marriage Compatibility / Partner Dynamics"
+    ),
     "spouse_profession": (
         "Spouse Profession / Career Profile"
     ),
@@ -927,6 +930,41 @@ def _detect_married_life_quality(question: str) -> dict[str, Any] | None:
     return {"event": "married_life_quality", "event_label": EVENT_LABELS["married_life_quality"], "matched_keywords": matched}
 
 
+
+# =========================================================
+# MARRIAGE COMPATIBILITY / PARTNER DYNAMICS DETECTION
+# =========================================================
+
+def _detect_marriage_compatibility_dynamics(question: str) -> dict[str, Any] | None:
+    patterns = (
+        (r"\bmarriage\s+compatibility\b", "marriage compatibility"),
+        (r"\brelationship\s+compatibility\b", "relationship compatibility"),
+        (r"\bpartner\s+dynamics?\b", "partner dynamics"),
+        (r"\brelationship\s+dynamics?\b", "relationship dynamics"),
+        (r"\bhow\s+(?:well\s+)?(?:will|would|do)\s+(?:we|my\s+partner\s+and\s+i)\s+(?:get\s+along|understand\s+each\s+other)\b", "mutual compatibility"),
+        (r"\bcommunication\s+(?:flow|style|compatibility)\b", "communication flow"),
+        (r"\b(?:communicate|communication)\b.{0,24}\b(?:marriage|relationship|partner)\b", "relationship communication"),
+        (r"\b(?:marriage|relationship|partner)\b.{0,24}\b(?:communicate|communication)\b", "relationship communication"),
+        (r"\bshared\s+(?:values|beliefs|goals)\b", "shared values"),
+        (r"\bvalues?\s+(?:alignment|compatibility)\b", "values alignment"),
+        (r"\bemotional\s+(?:attunement|connection|understanding|compatibility)\b", "emotional attunement"),
+        (r"\b(?:need|needs|want|wants)\s+(?:for\s+)?(?:space|independence)\b", "independence and space"),
+        (r"\bindependence\s+in\s+(?:marriage|relationship)\b", "independence and space"),
+        (r"\badjustment\s+(?:style|dynamics|compatibility)\b", "adjustment dynamics"),
+        (r"\bchemistry\s+(?:between\s+us|with\s+(?:my\s+)?partner)\b", "partner chemistry"),
+    )
+    matched = []
+    for pattern, label in patterns:
+        if re.search(pattern, question) and label not in matched:
+            matched.append(label)
+    if not matched:
+        return None
+    return {
+        "event": "marriage_compatibility_dynamics",
+        "event_label": EVENT_LABELS["marriage_compatibility_dynamics"],
+        "matched_keywords": matched,
+    }
+
 # =========================================================
 # RELATIONSHIP CHALLENGES DETECTION
 # =========================================================
@@ -965,6 +1003,10 @@ def _detect_special_events(
     relationship_challenges = _detect_relationship_challenges(question)
     if relationship_challenges:
         detected.append(relationship_challenges)
+
+    marriage_compatibility_dynamics = _detect_marriage_compatibility_dynamics(question)
+    if marriage_compatibility_dynamics:
+        detected.append(marriage_compatibility_dynamics)
 
     married_life_quality = _detect_married_life_quality(question)
     if married_life_quality:
@@ -1407,6 +1449,12 @@ def _clean_base_events(
             continue
 
         if (
+            "marriage_compatibility_dynamics" in special_names
+            and event_name in ("general_marriage", "relationship_stability", "marriage_timing", "spouse_traits")
+        ):
+            continue
+
+        if (
             "married_life_quality" in special_names
             and event_name in ("general_marriage", "relationship_stability", "marriage_timing")
         ):
@@ -1532,6 +1580,12 @@ def _clean_special_event_conflicts(
             continue
 
         if (
+            "marriage_compatibility_dynamics" in names
+            and event_name in ("married_life_quality", "spouse_traits")
+        ):
+            continue
+
+        if (
             "married_life_quality" in names
             and event_name in ("spouse_traits",)
         ):
@@ -1649,6 +1703,7 @@ def _inject_comparison_event(
         "spouse_wealth",
         "spouse_family_background",
         "spouse_age_profile",
+        "marriage_compatibility_dynamics",
         "married_life_quality",
         "spouse_profession",
         "spouse_meeting",
@@ -1714,6 +1769,7 @@ def _resolve_primary_event(
         "spouse_wealth",
         "spouse_family_background",
         "relationship_challenges",
+        "marriage_compatibility_dynamics",
         "married_life_quality",
         "spouse_education",
         "spouse_profession",
@@ -1794,6 +1850,7 @@ def _resolve_question_type(
     if primary_event in (
         "spouse_traits",
         "love_vs_arranged",
+        "marriage_compatibility_dynamics",
         "married_life_quality",
     ):
 
