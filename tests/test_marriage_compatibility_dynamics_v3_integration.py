@@ -59,19 +59,19 @@ def test_compatibility_question_routes_to_dedicated_engine():
 def test_communication_question_routes_to_compatibility():
     _, result = _route("How will communication in my marriage be?")
     assert result["event"] == "marriage_compatibility_dynamics"
-    assert result["target"] == "communication"
+    assert result["target"] == "communication_flow"
 
 
 def test_shared_values_question_routes_to_compatibility():
     _, result = _route("Will we have shared values in our relationship?")
     assert result["event"] == "marriage_compatibility_dynamics"
-    assert result["target"] == "values"
+    assert result["target"] == "shared_values"
 
 
 def test_emotional_connection_question_routes_to_compatibility():
     _, result = _route("Will there be emotional connection in my marriage?")
     assert result["event"] == "marriage_compatibility_dynamics"
-    assert result["target"] == "emotional"
+    assert result["target"] == "emotional_attunement"
 
 
 def test_space_independence_question_routes_to_compatibility():
