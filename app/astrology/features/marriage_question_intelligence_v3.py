@@ -43,6 +43,9 @@ EVENT_LABELS = {
     "spouse_family_background": (
         "Spouse Family / Social Background"
     ),
+    "spouse_age_profile": (
+        "Spouse Age / Maturity Profile"
+    ),
     "spouse_profession": (
         "Spouse Profession / Career Profile"
     ),
@@ -838,6 +841,50 @@ def _detect_spouse_appearance(
 
 
 # =========================================================
+# SPOUSE AGE / MATURITY DETECTION
+# =========================================================
+
+def _detect_spouse_age_profile(question: str) -> dict[str, Any] | None:
+    # Protect marriage-timing questions such as "At what age will I get married?".
+    if re.search(r"\b(?:what|which)\s+age\b.{0,25}\b(?:marry|married|marriage)\b", question):
+        return None
+
+    if re.search(r"\blook\s+(?:youthful|mature)\b", question):
+        return None
+
+    spouse_context = (
+        "spouse", "future spouse", "partner", "future partner",
+        "husband", "wife", "person i marry", "person i will marry",
+    )
+    if not any(value in question for value in spouse_context):
+        return None
+
+    pattern_map = (
+        (r"\bolder(?:\s+than\s+me)?\b", "older spouse"),
+        (r"\belder(?:\s+than\s+me)?\b", "older spouse"),
+        (r"\bmore\s+mature(?:\s+than\s+me)?\b", "more mature spouse"),
+        (r"\byounger(?:\s+than\s+me)?\b", "younger spouse"),
+        (r"\byouthful\b", "younger spouse"),
+        (r"\b(?:same|similar)\s+age\b", "similar age spouse"),
+        (r"\bclose\s+in\s+age\b", "similar age spouse"),
+        (r"\baround\s+my\s+age\b", "similar age spouse"),
+        (r"\bage\s+(?:profile|difference|gap)\b", "spouse age profile"),
+        (r"\b(?:age|maturity)\s+profile\b", "spouse age profile"),
+    )
+    matched = []
+    for pattern, keyword in pattern_map:
+        if re.search(pattern, question) and keyword not in matched:
+            matched.append(keyword)
+    if not matched:
+        return None
+    return {
+        "event": "spouse_age_profile",
+        "event_label": EVENT_LABELS["spouse_age_profile"],
+        "matched_keywords": matched,
+    }
+
+
+# =========================================================
 # SPECIAL EVENT DETECTION
 # =========================================================
 
@@ -846,6 +893,10 @@ def _detect_special_events(
 ) -> list[dict[str, Any]]:
 
     detected = []
+
+    spouse_age_profile = _detect_spouse_age_profile(question)
+    if spouse_age_profile:
+        detected.append(spouse_age_profile)
 
     # -----------------------------------------------------
     # SPOUSE MEETING
@@ -1135,6 +1186,9 @@ def _clean_base_events(
     special_events: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
 
+    # spouse_age_profile is handled below through special_names; age-specific
+    # questions should not retain generic spouse/marriage detections.
+
     special_names = {
         str(
             item.get(
@@ -1264,6 +1318,12 @@ def _clean_base_events(
 
             continue
 
+        if (
+            "spouse_age_profile" in special_names
+            and event_name in ("spouse_traits", "general_marriage", "marriage_timing")
+        ):
+            continue
+
         cleaned.append(
             raw_item
         )
@@ -1377,6 +1437,12 @@ def _clean_special_event_conflicts(
 
             continue
 
+        if (
+            "spouse_age_profile" in names
+            and event_name == "spouse_traits"
+        ):
+            continue
+
         cleaned.append(
             item
         )
@@ -1488,6 +1554,7 @@ def _inject_comparison_event(
         "spouse_education",
         "spouse_wealth",
         "spouse_family_background",
+        "spouse_age_profile",
         "spouse_profession",
         "spouse_meeting",
         "love_marriage",
@@ -1554,6 +1621,7 @@ def _resolve_primary_event(
         "spouse_education",
         "spouse_profession",
         "foreign_intercultural_connection",
+        "spouse_age_profile",
         "spouse_appearance",
         "spouse_traits",
         "love_marriage",
@@ -1724,6 +1792,9 @@ def _resolve_direction(
     base_analysis: dict[str, Any],
 ) -> str:
 
+    if primary_event == "spouse_age_profile":
+        return "neutral"
+
     if (
         primary_event
         == "marriage_delay_challenge"
@@ -1746,12 +1817,18 @@ def _resolve_direction(
             "occurrence"
         )
 
+    if primary_event == "spouse_age_profile":
+        if any(question.startswith(prefix) for prefix in ("will ", "could ", "can ", "is ", "would ")):
+            return "probability"
+        return "general_outlook"
+
     if primary_event in (
         "spouse_traits",
         "spouse_appearance",
         "spouse_education",
         "spouse_wealth",
         "spouse_family_background",
+        "spouse_age_profile",
         "spouse_profession",
         "love_vs_arranged",
     ):
@@ -1792,6 +1869,11 @@ def _resolve_confidence(
     base_analysis: dict[str, Any],
     comparison: dict[str, Any],
 ) -> float:
+
+    if primary_event == "spouse_age_profile":
+        base_intent = _safe_dict(base_analysis.get("intent"))
+        base_confidence = float(base_intent.get("confidence", 0.60) or 0.60)
+        return max(base_confidence, 0.82)
 
     base_intent = _safe_dict(
         base_analysis.get(
