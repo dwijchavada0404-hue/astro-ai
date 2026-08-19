@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 import pytest
 
+from app.astrology.features.marriage_question_intelligence_v3 import analyze_marriage_question_v3
 from app.astrology.features.marriage_forecast_router_v3 import route_marriage_question_v3
 from app.astrology.features.marriage_synthesis_reasoning_v2 import synthesize_marriage_profile_v2
 
@@ -39,9 +40,10 @@ def chart():
 
 
 def _route(chart, question, previous_context=None):
+    analysis = analyze_marriage_question_v3(question)
     return route_marriage_question_v3(
         chart,
-        question,
+        analysis,
         reference_moment=datetime(2026, 8, 19, 12, 0, tzinfo=timezone.utc),
         previous_context=previous_context,
     )
