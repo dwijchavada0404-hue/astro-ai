@@ -32,7 +32,7 @@ def _normalise(question: str) -> str:
 def _detect_target(question: str) -> tuple[str, list[str]]:
     patterns = (
         ("harmony", r"\b(?:happy marriage|harmonious|harmony|supportive marriage|peaceful marriage|cooperative marriage|good married life)\b"),
-        ("stability", r"\b(?:stable marriage|stability|long lasting marriage|lasting marriage|enduring marriage|marriage last)\b"),
+        ("stability", r"\b(?:stable|stable marriage|stability|long lasting marriage|lasting marriage|enduring marriage|marriage last)\b"),
         ("passion", r"\b(?:passionate marriage|passion|intense relationship|strong chemistry|romantic intensity)\b"),
         ("variability", r"\b(?:unstable marriage|ups and downs|on and off|unconventional marriage|variable relationship|unpredictable relationship)\b"),
     )
