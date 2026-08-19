@@ -1,1 +1,0 @@
-The active .github/feature_patch.py file is transient: CI executes it only for same-repository PRs, deletes it, commits the generated source changes back to the PR branch, then runs the full test suite.
