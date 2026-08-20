@@ -7,12 +7,15 @@ from typing import Any
 FINANCE_INTENTS: dict[str, tuple[str, ...]] = {
     "wealth_potential": (
         "will i be rich", "will i become rich", "will i be wealthy", "become wealthy",
-        "wealth potential", "financially successful", "financial success",
+        "wealth potential", "financially successful", "financial success", "overall wealth",
+        "wealth overview", "wealth picture", "wealth future",
     ),
     "income_savings": (
         "income", "earnings", "earning", "salary", "job income", "job", "career income",
         "savings", "save money", "financial stability", "finance", "finances",
-        "financial situation", "money situation",
+        "financial situation", "money situation", "overall financial", "overall finance",
+        "financial overview", "financial picture", "financial future", "complete financial",
+        "complete finance", "full financial", "full finance",
     ),
     "business_wealth": (
         "business", "entrepreneur", "entrepreneurship", "self employed", "self-employed",
@@ -39,12 +42,14 @@ FINANCE_INTENTS: dict[str, tuple[str, ...]] = {
     ),
     "finance_timing": (
         "when", "what year", "which year", "best period", "strongest period", "financial period",
-        "money period", "wealth period", "growth period", "improve", "improvement",
+        "money period", "wealth period", "growth period", "improve", "improvement", "future",
     ),
 }
 
 GENERIC_FINANCE_TERMS = {
     "finance", "finances", "financial situation", "money situation", "money",
+    "overall financial", "overall finance", "financial overview", "financial picture",
+    "financial future", "complete financial", "complete finance", "full financial", "full finance",
 }
 
 
