@@ -10,15 +10,17 @@ FINANCE_INTENTS: dict[str, tuple[str, ...]] = {
         "wealth potential", "financially successful", "financial success",
     ),
     "income_savings": (
-        "income", "earnings", "earning", "salary", "savings", "save money", "financial stability",
-        "finance", "finances", "financial situation", "money situation",
+        "income", "earnings", "earning", "salary", "job income", "job", "career income",
+        "savings", "save money", "financial stability", "finance", "finances",
+        "financial situation", "money situation",
     ),
     "business_wealth": (
         "business", "entrepreneur", "entrepreneurship", "self employed", "self-employed",
         "earn through business", "money through business",
     ),
     "gains_networks": (
-        "gains", "network", "connections", "opportunities", "multiple income", "side income",
+        "gains", "network", "connections", "opportunities", "multiple income", "multiple incomes",
+        "multiple income sources", "side income", "side incomes", "second income",
     ),
     "speculation_creativity": (
         "speculation", "speculative", "trading", "trade", "stock market", "stocks", "stock",
@@ -28,6 +30,9 @@ FINANCE_INTENTS: dict[str, tuple[str, ...]] = {
     "joint_assets_inheritance": (
         "inheritance", "inherit", "ancestral", "joint assets", "shared assets", "partner money",
         "spouse money", "family wealth",
+    ),
+    "property_assets": (
+        "property", "real estate", "house property", "land", "asset accumulation", "assets",
     ),
     "fortune_long_term_support": (
         "long term wealth", "long-term wealth", "prosperity", "financial growth", "wealth growth",
@@ -71,9 +76,8 @@ def analyze_finance_question_v1(question: str) -> dict[str, Any]:
 
     # Generic questions such as "When will my finances improve?" are timing
     # questions, even though generic finance vocabulary also overlaps the broad
-    # income/savings bucket. More specific themes (e.g. financial growth,
-    # inheritance, business, stocks) keep their substantive primary intent and
-    # use timing as a modifier.
+    # income/savings bucket. More specific themes keep their substantive primary
+    # intent and use timing as a modifier.
     income_hits = set(matched.get("income_savings", []))
     generic_income_only = bool(income_hits) and income_hits.issubset(GENERIC_FINANCE_TERMS)
     only_generic_substantive = set(substantive) == {"income_savings"} and generic_income_only
