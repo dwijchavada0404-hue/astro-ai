@@ -38,6 +38,10 @@ FINANCE_INTENTS: dict[str, tuple[str, ...]] = {
     ),
 }
 
+GENERIC_FINANCE_TERMS = {
+    "finance", "finances", "financial situation", "money situation", "money",
+}
+
 
 def _normalise(question: str) -> str:
     return re.sub(r"\s+", " ", question.strip().lower())
@@ -62,12 +66,21 @@ def analyze_finance_question_v1(question: str) -> dict[str, Any]:
             matched[intent] = hits
             scores[intent] = len(hits)
 
-    # Timing words modify the substantive financial intent rather than replacing
-    # it when the question clearly names a financial topic.
     timing_requested = bool(matched.get("finance_timing"))
     substantive = {k: v for k, v in scores.items() if k != "finance_timing"}
 
-    if substantive:
+    # Generic questions such as "When will my finances improve?" are timing
+    # questions, even though generic finance vocabulary also overlaps the broad
+    # income/savings bucket. More specific themes (e.g. financial growth,
+    # inheritance, business, stocks) keep their substantive primary intent and
+    # use timing as a modifier.
+    income_hits = set(matched.get("income_savings", []))
+    generic_income_only = bool(income_hits) and income_hits.issubset(GENERIC_FINANCE_TERMS)
+    only_generic_substantive = set(substantive) == {"income_savings"} and generic_income_only
+
+    if timing_requested and only_generic_substantive:
+        primary_intent = "finance_timing"
+    elif substantive:
         primary_intent = max(substantive, key=lambda key: (substantive[key], -list(FINANCE_INTENTS).index(key)))
     elif timing_requested and any(token in q for token in ("money", "wealth", "financial", "finance", "finances", "income", "earn")):
         primary_intent = "finance_timing"
