@@ -7,6 +7,7 @@ from app.astrology.features.finance_wealth_reasoning_v1 import analyze_finance_w
 from app.astrology.features.finance_question_intelligence_v1 import analyze_finance_question_v1
 from app.astrology.features.finance_timing_v1 import analyze_finance_timing_v1
 from app.astrology.features.finance_source_of_wealth_v1 import analyze_finance_source_of_wealth_v1
+from app.astrology.features.finance_synthesis_v1 import analyze_finance_synthesis_v1
 from app.astrology.features.finance_period_intelligence_v2 import (
     analyze_finance_period_v2,
     extract_finance_period_request_v2,
@@ -21,6 +22,14 @@ SOURCE_PHRASES: dict[str, tuple[str, ...]] = {
     "inheritance_shared_wealth": ("inheritance", "inherit", "ancestral", "shared wealth", "joint assets", "spouse money", "partner money"),
     "networks_multiple_income": ("multiple income", "multiple incomes", "multiple income sources", "side income", "second income", "network", "connections"),
 }
+
+SYNTHESIS_PHRASES = (
+    "overall financial", "overall finance", "overall wealth", "complete financial",
+    "complete finance", "full financial", "full finance", "financial overview",
+    "wealth overview", "financial future", "wealth future", "financial picture",
+    "wealth picture", "tell me about my finances", "tell me about my wealth",
+    "will i become wealthy and", "will i be wealthy and", "will i become rich and",
+)
 
 
 def _theme_for_intent(intent: str) -> str | None:
@@ -56,17 +65,25 @@ def _is_source_of_wealth_question(question: str, requested_sources: list[str]) -
     return explicit_source_question or multiple_source_theme or single_source_assessment
 
 
+def _is_synthesis_question(question: str) -> bool:
+    q = question.strip().lower()
+    if any(phrase in q for phrase in SYNTHESIS_PHRASES):
+        return True
+    dimensions = 0
+    dimensions += int(any(token in q for token in ("rich", "wealth", "financial")))
+    dimensions += int(any(token in q for token in ("when", "timing", "period", "future")))
+    dimensions += int(any(token in q for token in ("source", "job", "business", "property", "inheritance", "multiple income")))
+    dimensions += int(any(token in q for token in ("save", "retain", "retention", "accumulate", "accumulation")))
+    dimensions += int(any(token in q for token in ("challenge", "pressure", "loss", "recovery", "recover")))
+    return dimensions >= 3
+
+
 def route_finance_question_v1(
     chart: dict[str, Any],
     question: str,
     reference_moment: datetime,
 ) -> dict[str, Any]:
-    """Route a natural-language Finance question to natal, source or timing reasoning.
-
-    Explicit calendar-year/range requests use the V2 precision layer. Source-of-
-    wealth questions use comparative channel reasoning. Open-ended timing questions
-    continue through the broader past/present/future V1 engine.
-    """
+    """Route Finance questions to precision, synthesis, source, timing or natal reasoning."""
     understanding = analyze_finance_question_v1(question)
     if not understanding.get("available"):
         return {
@@ -81,42 +98,36 @@ def route_finance_question_v1(
     intent = str(understanding.get("primary_intent") or "unknown")
     theme = _theme_for_intent(intent)
 
+    # Explicit calendar periods remain the most precise route and take priority.
     period_request = extract_finance_period_request_v2(question)
     if period_request.get("available"):
         period = analyze_finance_period_v2(chart, question, reference_moment)
         return {
-            "available": bool(period.get("available")),
-            "route": "finance_period_v2",
-            "event": "finance_wealth",
-            "primary_intent": intent,
-            "understanding": understanding,
-            "natal": natal,
-            "period": period,
+            "available": bool(period.get("available")), "route": "finance_period_v2", "event": "finance_wealth",
+            "primary_intent": intent, "understanding": understanding, "natal": natal, "period": period,
             "answer": period.get("answer") if period.get("available") else period.get("reason"),
             "limitation": period.get("limitation") or natal.get("limitation"),
+        }
+
+    # Broad/multi-dimensional questions use the complete Finance synthesis.
+    if _is_synthesis_question(question):
+        synthesis = analyze_finance_synthesis_v1(chart, reference_moment)
+        return {
+            "available": bool(synthesis.get("available")), "route": "finance_synthesis", "event": "finance_wealth",
+            "primary_intent": intent, "understanding": understanding, "natal": natal, "synthesis": synthesis,
+            "answer": synthesis.get("answer") if synthesis.get("available") else synthesis.get("reason"),
+            "limitation": synthesis.get("limitation") or natal.get("limitation"),
         }
 
     requested_sources = _requested_sources(question)
     if not understanding.get("requires_timing_engine") and _is_source_of_wealth_question(question, requested_sources):
         source = analyze_finance_source_of_wealth_v1(chart)
         source_scores = source.get("source_scores") if isinstance(source.get("source_scores"), dict) else {}
-        requested = [
-            {"source": item, "score": source_scores.get(item)}
-            for item in requested_sources
-        ]
-        requested_ranked = sorted(
-            requested,
-            key=lambda item: float(item["score"] or 0.0),
-            reverse=True,
-        )
+        requested = [{"source": item, "score": source_scores.get(item)} for item in requested_sources]
+        requested_ranked = sorted(requested, key=lambda item: float(item["score"] or 0.0), reverse=True)
         return {
-            "available": bool(source.get("available")),
-            "route": "finance_source_of_wealth",
-            "event": "finance_wealth",
-            "primary_intent": intent,
-            "understanding": understanding,
-            "natal": natal,
-            "source_of_wealth": source,
+            "available": bool(source.get("available")), "route": "finance_source_of_wealth", "event": "finance_wealth",
+            "primary_intent": intent, "understanding": understanding, "natal": natal, "source_of_wealth": source,
             "requested_sources": requested_ranked,
             "strongest_requested_source": requested_ranked[0] if requested_ranked else None,
             "answer": source.get("answer") if source.get("available") else source.get("reason"),
@@ -126,13 +137,8 @@ def route_finance_question_v1(
     if understanding.get("requires_timing_engine"):
         timing = analyze_finance_timing_v1(chart, reference_moment)
         return {
-            "available": bool(timing.get("available")),
-            "route": "finance_timing",
-            "event": "finance_wealth",
-            "primary_intent": intent,
-            "understanding": understanding,
-            "natal": natal,
-            "timing": timing,
+            "available": bool(timing.get("available")), "route": "finance_timing", "event": "finance_wealth",
+            "primary_intent": intent, "understanding": understanding, "natal": natal, "timing": timing,
             "answer": timing.get("answer") if timing.get("available") else timing.get("reason"),
             "limitation": timing.get("limitation") or natal.get("limitation"),
         }
@@ -140,16 +146,9 @@ def route_finance_question_v1(
     score = None
     if theme and isinstance(natal.get("theme_scores"), dict):
         score = natal["theme_scores"].get(theme)
-
     return {
-        "available": bool(natal.get("available")),
-        "route": "finance_natal",
-        "event": "finance_wealth",
-        "primary_intent": intent,
-        "theme": theme,
-        "theme_score": score,
-        "understanding": understanding,
-        "natal": natal,
-        "answer": natal.get("summary") if natal.get("available") else natal.get("reason"),
+        "available": bool(natal.get("available")), "route": "finance_natal", "event": "finance_wealth",
+        "primary_intent": intent, "theme": theme, "theme_score": score, "understanding": understanding,
+        "natal": natal, "answer": natal.get("summary") if natal.get("available") else natal.get("reason"),
         "limitation": natal.get("limitation"),
     }
