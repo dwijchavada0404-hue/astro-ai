@@ -16,7 +16,12 @@ def _chart():
             "10": {"lord": "Saturn", "sign": "Aquarius"},
             "11": {"lord": "Jupiter", "sign": "Pisces"},
         },
-        "planets": {},
+        "planets": {
+            "Jupiter": {"house": 11},
+            "Mercury": {"house": 5},
+            "Venus": {"house": 2},
+            "Saturn": {"house": 9},
+        },
         "dasha_periods": [
             {"start": "2023-01-01T00:00:00+00:00", "end": "2025-01-01T00:00:00+00:00", "major_lord": "Mars", "sub_lord": "Rahu"},
             {"start": "2025-01-01T00:00:00+00:00", "end": "2028-01-01T00:00:00+00:00", "major_lord": "Jupiter", "sub_lord": "Mercury"},
