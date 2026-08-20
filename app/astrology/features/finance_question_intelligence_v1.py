@@ -11,6 +11,7 @@ FINANCE_INTENTS: dict[str, tuple[str, ...]] = {
     ),
     "income_savings": (
         "income", "earnings", "earning", "salary", "savings", "save money", "financial stability",
+        "finance", "finances", "financial situation", "money situation",
     ),
     "business_wealth": (
         "business", "entrepreneur", "entrepreneurship", "self employed", "self-employed",
@@ -33,7 +34,7 @@ FINANCE_INTENTS: dict[str, tuple[str, ...]] = {
     ),
     "finance_timing": (
         "when", "what year", "which year", "best period", "strongest period", "financial period",
-        "money period", "wealth period", "growth period",
+        "money period", "wealth period", "growth period", "improve", "improvement",
     ),
 }
 
@@ -68,7 +69,7 @@ def analyze_finance_question_v1(question: str) -> dict[str, Any]:
 
     if substantive:
         primary_intent = max(substantive, key=lambda key: (substantive[key], -list(FINANCE_INTENTS).index(key)))
-    elif timing_requested and any(token in q for token in ("money", "wealth", "financial", "income", "earn")):
+    elif timing_requested and any(token in q for token in ("money", "wealth", "financial", "finance", "finances", "income", "earn")):
         primary_intent = "finance_timing"
     else:
         primary_intent = "unknown"
