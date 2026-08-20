@@ -6,6 +6,10 @@ from typing import Any
 from app.astrology.features.finance_wealth_reasoning_v1 import analyze_finance_wealth_v1
 from app.astrology.features.finance_question_intelligence_v1 import analyze_finance_question_v1
 from app.astrology.features.finance_timing_v1 import analyze_finance_timing_v1
+from app.astrology.features.finance_period_intelligence_v2 import (
+    analyze_finance_period_v2,
+    extract_finance_period_request_v2,
+)
 
 
 def _theme_for_intent(intent: str) -> str | None:
@@ -25,7 +29,11 @@ def route_finance_question_v1(
     question: str,
     reference_moment: datetime,
 ) -> dict[str, Any]:
-    """Route a natural-language Finance question to natal and/or timing reasoning."""
+    """Route a natural-language Finance question to natal and/or timing reasoning.
+
+    Explicit calendar-year/range requests use the V2 precision layer. Open-ended
+    timing questions continue through the broader past/present/future V1 engine.
+    """
     understanding = analyze_finance_question_v1(question)
     if not understanding.get("available"):
         return {
@@ -39,6 +47,21 @@ def route_finance_question_v1(
     natal = analyze_finance_wealth_v1(chart)
     intent = str(understanding.get("primary_intent") or "unknown")
     theme = _theme_for_intent(intent)
+
+    period_request = extract_finance_period_request_v2(question)
+    if period_request.get("available"):
+        period = analyze_finance_period_v2(chart, question, reference_moment)
+        return {
+            "available": bool(period.get("available")),
+            "route": "finance_period_v2",
+            "event": "finance_wealth",
+            "primary_intent": intent,
+            "understanding": understanding,
+            "natal": natal,
+            "period": period,
+            "answer": period.get("answer") if period.get("available") else period.get("reason"),
+            "limitation": period.get("limitation") or natal.get("limitation"),
+        }
 
     if understanding.get("requires_timing_engine"):
         timing = analyze_finance_timing_v1(chart, reference_moment)
