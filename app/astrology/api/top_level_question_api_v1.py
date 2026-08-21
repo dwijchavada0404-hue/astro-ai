@@ -6,6 +6,7 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from app.astrology.features.life_context_v1 import merge_life_context_v1, normalize_life_context_v1
 from app.astrology.features.top_level_question_router_v1 import route_top_level_question_v1
 from app.models.chart import BirthInput
 from app.services.chart_service import build_chart
@@ -29,6 +30,7 @@ class AstroAIQuestionV1Request(BaseModel):
     question: str
     reference_moment: datetime
     life_context: LifeContextV1 | None = None
+    life_context_updates: LifeContextV1 | None = None
 
 
 def _require_timezone(value: datetime) -> None:
@@ -46,8 +48,21 @@ def answer_astroai_question_v1(payload: AstroAIQuestionV1Request):
         _require_timezone(payload.reference_moment)
 
         chart = build_chart(payload.birth)
-        life_context = payload.life_context.model_dump(mode="json") if payload.life_context else None
-        if life_context is None:
+        current_context = payload.life_context.model_dump(mode="json") if payload.life_context else None
+        context_updates = (
+            payload.life_context_updates.model_dump(mode="json")
+            if payload.life_context_updates
+            else None
+        )
+
+        if context_updates is not None:
+            effective_context = merge_life_context_v1(current_context, context_updates)
+        elif current_context is not None:
+            effective_context = normalize_life_context_v1(current_context)
+        else:
+            effective_context = None
+
+        if effective_context is None:
             result = route_top_level_question_v1(
                 chart,
                 question,
@@ -58,9 +73,10 @@ def answer_astroai_question_v1(payload: AstroAIQuestionV1Request):
                 chart,
                 question,
                 payload.reference_moment,
-                life_context=life_context,
+                life_context=effective_context,
             )
 
+        next_life_context = result.get("life_context") or effective_context
         return {
             "birth": chart.get("birth", {}),
             "question": question,
@@ -69,6 +85,7 @@ def answer_astroai_question_v1(payload: AstroAIQuestionV1Request):
             "route": result.get("route"),
             "answer": result.get("answer") or result.get("reason"),
             "life_context": result.get("life_context"),
+            "next_life_context": next_life_context,
             "reality_reconciliation": result.get("reality_reconciliation"),
             "result": result,
             "disclaimer": (
