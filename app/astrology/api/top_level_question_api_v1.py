@@ -47,12 +47,19 @@ def answer_astroai_question_v1(payload: AstroAIQuestionV1Request):
 
         chart = build_chart(payload.birth)
         life_context = payload.life_context.model_dump(mode="json") if payload.life_context else None
-        result = route_top_level_question_v1(
-            chart,
-            question,
-            payload.reference_moment,
-            life_context=life_context,
-        )
+        if life_context is None:
+            result = route_top_level_question_v1(
+                chart,
+                question,
+                payload.reference_moment,
+            )
+        else:
+            result = route_top_level_question_v1(
+                chart,
+                question,
+                payload.reference_moment,
+                life_context=life_context,
+            )
 
         return {
             "birth": chart.get("birth", {}),
