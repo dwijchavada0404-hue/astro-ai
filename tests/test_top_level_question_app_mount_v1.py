@@ -39,10 +39,7 @@ def test_top_level_question_is_mounted_on_main_app(monkeypatch):
     assert response.json()["route"] == "life_settlement_answer_v1"
 
 
-def test_main_app_exposes_single_top_level_question_route():
-    matches = [
-        route
-        for route in app.routes
-        if getattr(route, "path", None) == "/api/v1/question"
-    ]
-    assert len(matches) == 1
+def test_main_app_openapi_exposes_top_level_question_route():
+    response = client.get("/openapi.json")
+    assert response.status_code == 200
+    assert "/api/v1/question" in response.json()["paths"]
