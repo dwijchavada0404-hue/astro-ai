@@ -9,7 +9,7 @@ from app.astrology.features.family_children_question_intelligence_v1 import anal
 from app.astrology.features.family_children_router_v1 import route_family_children_question_v1
 from app.astrology.features.finance_question_intelligence_v1 import analyze_finance_question_v1
 from app.astrology.features.finance_router_v1 import route_finance_question_v1
-from app.astrology.features.life_settlement_answer_v1 import answer_life_settlement_question_v1
+from app.astrology.features.life_settlement_answer_intelligence_v1 import answer_life_settlement_question_v1
 from app.astrology.features.life_settlement_question_intelligence_v1 import analyze_life_settlement_question_v1
 from app.astrology.features.marriage_forecast_router_v3 import route_marriage_question_v3
 from app.astrology.features.marriage_question_intelligence_v3 import analyze_marriage_question_v3
@@ -51,7 +51,7 @@ def route_top_level_question_v1(
         return {
             "available": bool(result.get("available")),
             "event": "life_settlement",
-            "route": "life_settlement_answer_v1",
+            "route": "life_settlement_answer_intelligence_v1",
             "domain": "life_settlement",
             "understanding": settlement,
             "result": result,
