@@ -4,6 +4,7 @@ from typing import Any
 
 
 MILESTONE_STATES = ("unknown", "likely_pending", "user_confirmed_achieved")
+STATE_RANK = {state: index for index, state in enumerate(MILESTONE_STATES)}
 
 MILESTONE_LABELS = {
     "career_stability": "career stability",
@@ -29,12 +30,7 @@ def _safe_dict(value: Any) -> dict[str, Any]:
 
 
 def normalize_life_context_v1(context: Any) -> dict[str, Any]:
-    """Validate and normalize user-supplied milestone reality state.
-
-    This object is deliberately factual-state oriented. `user_confirmed_achieved`
-    is the only state that can override a predictive assumption. `likely_pending`
-    is useful for orchestration but is not treated as a confirmed real-world fact.
-    """
+    """Validate and normalize user-supplied milestone reality state."""
     if context is None:
         return {
             "available": False,
@@ -92,6 +88,40 @@ def normalize_life_context_v1(context: Any) -> dict[str, Any]:
     }
 
 
+def merge_life_context_v1(current: Any, updates: Any) -> dict[str, Any]:
+    """Apply sparse milestone updates without allowing accidental state regression.
+
+    Milestone state is monotonic: unknown -> likely_pending -> user_confirmed_achieved.
+    A confirmed achievement cannot be downgraded by a later request. Metadata from an
+    update replaces metadata only when explicitly supplied.
+    """
+    base = normalize_life_context_v1(current)
+    incoming = normalize_life_context_v1(updates)
+    if not incoming.get("available"):
+        return base
+
+    merged = {key: dict(value) for key, value in _safe_dict(base.get("milestones")).items()}
+    for milestone, update in _safe_dict(incoming.get("milestones")).items():
+        previous = merged.get(milestone, {"state": "unknown", "label": MILESTONE_LABELS[milestone]})
+        old_state = str(previous.get("state") or "unknown")
+        new_state = str(update.get("state") or "unknown")
+        if STATE_RANK[new_state] < STATE_RANK[old_state]:
+            raise ValueError(
+                f"Milestone {milestone} cannot move backward from {old_state} to {new_state}."
+            )
+
+        next_item = dict(previous)
+        next_item["state"] = new_state
+        next_item["label"] = MILESTONE_LABELS[milestone]
+        if "achieved_date" in update:
+            next_item["achieved_date"] = update["achieved_date"]
+        if "note" in update:
+            next_item["note"] = update["note"]
+        merged[milestone] = next_item
+
+    return normalize_life_context_v1({"milestones": merged})
+
+
 def _context_status_for_domain(domain: str | None, context: dict[str, Any]) -> dict[str, Any]:
     relevant = DOMAIN_MILESTONES.get(str(domain), ())
     milestones = _safe_dict(context.get("milestones"))
@@ -111,12 +141,7 @@ def reconcile_answer_with_life_context_v1(
     routed_result: dict[str, Any],
     context: Any,
 ) -> dict[str, Any]:
-    """Apply factual milestone context after astrology routing.
-
-    The astrology engine remains evidence-producing; this reconciler prevents its
-    output from contradicting a user-confirmed achieved milestone. It does not turn
-    `likely_pending` into a fact and does not infer achievement from astrology.
-    """
+    """Apply factual milestone context after astrology routing."""
     if not isinstance(routed_result, dict):
         raise ValueError("routed_result must be a dictionary.")
 
