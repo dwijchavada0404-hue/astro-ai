@@ -5,6 +5,8 @@ from typing import Any, Callable
 
 from app.astrology.features.career_question_intelligence_v1 import analyze_career_question_v1
 from app.astrology.features.career_router_v1 import route_career_question_v1
+from app.astrology.features.education_learning_question_intelligence_v1 import analyze_education_learning_question_v1
+from app.astrology.features.education_learning_router_v1 import route_education_learning_question_v1
 from app.astrology.features.family_children_question_intelligence_v1 import analyze_family_children_question_v1
 from app.astrology.features.family_children_router_v1 import route_family_children_question_v1
 from app.astrology.features.finance_question_intelligence_v1 import analyze_finance_question_v1
@@ -28,6 +30,7 @@ DOMAIN_ORDER = (
     "property_home",
     "family_children",
     "location_settlement",
+    "education_learning",
 )
 
 
@@ -85,6 +88,7 @@ def route_top_level_question_v1(
         ("property_home", analyze_property_home_question_v1),
         ("family_children", analyze_family_children_question_v1),
         ("location_settlement", analyze_location_settlement_question_v1),
+        ("education_learning", analyze_education_learning_question_v1),
     )
     matches: list[tuple[str, dict[str, Any]]] = []
     for domain, classifier in classifiers:
@@ -118,8 +122,10 @@ def route_top_level_question_v1(
         result = route_property_home_question_v1(chart, question, reference_moment)
     elif domain == "family_children":
         result = route_family_children_question_v1(chart, question, reference_moment)
-    else:
+    elif domain == "location_settlement":
         result = route_location_settlement_question_v1(chart, question, reference_moment)
+    else:
+        result = route_education_learning_question_v1(chart, question, reference_moment)
 
     routed = {
         "available": bool(result.get("available")),
