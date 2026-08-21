@@ -14,7 +14,7 @@ BIRTH = {
 
 
 def test_marriage_synthesis_route_is_registered():
-    paths = {route.path for route in main.app.routes}
+    paths = {getattr(route, "path", None) for route in main.app.routes}
     assert "/api/v1/marriage-synthesis-v2" in paths
 
 
