@@ -12,13 +12,23 @@ from app.astrology.features.finance_router_v1 import route_finance_question_v1
 from app.astrology.features.life_context_v1 import reconcile_answer_with_life_context_v1
 from app.astrology.features.life_settlement_answer_intelligence_v1 import answer_life_settlement_question_v1
 from app.astrology.features.life_settlement_question_intelligence_v1 import analyze_life_settlement_question_v1
+from app.astrology.features.location_settlement_question_intelligence_v1 import analyze_location_settlement_question_v1
+from app.astrology.features.location_settlement_router_v1 import route_location_settlement_question_v1
 from app.astrology.features.marriage_forecast_router_v3 import route_marriage_question_v3
 from app.astrology.features.marriage_question_intelligence_v3 import analyze_marriage_question_v3
 from app.astrology.features.property_home_question_intelligence_v1 import analyze_property_home_question_v1
 from app.astrology.features.property_home_router_v1 import route_property_home_question_v1
 
 
-DOMAIN_ORDER = ("life_settlement", "marriage", "career", "finance", "property_home", "family_children")
+DOMAIN_ORDER = (
+    "life_settlement",
+    "marriage",
+    "career",
+    "finance",
+    "property_home",
+    "family_children",
+    "location_settlement",
+)
 
 
 def _require_reference_moment(reference_moment: datetime) -> None:
@@ -74,6 +84,7 @@ def route_top_level_question_v1(
         ("finance", analyze_finance_question_v1),
         ("property_home", analyze_property_home_question_v1),
         ("family_children", analyze_family_children_question_v1),
+        ("location_settlement", analyze_location_settlement_question_v1),
     )
     matches: list[tuple[str, dict[str, Any]]] = []
     for domain, classifier in classifiers:
@@ -105,8 +116,10 @@ def route_top_level_question_v1(
         result = route_finance_question_v1(chart, question, reference_moment)
     elif domain == "property_home":
         result = route_property_home_question_v1(chart, question, reference_moment)
-    else:
+    elif domain == "family_children":
         result = route_family_children_question_v1(chart, question, reference_moment)
+    else:
+        result = route_location_settlement_question_v1(chart, question, reference_moment)
 
     routed = {
         "available": bool(result.get("available")),
