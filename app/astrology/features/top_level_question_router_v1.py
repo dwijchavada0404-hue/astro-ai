@@ -51,7 +51,7 @@ def route_top_level_question_v1(
         return {
             "available": bool(result.get("available")),
             "event": "life_settlement",
-            "route": "life_settlement_answer_intelligence_v1",
+            "route": "life_settlement_answer_v1",
             "domain": "life_settlement",
             "understanding": settlement,
             "result": result,
