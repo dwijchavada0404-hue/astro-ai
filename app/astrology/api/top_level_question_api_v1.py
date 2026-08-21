@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.astrology.features.top_level_question_router_v1 import route_top_level_question_v1
 from app.models.chart import BirthInput
@@ -13,10 +14,21 @@ from app.services.chart_service import build_chart
 router = APIRouter(tags=["AstroAI Questions"])
 
 
+class MilestoneContextV1(BaseModel):
+    state: Literal["unknown", "likely_pending", "user_confirmed_achieved"] = "unknown"
+    achieved_date: date | None = None
+    note: str | None = Field(default=None, max_length=500)
+
+
+class LifeContextV1(BaseModel):
+    milestones: dict[str, MilestoneContextV1] = Field(default_factory=dict)
+
+
 class AstroAIQuestionV1Request(BaseModel):
     birth: BirthInput
     question: str
     reference_moment: datetime
+    life_context: LifeContextV1 | None = None
 
 
 def _require_timezone(value: datetime) -> None:
@@ -34,10 +46,12 @@ def answer_astroai_question_v1(payload: AstroAIQuestionV1Request):
         _require_timezone(payload.reference_moment)
 
         chart = build_chart(payload.birth)
+        life_context = payload.life_context.model_dump(mode="json") if payload.life_context else None
         result = route_top_level_question_v1(
             chart,
             question,
             payload.reference_moment,
+            life_context=life_context,
         )
 
         return {
@@ -47,11 +61,13 @@ def answer_astroai_question_v1(payload: AstroAIQuestionV1Request):
             "domain": result.get("domain"),
             "route": result.get("route"),
             "answer": result.get("answer") or result.get("reason"),
+            "life_context": result.get("life_context"),
+            "reality_reconciliation": result.get("reality_reconciliation"),
             "result": result,
             "disclaimer": (
                 "AstroAI provides symbolic astrological reasoning rather than guaranteed real-world outcomes. "
-                "Known facts override predictive assumptions, and professional medical, legal, financial or other "
-                "specialist advice takes priority where relevant."
+                "User-confirmed facts override predictive assumptions, while likely_pending remains non-factual. "
+                "Professional medical, legal, financial or other specialist advice takes priority where relevant."
             ),
         }
     except ValueError as exc:
