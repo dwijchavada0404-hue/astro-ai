@@ -2012,3 +2012,13 @@ def create_marriage_synthesis_v2(
             detail=f"Marriage synthesis generation failed: {exc}",
         ) from exc
 
+
+# =========================================================
+# TOP-LEVEL ASTROAI QUESTION ROUTER
+# =========================================================
+
+from app.astrology.api.top_level_question_api_v1 import (
+    router as top_level_question_api_v1_router,
+)
+
+app.include_router(top_level_question_api_v1_router)
