@@ -73,8 +73,9 @@ def answer_astroai_question_v1(payload: AstroAIQuestionV1Request):
             "result": result,
             "disclaimer": (
                 "AstroAI provides symbolic astrological reasoning rather than guaranteed real-world outcomes. "
-                "User-confirmed facts override predictive assumptions, while likely_pending remains non-factual. "
-                "Professional medical, legal, financial or other specialist advice takes priority where relevant."
+                "Known facts override predictive assumptions; only user-confirmed achieved milestones are treated as known facts, "
+                "while likely_pending remains non-factual. Professional medical, legal, financial or other specialist advice "
+                "takes priority where relevant."
             ),
         }
     except ValueError as exc:
