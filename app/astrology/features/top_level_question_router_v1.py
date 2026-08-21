@@ -20,6 +20,8 @@ from app.astrology.features.marriage_forecast_router_v3 import route_marriage_qu
 from app.astrology.features.marriage_question_intelligence_v3 import analyze_marriage_question_v3
 from app.astrology.features.property_home_question_intelligence_v1 import analyze_property_home_question_v1
 from app.astrology.features.property_home_router_v1 import route_property_home_question_v1
+from app.astrology.features.purpose_personal_growth_question_intelligence_v1 import analyze_purpose_personal_growth_question_v1
+from app.astrology.features.purpose_personal_growth_router_v1 import route_purpose_personal_growth_question_v1
 
 
 DOMAIN_ORDER = (
@@ -31,6 +33,7 @@ DOMAIN_ORDER = (
     "family_children",
     "location_settlement",
     "education_learning",
+    "purpose_personal_growth",
 )
 
 
@@ -89,6 +92,7 @@ def route_top_level_question_v1(
         ("family_children", analyze_family_children_question_v1),
         ("location_settlement", analyze_location_settlement_question_v1),
         ("education_learning", analyze_education_learning_question_v1),
+        ("purpose_personal_growth", analyze_purpose_personal_growth_question_v1),
     )
     matches: list[tuple[str, dict[str, Any]]] = []
     for domain, classifier in classifiers:
@@ -124,8 +128,10 @@ def route_top_level_question_v1(
         result = route_family_children_question_v1(chart, question, reference_moment)
     elif domain == "location_settlement":
         result = route_location_settlement_question_v1(chart, question, reference_moment)
-    else:
+    elif domain == "education_learning":
         result = route_education_learning_question_v1(chart, question, reference_moment)
+    else:
+        result = route_purpose_personal_growth_question_v1(chart, question, reference_moment)
 
     routed = {
         "available": bool(result.get("available")),
