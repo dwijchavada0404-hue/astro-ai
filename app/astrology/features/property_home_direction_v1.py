@@ -107,7 +107,7 @@ def analyze_property_home_direction_v1(chart: dict[str, Any]) -> dict[str, Any]:
             f"{DIRECTION_LABELS[secondary]}."
         ),
         "limitation": (
-            "These scores describe symbolic natal emphasis only. They do not predict or guarantee a property purchase, "
-            "ownership, sale, inheritance, financing approval, investment return, relocation or residential stability."
+            "This direction analysis does not predict or guarantee a property purchase, ownership, sale, inheritance, "
+            "financing approval, investment return, relocation or residential stability."
         ),
     }
