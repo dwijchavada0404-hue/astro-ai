@@ -34,9 +34,15 @@ def analyze_siblings_communication_question_v1(question: str) -> dict[str, Any]:
 
     timing_requested = "siblings_communication_timing" in matched
     substantive = {key: value for key, value in scores.items() if key != "siblings_communication_timing"}
-    priority = ["sibling_relationship", "communication_expression", "initiative_courage", "learning_skills", "collaboration_exchange", "boundaries_competition", "siblings_communication_overview"]
     primary = "unknown"
-    if substantive:
+
+    # Explicit overview language must win over its component words. For example,
+    # "siblings and communication overview" also contains "siblings" and
+    # "communication", but the user's requested scope is the combined synthesis.
+    if "siblings_communication_overview" in substantive:
+        primary = "siblings_communication_overview"
+    elif substantive:
+        priority = ["sibling_relationship", "communication_expression", "initiative_courage", "learning_skills", "collaboration_exchange", "boundaries_competition"]
         primary = max(substantive, key=lambda key: (substantive[key], -priority.index(key) if key in priority else -99))
     elif timing_requested and any(token in q for token in ("sibling", "brother", "sister", "communicat", "skill", "collabor", "assert")):
         primary = "siblings_communication_timing"
