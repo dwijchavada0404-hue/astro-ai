@@ -44,6 +44,30 @@ def test_top_level_question_endpoint_routes_result(monkeypatch):
     assert "Known facts override" in body["disclaimer"]
 
 
+def test_top_level_question_endpoint_surfaces_siblings_domain(monkeypatch):
+    monkeypatch.setattr(module, "build_chart", lambda birth: {"birth": {"date": "2000-04-04"}})
+    monkeypatch.setattr(
+        module,
+        "route_top_level_question_v1",
+        lambda chart, question, moment: {
+            "available": True,
+            "domain": "siblings_communication",
+            "route": "top_level_to_siblings_communication",
+            "answer": "bounded sibling and communication answer",
+            "limitation": "No specific-person loyalty or conflict prediction.",
+        },
+    )
+    payload = _payload()
+    payload["question"] = "What are my sibling and communication themes?"
+    response = client.post("/api/v1/question", json=payload)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["domain"] == "siblings_communication"
+    assert body["route"] == "top_level_to_siblings_communication"
+    assert body["answer"] == "bounded sibling and communication answer"
+    assert body["result"]["limitation"]
+
+
 def test_top_level_question_endpoint_requires_timezone():
     payload = _payload()
     payload["reference_moment"] = "2026-08-21T12:00:00"
