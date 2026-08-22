@@ -20,6 +20,8 @@ from app.astrology.features.location_settlement_question_intelligence_v1 import 
 from app.astrology.features.location_settlement_router_v1 import route_location_settlement_question_v1
 from app.astrology.features.marriage_forecast_router_v3 import route_marriage_question_v3
 from app.astrology.features.marriage_question_intelligence_v3 import analyze_marriage_question_v3
+from app.astrology.features.parents_elders_question_intelligence_v1 import analyze_parents_elders_question_v1
+from app.astrology.features.parents_elders_router_v1 import route_parents_elders_question_v1
 from app.astrology.features.property_home_question_intelligence_v1 import analyze_property_home_question_v1
 from app.astrology.features.property_home_router_v1 import route_property_home_question_v1
 from app.astrology.features.purpose_personal_growth_question_intelligence_v1 import analyze_purpose_personal_growth_question_v1
@@ -40,6 +42,7 @@ DOMAIN_ORDER = (
     "purpose_personal_growth",
     "friends_social_community",
     "siblings_communication",
+    "parents_elders",
 )
 
 
@@ -60,15 +63,7 @@ def route_top_level_question_v1(
     reference_moment: datetime,
     life_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Route a natural-language question across mature AstroAI domains.
-
-    Cross-domain settlement intent is evaluated first so phrases such as
-    "When will everything fall into place?" do not collapse into whichever
-    single domain happens to match one keyword. Existing mature domain routers
-    remain authoritative for their own questions. Optional life_context is
-    reconciled only after astrology routing so confirmed reality can override
-    predictive assumptions without rewriting the underlying astrology evidence.
-    """
+    """Route a natural-language question across mature AstroAI domains."""
     if not isinstance(chart, dict):
         raise ValueError("chart must be a dictionary.")
     if not isinstance(question, str) or not question.strip():
@@ -101,6 +96,7 @@ def route_top_level_question_v1(
         ("purpose_personal_growth", analyze_purpose_personal_growth_question_v1),
         ("friends_social_community", analyze_friends_social_community_question_v1),
         ("siblings_communication", analyze_siblings_communication_question_v1),
+        ("parents_elders", analyze_parents_elders_question_v1),
     )
     matches: list[tuple[str, dict[str, Any]]] = []
     for domain, classifier in classifiers:
@@ -142,8 +138,10 @@ def route_top_level_question_v1(
         result = route_purpose_personal_growth_question_v1(chart, question, reference_moment)
     elif domain == "friends_social_community":
         result = route_friends_social_community_question_v1(chart, question, reference_moment)
-    else:
+    elif domain == "siblings_communication":
         result = route_siblings_communication_question_v1(chart, question, reference_moment)
+    else:
+        result = route_parents_elders_question_v1(chart, question, reference_moment)
 
     routed = {
         "available": bool(result.get("available")),
