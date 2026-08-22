@@ -16,7 +16,10 @@ INTENTS: dict[str, tuple[str, ...]] = {
 }
 
 SETTLEMENT_TERMS = ("settle abroad", "foreign settlement", "permanent settlement", "permanent relocation", "relocate abroad", "immigrate", "immigration")
-SAFETY_TERMS = ("accident", "safe trip", "travel safe", "crash", "will my flight", "visa approved", "visa approval")
+SAFETY_TERMS = (
+    "accident", "safe trip", "trip be safe", "travel safe", "travel be safe", "crash", "will my flight",
+    "visa approved", "visa be approved", "visa approval", "visa get approved", "visa will be approved",
+)
 
 
 def _normalise(question: str) -> str:
