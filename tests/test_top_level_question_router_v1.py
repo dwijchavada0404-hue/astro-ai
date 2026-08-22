@@ -17,6 +17,7 @@ def _disable_all(monkeypatch):
     monkeypatch.setattr(module, "analyze_education_learning_question_v1", lambda q: {"available": False})
     monkeypatch.setattr(module, "analyze_purpose_personal_growth_question_v1", lambda q: {"available": False})
     monkeypatch.setattr(module, "analyze_friends_social_community_question_v1", lambda q: {"available": False})
+    monkeypatch.setattr(module, "analyze_siblings_communication_question_v1", lambda q: {"available": False})
 
 
 def test_settlement_intent_has_cross_domain_precedence(monkeypatch):
@@ -67,6 +68,16 @@ def test_social_question_routes_to_social_domain(monkeypatch):
     assert result["answer"] == "social answer"
 
 
+def test_siblings_question_routes_to_siblings_domain(monkeypatch):
+    _disable_all(monkeypatch)
+    monkeypatch.setattr(module, "analyze_siblings_communication_question_v1", lambda q: {"available": True, "primary_intent": "sibling_relationship"})
+    monkeypatch.setattr(module, "route_siblings_communication_question_v1", lambda c, q, m: {"available": True, "event": "siblings_communication", "answer": "siblings answer", "limitation": "bounded"})
+    result = module.route_top_level_question_v1({}, "What are my sibling relationship themes?", NOW)
+    assert result["domain"] == "siblings_communication"
+    assert result["route"] == "top_level_to_siblings_communication"
+    assert result["answer"] == "siblings answer"
+
+
 def test_existing_domain_precedence_beats_purpose_overlap(monkeypatch):
     _disable_all(monkeypatch)
     monkeypatch.setattr(module, "analyze_career_question_v1", lambda q: {"available": True})
@@ -85,6 +96,36 @@ def test_existing_domain_precedence_beats_social_overlap(monkeypatch):
     result = module.route_top_level_question_v1({}, "Will friendship be important in my marriage?", NOW)
     assert result["domain"] == "marriage"
     assert result["route"] == "top_level_to_marriage"
+
+
+def test_family_precedence_beats_sibling_overlap(monkeypatch):
+    _disable_all(monkeypatch)
+    monkeypatch.setattr(module, "analyze_family_children_question_v1", lambda q: {"available": True})
+    monkeypatch.setattr(module, "analyze_siblings_communication_question_v1", lambda q: {"available": True})
+    monkeypatch.setattr(module, "route_family_children_question_v1", lambda c, q, m: {"available": True, "event": "family_children", "answer": "family answer"})
+    result = module.route_top_level_question_v1({}, "How will family life develop with my siblings around?", NOW)
+    assert result["domain"] == "family_children"
+    assert result["route"] == "top_level_to_family_children"
+
+
+def test_education_precedence_beats_communication_overlap(monkeypatch):
+    _disable_all(monkeypatch)
+    monkeypatch.setattr(module, "analyze_education_learning_question_v1", lambda q: {"available": True})
+    monkeypatch.setattr(module, "analyze_siblings_communication_question_v1", lambda q: {"available": True})
+    monkeypatch.setattr(module, "route_education_learning_question_v1", lambda c, q, m: {"available": True, "event": "education_learning", "answer": "education answer"})
+    result = module.route_top_level_question_v1({}, "Will communication skills help my higher studies?", NOW)
+    assert result["domain"] == "education_learning"
+    assert result["route"] == "top_level_to_education_learning"
+
+
+def test_social_precedence_beats_sibling_peer_overlap(monkeypatch):
+    _disable_all(monkeypatch)
+    monkeypatch.setattr(module, "analyze_friends_social_community_question_v1", lambda q: {"available": True})
+    monkeypatch.setattr(module, "analyze_siblings_communication_question_v1", lambda q: {"available": True})
+    monkeypatch.setattr(module, "route_friends_social_community_question_v1", lambda c, q, m: {"available": True, "event": "friends_social_community", "answer": "social answer"})
+    result = module.route_top_level_question_v1({}, "How will my peer network and friendships develop?", NOW)
+    assert result["domain"] == "friends_social_community"
+    assert result["route"] == "top_level_to_friends_social_community"
 
 
 def test_unsupported_question_stays_unsupported(monkeypatch):
