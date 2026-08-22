@@ -15,10 +15,10 @@ def route_travel_journeys_question_v1(question: str, chart: dict[str, Any], refe
     intelligence = analyze_travel_journeys_question_v1(question)
     if intelligence.get("handoff_to_location_settlement"):
         return {"available": False, "event": "travel_journeys", "model_version": "v1", "reason": "Permanent relocation or settlement belongs to the Location & Foreign Settlement domain.", "question_intelligence": intelligence}
-    if not intelligence.get("available"):
-        return {"available": False, "event": "travel_journeys", "model_version": "v1", "reason": "Question was not recognized as a Travel & Journeys question.", "question_intelligence": intelligence}
     if intelligence.get("restricted_outcome_requested"):
         return {"available": True, "event": "travel_journeys", "model_version": "v1", "restricted": True, "answer": "I can discuss symbolic travel and mobility themes, but not predict visa approval, exact destinations, travel safety, accidents, delays or disruptions.", "question_intelligence": intelligence}
+    if not intelligence.get("available"):
+        return {"available": False, "event": "travel_journeys", "model_version": "v1", "reason": "Question was not recognized as a Travel & Journeys question.", "question_intelligence": intelligence}
     intent = intelligence["primary_intent"]
     if intent == "travel_overview":
         result = analyze_travel_journeys_synthesis_v1(chart, reference_moment)
