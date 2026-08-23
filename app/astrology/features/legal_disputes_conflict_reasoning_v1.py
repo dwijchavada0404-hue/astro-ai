@@ -32,10 +32,10 @@ def analyze_legal_disputes_conflict_v1(chart: dict[str, Any]) -> dict[str, Any]:
     h6 = _d(houses.get("6")); h7 = _d(houses.get("7")); h8 = _d(houses.get("8")); h9 = _d(houses.get("9"))
     l6, l7, l8, l9 = map(lambda h: str(h.get("lord") or ""), (h6, h7, h8, h9))
 
-    p = {name: _planet_house(planets, name) for name in ("Mars", "Saturn", "Mercury", "Jupiter", "Sun", "Rahu", "Ketu")}
+    p = {name: _planet_house(planets, name) for name in ("Mars", "Saturn", "Mercury", "Jupiter", "Sun", "Rahu", "Ketu", "Venus")}
 
     dispute = _b(.42 + .10*bool(l6) + .08*(p["Mars"] == 6) + .08*(p["Saturn"] == 6) + .06*(p["Rahu"] in {6, 8}))
-    negotiation = _b(.38 + .10*bool(l7) + .10*(p["Mercury"] in {3, 7, 9}) + .08*(p["Jupiter"] in {7, 9}) + .06*(p["Venus"] in {7} if "Venus" in planets else False))
+    negotiation = _b(.38 + .10*bool(l7) + .10*(p["Mercury"] in {3, 7, 9}) + .08*(p["Jupiter"] in {7, 9}) + .06*(p["Venus"] == 7))
     complexity = _b(.36 + .10*bool(l8) + .10*(p["Saturn"] == 8) + .08*(p["Rahu"] == 8) + .06*(p["Ketu"] == 8))
     principles = _b(.38 + .10*bool(l9) + .12*(p["Jupiter"] == 9) + .08*(p["Sun"] == 9) + .06*(p["Mercury"] == 9))
     competition = _b(.40 + .12*(p["Mars"] in {3, 6}) + .10*(p["Saturn"] == 6) + .08*(p["Sun"] in {6, 10}))
