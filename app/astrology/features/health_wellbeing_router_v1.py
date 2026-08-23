@@ -57,19 +57,7 @@ def route_health_wellbeing_question_v1(
     intent = str(understanding.get("primary_intent") or "unknown")
     natal = analyze_health_wellbeing_v1(chart)
 
-    if intent == "health_wellbeing_overview":
-        synthesis = analyze_health_wellbeing_synthesis_v1(chart, reference_moment)
-        return {
-            "available": bool(synthesis.get("available")),
-            "route": "health_wellbeing_synthesis_v1",
-            "event": "health_wellbeing",
-            "primary_intent": intent,
-            "understanding": understanding,
-            "synthesis": synthesis,
-            "answer": synthesis.get("answer") if synthesis.get("available") else synthesis.get("reason"),
-            "limitation": synthesis.get("limitation") or natal.get("limitation"),
-        }
-
+    # Explicit temporal language must take precedence over broad overview terms.
     if understanding.get("requires_timing_engine") or intent == "health_wellbeing_timing":
         timing = analyze_health_wellbeing_timing_v1(chart, reference_moment)
         return {
@@ -81,6 +69,19 @@ def route_health_wellbeing_question_v1(
             "timing": timing,
             "answer": timing.get("answer") if timing.get("available") else timing.get("reason"),
             "limitation": timing.get("limitation") or natal.get("limitation"),
+        }
+
+    if intent == "health_wellbeing_overview":
+        synthesis = analyze_health_wellbeing_synthesis_v1(chart, reference_moment)
+        return {
+            "available": bool(synthesis.get("available")),
+            "route": "health_wellbeing_synthesis_v1",
+            "event": "health_wellbeing",
+            "primary_intent": intent,
+            "understanding": understanding,
+            "synthesis": synthesis,
+            "answer": synthesis.get("answer") if synthesis.get("available") else synthesis.get("reason"),
+            "limitation": synthesis.get("limitation") or natal.get("limitation"),
         }
 
     if intent in EVENT_INTENTS:
