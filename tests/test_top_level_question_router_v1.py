@@ -19,6 +19,8 @@ def _disable_all(monkeypatch):
     monkeypatch.setattr(module, "analyze_friends_social_community_question_v1", lambda q: {"available": False})
     monkeypatch.setattr(module, "analyze_siblings_communication_question_v1", lambda q: {"available": False})
     monkeypatch.setattr(module, "analyze_parents_elders_question_v1", lambda q: {"available": False})
+    monkeypatch.setattr(module, "analyze_travel_journeys_question_v1", lambda q: {"available": False})
+    monkeypatch.setattr(module, "analyze_health_wellbeing_question_v1", lambda q: {"available": False})
 
 
 def test_settlement_intent_has_cross_domain_precedence(monkeypatch):
@@ -79,6 +81,33 @@ def test_parents_elders_question_routes_to_parents_domain(monkeypatch):
     assert result["answer"] == "parents answer"
 
 
+def test_travel_question_routes_to_travel_domain(monkeypatch):
+    _disable_all(monkeypatch)
+    monkeypatch.setattr(module, "analyze_travel_journeys_question_v1", lambda q: {"available": True})
+    monkeypatch.setattr(module, "route_travel_journeys_question_v1", lambda c, q, m: {"available": True, "event": "travel_journeys", "answer": "travel answer"})
+    result = module.route_top_level_question_v1({}, "When is foreign travel likely for me?", NOW)
+    assert result["domain"] == "travel_journeys"
+
+
+def test_health_question_routes_to_health_domain(monkeypatch):
+    _disable_all(monkeypatch)
+    monkeypatch.setattr(module, "analyze_health_wellbeing_question_v1", lambda q: {"available": True, "primary_intent": "health_wellbeing_overview"})
+    monkeypatch.setattr(module, "route_health_wellbeing_question_v1", lambda c, q, m: {"available": True, "event": "health_wellbeing", "answer": "wellbeing answer", "limitation": "non-medical"})
+    result = module.route_top_level_question_v1({}, "What are my health and wellbeing themes?", NOW)
+    assert result["domain"] == "health_wellbeing"
+    assert result["route"] == "top_level_to_health_wellbeing"
+    assert result["answer"] == "wellbeing answer"
+
+
+def test_health_safety_boundary_is_preserved(monkeypatch):
+    _disable_all(monkeypatch)
+    monkeypatch.setattr(module, "analyze_health_wellbeing_question_v1", lambda q: {"available": True, "prohibited_request_detected": True, "primary_intent": "unknown"})
+    monkeypatch.setattr(module, "route_health_wellbeing_question_v1", lambda c, q, m: {"available": True, "event": "health_wellbeing", "route": "health_wellbeing_safety_boundary_v1", "answer": "medical prediction blocked", "limitation": "non-medical"})
+    result = module.route_top_level_question_v1({}, "Will I get cancer next year?", NOW)
+    assert result["domain"] == "health_wellbeing"
+    assert result["result"]["route"] == "health_wellbeing_safety_boundary_v1"
+
+
 def test_family_precedence_beats_parent_overlap(monkeypatch):
     _disable_all(monkeypatch)
     monkeypatch.setattr(module, "analyze_family_children_question_v1", lambda q: {"available": True})
@@ -104,6 +133,15 @@ def test_marriage_precedence_beats_parent_overlap(monkeypatch):
     monkeypatch.setattr(module, "route_marriage_question_v3", lambda c, u, m: {"available": True, "event": "marriage", "answer": "marriage answer"})
     result = module.route_top_level_question_v1({}, "Will my parents influence my marriage?", NOW)
     assert result["domain"] == "marriage"
+
+
+def test_career_precedence_beats_health_routine_overlap(monkeypatch):
+    _disable_all(monkeypatch)
+    monkeypatch.setattr(module, "analyze_career_question_v1", lambda q: {"available": True})
+    monkeypatch.setattr(module, "analyze_health_wellbeing_question_v1", lambda q: {"available": True})
+    monkeypatch.setattr(module, "route_career_question_v1", lambda c, q, m: {"available": True, "event": "career", "answer": "career answer"})
+    result = module.route_top_level_question_v1({}, "Will my work routine improve with my career?", NOW)
+    assert result["domain"] == "career"
 
 
 def test_unsupported_question_stays_unsupported(monkeypatch):
