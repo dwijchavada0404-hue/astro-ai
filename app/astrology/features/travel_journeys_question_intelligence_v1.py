@@ -18,7 +18,7 @@ INTENTS: dict[str, tuple[str, ...]] = {
 SETTLEMENT_TERMS = ("settle abroad", "foreign settlement", "permanent settlement", "permanent relocation", "relocate abroad", "immigrate", "immigration")
 SAFETY_TERMS = (
     "accident", "safe trip", "trip be safe", "travel safe", "travel be safe", "crash", "will my flight",
-    "visa approved", "visa be approved", "visa approval", "visa get approved", "visa will be approved",
+    "visa approved", "visa be approved", "visa get approved", "visa approval", "will i get a visa", "will my visa",
 )
 
 
@@ -37,6 +37,7 @@ def analyze_travel_journeys_question_v1(question: str) -> dict[str, Any]:
         if hits:
             matched[intent] = hits
             scores[intent] = len(hits)
+
     timing_requested = "travel_timing" in matched
     settlement_requested = any(term in q for term in SETTLEMENT_TERMS)
     safety_or_visa_requested = any(term in q for term in SAFETY_TERMS)
@@ -49,7 +50,10 @@ def analyze_travel_journeys_question_v1(question: str) -> dict[str, Any]:
         primary = max(substantive, key=lambda key: (substantive[key], -priority.index(key) if key in priority else -99))
     elif timing_requested and any(token in q for token in ("travel", "trip", "journey", "abroad", "overseas")):
         primary = "travel_timing"
-    available = primary != "unknown" and not settlement_requested
+
+    # Restricted travel questions still belong to this domain so the router can
+    # return a safe bounded response instead of falling through as unsupported.
+    available = (primary != "unknown" or safety_or_visa_requested) and not settlement_requested
     return {
         "available": available,
         "event": "travel_journeys" if available else "unknown",
@@ -62,5 +66,11 @@ def analyze_travel_journeys_question_v1(question: str) -> dict[str, Any]:
         "requires_timing_engine": timing_requested,
         "handoff_to_location_settlement": settlement_requested,
         "restricted_outcome_requested": safety_or_visa_requested,
-        "safety": {"exact_destination_prediction_allowed": False, "visa_approval_prediction_allowed": False, "permanent_settlement_inference_allowed": False, "travel_safety_prediction_allowed": False, "accident_prediction_allowed": False},
+        "safety": {
+            "exact_destination_prediction_allowed": False,
+            "visa_approval_prediction_allowed": False,
+            "permanent_settlement_inference_allowed": False,
+            "travel_safety_prediction_allowed": False,
+            "accident_prediction_allowed": False,
+        },
     }
