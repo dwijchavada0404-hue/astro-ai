@@ -13,6 +13,8 @@ from app.astrology.features.finance_question_intelligence_v1 import analyze_fina
 from app.astrology.features.finance_router_v1 import route_finance_question_v1
 from app.astrology.features.friends_social_community_question_intelligence_v1 import analyze_friends_social_community_question_v1
 from app.astrology.features.friends_social_community_router_v1 import route_friends_social_community_question_v1
+from app.astrology.features.health_wellbeing_question_intelligence_v1 import analyze_health_wellbeing_question_v1
+from app.astrology.features.health_wellbeing_router_v1 import route_health_wellbeing_question_v1
 from app.astrology.features.life_context_v1 import reconcile_answer_with_life_context_v1
 from app.astrology.features.life_settlement_answer_intelligence_v1 import answer_life_settlement_question_v1
 from app.astrology.features.life_settlement_question_intelligence_v1 import analyze_life_settlement_question_v1
@@ -46,6 +48,7 @@ DOMAIN_ORDER = (
     "siblings_communication",
     "parents_elders",
     "travel_journeys",
+    "health_wellbeing",
 )
 
 
@@ -101,6 +104,7 @@ def route_top_level_question_v1(
         ("siblings_communication", analyze_siblings_communication_question_v1),
         ("parents_elders", analyze_parents_elders_question_v1),
         ("travel_journeys", analyze_travel_journeys_question_v1),
+        ("health_wellbeing", analyze_health_wellbeing_question_v1),
     )
     matches: list[tuple[str, dict[str, Any]]] = []
     for domain, classifier in classifiers:
@@ -146,8 +150,10 @@ def route_top_level_question_v1(
         result = route_siblings_communication_question_v1(chart, question, reference_moment)
     elif domain == "parents_elders":
         result = route_parents_elders_question_v1(chart, question, reference_moment)
-    else:
+    elif domain == "travel_journeys":
         result = route_travel_journeys_question_v1(chart, question, reference_moment)
+    else:
+        result = route_health_wellbeing_question_v1(chart, question, reference_moment)
 
     routed = {
         "available": bool(result.get("available")),
