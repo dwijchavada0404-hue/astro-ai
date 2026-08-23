@@ -21,26 +21,26 @@ def _chart():
 
 
 def test_overview_routes_to_synthesis():
-    result = route_health_wellbeing_question_v1("Give me my health and wellbeing overview", _chart(), NOW)
+    result = route_health_wellbeing_question_v1(_chart(), "Give me my health and wellbeing overview", NOW)
     assert result["available"] is True
     assert result["route"] == "health_wellbeing_synthesis_v1"
 
 
 def test_timing_routes_to_timing_engine():
-    result = route_health_wellbeing_question_v1("When is a stronger period for my wellbeing routine?", _chart(), NOW)
+    result = route_health_wellbeing_question_v1(_chart(), "When is a stronger period for my wellbeing routine?", NOW)
     assert result["available"] is True
     assert result["route"] == "health_wellbeing_timing_v1"
 
 
 def test_component_routes_to_event_intelligence():
-    result = route_health_wellbeing_question_v1("What are my stress balance themes?", _chart(), NOW)
+    result = route_health_wellbeing_question_v1(_chart(), "What are my stress balance themes?", NOW)
     assert result["available"] is True
     assert result["route"] == "health_wellbeing_event_v1"
     assert result["primary_intent"] == "stress_balance"
 
 
 def test_medical_diagnosis_prediction_is_blocked():
-    result = route_health_wellbeing_question_v1("Will I get diabetes in the future?", _chart(), NOW)
+    result = route_health_wellbeing_question_v1(_chart(), "Will I get diabetes in the future?", NOW)
     assert result["available"] is True
     assert result["route"] == "health_wellbeing_safety_boundary_v1"
     text = result["answer"].lower()
@@ -48,7 +48,7 @@ def test_medical_diagnosis_prediction_is_blocked():
 
 
 def test_treatment_and_medication_request_is_blocked():
-    result = route_health_wellbeing_question_v1("Which medication or supplement should I take for this illness?", _chart(), NOW)
+    result = route_health_wellbeing_question_v1(_chart(), "Which medication or supplement should I take for this illness?", NOW)
     assert result["route"] == "health_wellbeing_safety_boundary_v1"
     text = result["answer"].lower()
     assert "cannot recommend treatment" in text
