@@ -4,6 +4,7 @@ from datetime import date, datetime
 from typing import Any
 
 from app.astrology.features.life_settlement_question_intelligence_v1 import analyze_life_settlement_question_v1
+from app.astrology.features.life_settlement_stability_v1 import analyze_life_settlement_stability_v1
 from app.astrology.features.life_settlement_synthesis_v1 import analyze_life_settlement_synthesis_v1
 from app.astrology.features.life_settlement_timing_v1 import analyze_life_settlement_timing_v1
 
@@ -99,8 +100,12 @@ def answer_life_settlement_question_v1(
     synthesis = analyze_life_settlement_synthesis_v1(chart, reference_moment)
     intent = str(understanding.get("primary_intent") or "settlement_overview")
     timing = None
+    stability = None
     if understanding.get("requires_timing_engine"):
         timing = analyze_life_settlement_timing_v1(chart, reference_moment)
+
+    if intent in {"settlement_overview", "multi_domain_stability"}:
+        stability = analyze_life_settlement_stability_v1(chart, reference_moment)
 
     if intent in {"settlement_timing", "settlement_age"}:
         if not timing or not timing.get("strongest_convergence_window"):
@@ -143,13 +148,15 @@ def answer_life_settlement_question_v1(
                     "window. That does not mean life will be unstable at that age; it means the astrology evidence is not strong enough "
                     "to make that cross-domain timing claim."
                 )
-    else:
-        answer = synthesis.get("answer") if synthesis.get("available") else synthesis.get("reason")
-        if intent == "multi_domain_stability" and synthesis.get("available"):
+    elif stability and stability.get("available"):
+        answer = stability.get("answer") or synthesis.get("answer")
+        if intent == "multi_domain_stability":
             answer = (
                 str(answer)
-                + " Settlement is evaluated across the full domain set rather than requiring Career, Finance and Marriage alone to define it."
+                + " Supporting domains refine the broader stability picture, but only the core settlement domains define whether the overall settlement foundation is strong."
             )
+    else:
+        answer = synthesis.get("answer") if synthesis.get("available") else synthesis.get("reason")
 
     return {
         "available": bool(synthesis.get("available")),
@@ -159,9 +166,14 @@ def answer_life_settlement_question_v1(
         "primary_intent": intent,
         "understanding": understanding,
         "synthesis": synthesis,
+        "stability": stability,
         "timing": timing,
         "answer": answer,
-        "historical_validation": synthesis.get("historical_validation"),
+        "historical_validation": (
+            stability.get("historical_validation")
+            if isinstance(stability, dict) and stability.get("historical_validation")
+            else synthesis.get("historical_validation")
+        ),
         "reality_override": {
             "required": True,
             "rule": (
@@ -172,6 +184,7 @@ def answer_life_settlement_question_v1(
         "limitation": (
             "Life Settlement is a cross-domain symbolic astrology construct, not a deterministic milestone. It does not guarantee a "
             "specific settlement age/date, career success, wealth, marriage, property ownership, fertility, pregnancy, childbirth or "
-            "family outcome. Missing or non-overlapping timing evidence must remain uncertain rather than being converted into a prediction."
+            "family outcome. Supporting domains provide context only and cannot substitute for weak core settlement evidence. Missing or "
+            "non-overlapping timing evidence must remain uncertain rather than being converted into a prediction."
         ),
     }
