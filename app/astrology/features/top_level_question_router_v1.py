@@ -28,6 +28,8 @@ from app.astrology.features.purpose_personal_growth_question_intelligence_v1 imp
 from app.astrology.features.purpose_personal_growth_router_v1 import route_purpose_personal_growth_question_v1
 from app.astrology.features.siblings_communication_question_intelligence_v1 import analyze_siblings_communication_question_v1
 from app.astrology.features.siblings_communication_router_v1 import route_siblings_communication_question_v1
+from app.astrology.features.travel_journeys_question_intelligence_v1 import analyze_travel_journeys_question_v1
+from app.astrology.features.travel_journeys_router_v1 import route_travel_journeys_question_v1
 
 
 DOMAIN_ORDER = (
@@ -43,6 +45,7 @@ DOMAIN_ORDER = (
     "friends_social_community",
     "siblings_communication",
     "parents_elders",
+    "travel_journeys",
 )
 
 
@@ -97,6 +100,7 @@ def route_top_level_question_v1(
         ("friends_social_community", analyze_friends_social_community_question_v1),
         ("siblings_communication", analyze_siblings_communication_question_v1),
         ("parents_elders", analyze_parents_elders_question_v1),
+        ("travel_journeys", analyze_travel_journeys_question_v1),
     )
     matches: list[tuple[str, dict[str, Any]]] = []
     for domain, classifier in classifiers:
@@ -140,8 +144,10 @@ def route_top_level_question_v1(
         result = route_friends_social_community_question_v1(chart, question, reference_moment)
     elif domain == "siblings_communication":
         result = route_siblings_communication_question_v1(chart, question, reference_moment)
-    else:
+    elif domain == "parents_elders":
         result = route_parents_elders_question_v1(chart, question, reference_moment)
+    else:
+        result = route_travel_journeys_question_v1(chart, question, reference_moment)
 
     routed = {
         "available": bool(result.get("available")),
