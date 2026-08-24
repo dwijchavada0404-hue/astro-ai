@@ -66,15 +66,22 @@ def test_api_merges_life_context_updates_before_service(monkeypatch):
         birth=BIRTH,
         question="When will I settle in life?",
         reference_moment=NOW,
-        life_context=module.LifeContextV1(milestones={"career": module.MilestoneContextV1(state="likely_pending")}),
+        life_context=module.LifeContextV1(
+            milestones={"career_stability": module.MilestoneContextV1(state="likely_pending")}
+        ),
         life_context_updates=module.LifeContextV1(
-            milestones={"career": module.MilestoneContextV1(state="user_confirmed_achieved", achieved_date=date(2025, 6, 1))}
+            milestones={
+                "career_stability": module.MilestoneContextV1(
+                    state="user_confirmed_achieved",
+                    achieved_date=date(2025, 6, 1),
+                )
+            }
         ),
     )
     response = module.answer_astroai_question_v1(payload)
 
-    assert captured["life_context"]["milestones"]["career"]["state"] == "user_confirmed_achieved"
-    assert response["next_life_context"]["milestones"]["career"]["state"] == "user_confirmed_achieved"
+    assert captured["life_context"]["milestones"]["career_stability"]["state"] == "user_confirmed_achieved"
+    assert response["next_life_context"]["milestones"]["career_stability"]["state"] == "user_confirmed_achieved"
     assert response["meta"]["reality_override_enabled"] is True
 
 
