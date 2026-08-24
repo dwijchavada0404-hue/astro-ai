@@ -41,14 +41,61 @@ class DocsGuardMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+class RequestBodyLimitMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app, max_bytes: int):
+        super().__init__(app)
+        self.max_bytes = max_bytes
+
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        raw_length = request.headers.get("content-length")
+        if raw_length:
+            try:
+                content_length = int(raw_length)
+            except ValueError:
+                return JSONResponse(status_code=400, content={"detail": "Invalid Content-Length header."})
+            if content_length > self.max_bytes:
+                return JSONResponse(status_code=413, content={"detail": "Request body too large."})
+        return await call_next(request)
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+        response.headers.setdefault("Cache-Control", "no-store")
+        return response
+
+
+def _register_probe_routes(app: FastAPI, settings: Settings) -> None:
+    route_paths = {getattr(route, "path", None) for route in app.routes}
+
+    if "/livez" not in route_paths:
+        async def livez() -> dict[str, str]:
+            return {"status": "ok", "service": settings.app_name, "version": settings.app_version}
+        app.add_api_route("/livez", livez, methods=["GET"], include_in_schema=False)
+
+    if "/readyz" not in route_paths:
+        async def readyz() -> dict[str, str]:
+            return {"status": "ready", "environment": settings.environment}
+        app.add_api_route("/readyz", readyz, methods=["GET"], include_in_schema=False)
+
+
 def configure_runtime(app: FastAPI, settings: Settings) -> FastAPI:
     """Apply deployment middleware without changing astrology domain behavior."""
     app.title = settings.app_name
     app.version = settings.app_version
+    _register_probe_routes(app, settings)
 
     if not settings.docs_enabled:
         app.add_middleware(DocsGuardMiddleware)
 
+    if settings.security_headers_enabled:
+        app.add_middleware(SecurityHeadersMiddleware)
+
+    app.add_middleware(RequestBodyLimitMiddleware, max_bytes=settings.max_request_body_bytes)
     app.add_middleware(RequestContextMiddleware, header_name=settings.request_id_header)
 
     trusted_hosts = settings.trusted_host_list
