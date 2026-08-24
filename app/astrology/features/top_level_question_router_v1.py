@@ -15,6 +15,8 @@ from app.astrology.features.friends_social_community_question_intelligence_v1 im
 from app.astrology.features.friends_social_community_router_v1 import route_friends_social_community_question_v1
 from app.astrology.features.health_wellbeing_question_intelligence_v1 import analyze_health_wellbeing_question_v1
 from app.astrology.features.health_wellbeing_router_v1 import route_health_wellbeing_question_v1
+from app.astrology.features.legal_disputes_conflict_question_intelligence_v1 import analyze_legal_disputes_conflict_question_v1
+from app.astrology.features.legal_disputes_conflict_router_v1 import route_legal_disputes_conflict_question_v1
 from app.astrology.features.life_context_v1 import reconcile_answer_with_life_context_v1
 from app.astrology.features.life_settlement_answer_intelligence_v1 import answer_life_settlement_question_v1
 from app.astrology.features.life_settlement_question_intelligence_v1 import analyze_life_settlement_question_v1
@@ -49,6 +51,7 @@ DOMAIN_ORDER = (
     "parents_elders",
     "travel_journeys",
     "health_wellbeing",
+    "legal_disputes_conflict",
 )
 
 
@@ -105,6 +108,7 @@ def route_top_level_question_v1(
         ("parents_elders", analyze_parents_elders_question_v1),
         ("travel_journeys", analyze_travel_journeys_question_v1),
         ("health_wellbeing", analyze_health_wellbeing_question_v1),
+        ("legal_disputes_conflict", analyze_legal_disputes_conflict_question_v1),
     )
     matches: list[tuple[str, dict[str, Any]]] = []
     for domain, classifier in classifiers:
@@ -152,8 +156,10 @@ def route_top_level_question_v1(
         result = route_parents_elders_question_v1(chart, question, reference_moment)
     elif domain == "travel_journeys":
         result = route_travel_journeys_question_v1(chart, question, reference_moment)
-    else:
+    elif domain == "health_wellbeing":
         result = route_health_wellbeing_question_v1(chart, question, reference_moment)
+    else:
+        result = route_legal_disputes_conflict_question_v1(chart, question, reference_moment)
 
     routed = {
         "available": bool(result.get("available")),
