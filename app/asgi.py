@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.api.auth_v1 import router as auth_router
+from app.api.conversations_v1 import router as conversations_router
 from app.api.profile_question_v1 import router as profile_question_router
 from app.api.profiles_v1 import router as profiles_router
 from app.core.runtime import configure_runtime
@@ -12,4 +13,5 @@ settings = get_settings()
 application.include_router(auth_router)
 application.include_router(profiles_router)
 application.include_router(profile_question_router)
+application.include_router(conversations_router)
 app = configure_runtime(application, settings)
