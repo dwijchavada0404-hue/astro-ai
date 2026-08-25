@@ -1,13 +1,16 @@
 from __future__ import annotations
 
-from datetime import date as Date, time as Time
-from functools import lru_cache
+from datetime import date as Date, datetime, time as Time
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
 
 from app.api.auth_v1 import AuthenticatedUserProfile, get_current_user
 from app.core.settings import Settings, get_settings
+from app.models.chart import BirthInput
+from app.services.chart_service import build_chart
+from app.services.unified_question_service_v1 import answer_unified_question_v1
 from app.storage.profile_store_v1 import ProfileStoreV1
 
 
@@ -34,6 +37,12 @@ class BirthProfileUpdate(BaseModel):
     time: Time | None = None
     place: str | None = Field(default=None, min_length=2, max_length=200)
     is_default: bool | None = None
+
+
+class SavedProfileQuestionRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=1000)
+    reference_moment: datetime
+    life_context: dict[str, Any] | None = None
 
 
 def _store(settings: Settings = Depends(get_settings)) -> ProfileStoreV1:
@@ -149,3 +158,43 @@ def delete_birth_profile(
     if not store.delete_birth_profile(user.user_id, profile_id):
         raise HTTPException(status_code=404, detail="Birth profile not found.")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/birth-profiles/{profile_id}/question")
+def answer_saved_profile_question(
+    profile_id: str,
+    payload: SavedProfileQuestionRequest,
+    user: AuthenticatedUserProfile = Depends(get_current_user),
+    store: ProfileStoreV1 = Depends(_store),
+):
+    """Answer a unified AstroAI question using an authenticated user's saved birth profile."""
+    profile = store.get_birth_profile(user.user_id, profile_id)
+    if profile is None:
+        raise HTTPException(status_code=404, detail="Birth profile not found.")
+
+    try:
+        birth = BirthInput.model_validate(
+            {
+                "date": profile["birth_date"],
+                "time": profile["birth_time"],
+                "place": profile["place"],
+            }
+        )
+        chart = build_chart(birth)
+        answer = answer_unified_question_v1(
+            chart,
+            payload.question,
+            payload.reference_moment,
+            life_context=payload.life_context,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return {
+        "birth_profile": {
+            "profile_id": profile["profile_id"],
+            "label": profile["label"],
+            "is_default": profile["is_default"],
+        },
+        "answer": answer,
+    }
