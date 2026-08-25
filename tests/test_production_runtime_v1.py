@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.core.runtime import (
+    ApiAccessControlMiddleware,
     DocsGuardMiddleware,
     RequestBodyLimitMiddleware,
     RequestContextMiddleware,
@@ -28,6 +29,9 @@ def test_production_rejects_wildcard_cors():
             cors_origins="*",
             trusted_hosts="api.example.com",
             docs_enabled=False,
+            api_auth_required=True,
+            auth_enabled=True,
+            auth_jwt_secret="test-secret-with-at-least-thirty-two-characters",
         )
 
 
@@ -38,6 +42,9 @@ def test_production_requires_explicit_trusted_hosts():
             cors_origins="https://app.example.com",
             trusted_hosts="*",
             docs_enabled=False,
+            api_auth_required=True,
+            auth_enabled=True,
+            auth_jwt_secret="test-secret-with-at-least-thirty-two-characters",
         )
 
 
@@ -48,6 +55,9 @@ def test_production_requires_docs_disabled():
             cors_origins="https://app.example.com",
             trusted_hosts="api.example.com",
             docs_enabled=True,
+            api_auth_required=True,
+            auth_enabled=True,
+            auth_jwt_secret="test-secret-with-at-least-thirty-two-characters",
         )
 
 
@@ -59,7 +69,25 @@ def test_production_requires_security_headers():
             trusted_hosts="api.example.com",
             docs_enabled=False,
             security_headers_enabled=False,
+            api_auth_required=True,
+            auth_enabled=True,
+            auth_jwt_secret="test-secret-with-at-least-thirty-two-characters",
         )
+
+
+def test_production_requires_api_bearer_authentication():
+    with pytest.raises(ValueError, match="bearer authentication"):
+        Settings(
+            environment="production",
+            cors_origins="https://app.example.com",
+            trusted_hosts="api.example.com",
+            docs_enabled=False,
+        )
+
+
+def test_api_auth_requirement_requires_authentication_enabled():
+    with pytest.raises(ValueError, match="AUTH_ENABLED"):
+        Settings(api_auth_required=True)
 
 
 def test_runtime_updates_metadata_and_adds_security_middleware():
@@ -82,6 +110,21 @@ def test_runtime_updates_metadata_and_adds_security_middleware():
     assert DocsGuardMiddleware in middleware_classes
     assert any(cls.__name__ == "TrustedHostMiddleware" for cls in middleware_classes)
     assert any(cls.__name__ == "CORSMiddleware" for cls in middleware_classes)
+
+
+def test_runtime_registers_api_access_control_when_required():
+    app = FastAPI()
+    configure_runtime(
+        app,
+        Settings(
+            cors_origins="",
+            trusted_hosts="",
+            auth_enabled=True,
+            api_auth_required=True,
+            auth_jwt_secret="test-secret-with-at-least-thirty-two-characters",
+        ),
+    )
+    assert ApiAccessControlMiddleware in [item.cls for item in app.user_middleware]
 
 
 def test_request_id_header_name_is_configurable():

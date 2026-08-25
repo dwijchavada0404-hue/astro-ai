@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     security_headers_enabled: bool = True
 
     auth_enabled: bool = False
+    api_auth_required: bool = False
     auth_jwt_secret: str = ""
     auth_jwt_algorithm: Literal["HS256", "HS384", "HS512"] = "HS256"
     auth_jwt_issuer: str = "astroai"
@@ -51,6 +52,8 @@ class Settings(BaseSettings):
                 raise ValueError("ASTROAI_AUTH_JWT_SECRET must contain at least 32 characters when authentication is enabled.")
             if not self.auth_jwt_issuer.strip() or not self.auth_jwt_audience.strip():
                 raise ValueError("Explicit JWT issuer and audience are required when authentication is enabled.")
+        if self.api_auth_required and not self.auth_enabled:
+            raise ValueError("ASTROAI_API_AUTH_REQUIRED requires ASTROAI_AUTH_ENABLED=true.")
         if self.environment == "production":
             if "*" in self.cors_origin_list:
                 raise ValueError("Wildcard CORS origins are not allowed in production.")
@@ -60,6 +63,8 @@ class Settings(BaseSettings):
                 raise ValueError("API docs must be disabled in production.")
             if not self.security_headers_enabled:
                 raise ValueError("Security headers must be enabled in production.")
+            if not self.api_auth_required:
+                raise ValueError("API bearer authentication must be required in production.")
         return self
 
 

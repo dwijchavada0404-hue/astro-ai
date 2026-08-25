@@ -29,6 +29,7 @@ Set these environment variables explicitly in the hosting platform:
 - `ASTROAI_CORS_ORIGINS=<frontend-origin>`
 - `ASTROAI_PROFILE_DATABASE_PATH=/data/astroai_profiles.db`
 - `ASTROAI_AUTH_ENABLED=true`
+- `ASTROAI_API_AUTH_REQUIRED=true`
 - `ASTROAI_AUTH_JWT_SECRET=<random secret of at least 32 characters>`
 - `ASTROAI_AUTH_JWT_ISSUER=<configured issuer>`
 - `ASTROAI_AUTH_JWT_AUDIENCE=<configured audience>`

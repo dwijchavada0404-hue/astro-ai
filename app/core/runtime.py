@@ -12,6 +12,11 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from app.core.settings import Settings
+from app.core.auth_tokens import (
+    AuthenticationError,
+    bearer_token_from_header,
+    decode_bearer_token,
+)
 
 
 _REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
@@ -69,6 +74,28 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
+class ApiAccessControlMiddleware(BaseHTTPMiddleware):
+    """Require the configured bearer identity for every application API route."""
+
+    def __init__(self, app, settings: Settings):
+        super().__init__(app)
+        self.settings = settings
+
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        if request.method == "OPTIONS" or not request.url.path.startswith("/api/"):
+            return await call_next(request)
+        try:
+            token = bearer_token_from_header(request.headers.get("authorization"))
+            decode_bearer_token(token, self.settings)
+        except AuthenticationError as exc:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": str(exc)},
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return await call_next(request)
+
+
 def _register_probe_routes(app: FastAPI, settings: Settings) -> None:
     route_paths = {getattr(route, "path", None) for route in app.routes}
 
@@ -94,6 +121,9 @@ def configure_runtime(app: FastAPI, settings: Settings) -> FastAPI:
 
     if settings.security_headers_enabled:
         app.add_middleware(SecurityHeadersMiddleware)
+
+    if settings.api_auth_required:
+        app.add_middleware(ApiAccessControlMiddleware, settings=settings)
 
     app.add_middleware(RequestBodyLimitMiddleware, max_bytes=settings.max_request_body_bytes)
     app.add_middleware(RequestContextMiddleware, header_name=settings.request_id_header)
