@@ -1,0 +1,19 @@
+services:
+  astroai:
+    build:
+      context: .
+    ports:
+      - "8000:8000"
+    environment:
+      ASTROAI_ENVIRONMENT: staging
+      ASTROAI_DOCS_ENABLED: "true"
+      ASTROAI_TRUSTED_HOSTS: localhost,127.0.0.1
+      ASTROAI_CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      ASTROAI_PROFILE_DATABASE_PATH: /data/astroai_profiles.db
+      ASTROAI_AUTH_ENABLED: "false"
+    volumes:
+      - astroai_data:/data
+    restart: unless-stopped
+
+volumes:
+  astroai_data:
