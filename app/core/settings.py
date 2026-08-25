@@ -30,7 +30,10 @@ class Settings(BaseSettings):
     auth_enabled: bool = False
     api_auth_required: bool = False
     auth_jwt_secret: str = ""
-    auth_jwt_algorithm: Literal["HS256", "HS384", "HS512"] = "HS256"
+    auth_jwks_url: str = ""
+    auth_jwt_algorithm: Literal[
+        "HS256", "HS384", "HS512", "RS256", "RS384", "RS512", "ES256", "ES384", "ES512"
+    ] = "HS256"
     auth_jwt_issuer: str = "astroai"
     auth_jwt_audience: str = "astroai-api"
     profile_database_path: str = "data/astroai_profiles.db"
@@ -48,8 +51,16 @@ class Settings(BaseSettings):
         if not self.profile_database_path.strip():
             raise ValueError("ASTROAI_PROFILE_DATABASE_PATH must not be empty.")
         if self.auth_enabled:
-            if len(self.auth_jwt_secret) < 32:
-                raise ValueError("ASTROAI_AUTH_JWT_SECRET must contain at least 32 characters when authentication is enabled.")
+            uses_jwks = bool(self.auth_jwks_url.strip())
+            uses_symmetric_algorithm = self.auth_jwt_algorithm.startswith("HS")
+            if uses_jwks and uses_symmetric_algorithm:
+                raise ValueError("ASTROAI_AUTH_JWT_ALGORITHM must be asymmetric when ASTROAI_AUTH_JWKS_URL is configured.")
+            if not uses_jwks and not uses_symmetric_algorithm:
+                raise ValueError("ASTROAI_AUTH_JWKS_URL is required for asymmetric JWT algorithms.")
+            if not uses_jwks and len(self.auth_jwt_secret) < 32:
+                raise ValueError("ASTROAI_AUTH_JWT_SECRET must contain at least 32 characters when symmetric authentication is enabled.")
+            if uses_jwks and self.environment in {"staging", "production"} and not self.auth_jwks_url.startswith("https://"):
+                raise ValueError("ASTROAI_AUTH_JWKS_URL must use HTTPS in deployed environments.")
             if not self.auth_jwt_issuer.strip() or not self.auth_jwt_audience.strip():
                 raise ValueError("Explicit JWT issuer and audience are required when authentication is enabled.")
         if self.api_auth_required and not self.auth_enabled:

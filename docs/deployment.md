@@ -31,10 +31,17 @@ Set these environment variables explicitly in the hosting platform:
 - `ASTROAI_AUTH_ENABLED=true`
 - `ASTROAI_API_AUTH_REQUIRED=true`
 - `ASTROAI_AUTH_JWT_SECRET=<random secret of at least 32 characters>`
+- `ASTROAI_AUTH_JWKS_URL=` (or an HTTPS JWKS endpoint for managed OIDC)
 - `ASTROAI_AUTH_JWT_ISSUER=<configured issuer>`
 - `ASTROAI_AUTH_JWT_AUDIENCE=<configured audience>`
 
 Never commit production JWT secrets or a populated `.env` file.
+
+For a managed OIDC provider, leave `ASTROAI_AUTH_JWT_SECRET` empty, set
+`ASTROAI_AUTH_JWKS_URL` to the provider's HTTPS JWKS endpoint, and select the
+provider's asymmetric `ASTROAI_AUTH_JWT_ALGORITHM` (normally `RS256`). Issuer
+and audience validation remains mandatory. Existing HS256 deployments remain
+supported for backwards compatibility.
 
 ## Persistent storage
 
