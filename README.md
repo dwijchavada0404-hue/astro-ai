@@ -80,3 +80,10 @@ Invoke-RestMethod `
 ## Important production note
 
 For a commercial application, do not rely on a public Nominatim endpoint for high-volume geocoding. Put a proper geocoding provider behind `app/services/geocoding.py` and cache place lookups.
+
+## Web frontend
+
+The React and TypeScript client lives in `web/`. It provides secure OIDC/PKCE
+sign-in, saved birth profiles, persistent conversations, and the first chat
+experience over the existing deterministic API. See
+[`docs/frontend.md`](docs/frontend.md) for local and deployment configuration.
