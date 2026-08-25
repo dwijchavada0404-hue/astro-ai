@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     auth_jwt_algorithm: Literal["HS256", "HS384", "HS512"] = "HS256"
     auth_jwt_issuer: str = "astroai"
     auth_jwt_audience: str = "astroai-api"
+    profile_database_path: str = "data/astroai_profiles.db"
 
     @property
     def cors_origin_list(self) -> list[str]:
@@ -43,6 +44,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_production_safety(self) -> "Settings":
+        if not self.profile_database_path.strip():
+            raise ValueError("ASTROAI_PROFILE_DATABASE_PATH must not be empty.")
         if self.auth_enabled:
             if len(self.auth_jwt_secret) < 32:
                 raise ValueError("ASTROAI_AUTH_JWT_SECRET must contain at least 32 characters when authentication is enabled.")
