@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, time
+from datetime import date as Date, time as Time
 from functools import lru_cache
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -22,16 +22,16 @@ class UserProfileUpdate(BaseModel):
 
 class BirthProfileCreate(BaseModel):
     label: str = Field(min_length=1, max_length=80)
-    date: date
-    time: time
+    date: Date
+    time: Time
     place: str = Field(min_length=2, max_length=200)
     is_default: bool = False
 
 
 class BirthProfileUpdate(BaseModel):
     label: str | None = Field(default=None, min_length=1, max_length=80)
-    date: date | None = None
-    time: time | None = None
+    date: Date | None = None
+    time: Time | None = None
     place: str | None = Field(default=None, min_length=2, max_length=200)
     is_default: bool | None = None
 
