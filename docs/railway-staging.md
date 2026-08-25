@@ -22,6 +22,7 @@ ASTROAI_DOCS_ENABLED=false
 ASTROAI_SECURITY_HEADERS_ENABLED=true
 ASTROAI_PROFILE_DATABASE_PATH=/data/astroai_profiles.db
 ASTROAI_AUTH_ENABLED=true
+ASTROAI_API_AUTH_REQUIRED=true
 ASTROAI_AUTH_JWT_SECRET=<random secret with at least 32 characters>
 ASTROAI_AUTH_JWT_ISSUER=<staging issuer>
 ASTROAI_AUTH_JWT_AUDIENCE=<staging audience>
@@ -43,7 +44,7 @@ The expected response is HTTP 200 with `status: "ok"`. Confirm the service's dep
 
 ## Current staging boundary
 
-A generated Railway domain is internet reachable. Treat this staging deployment as non-production: use synthetic birth data only and do not use it for a public beta yet. The legacy direct-question endpoint remains backwards-compatible and is not globally protected by the new authenticated profile/conversation flow. A separate API access-control milestone is required before exposing a staging domain to external testers.
+A generated Railway domain is internet reachable. The staging configuration must therefore set `ASTROAI_API_AUTH_REQUIRED=true`, which requires a valid bearer token for every `/api/*` route while leaving `/health`, `/livez`, and `/readyz` available to deployment infrastructure. Development remains backwards-compatible because the setting defaults to `false` outside deployed environments.
 
 ## Operational constraints
 
