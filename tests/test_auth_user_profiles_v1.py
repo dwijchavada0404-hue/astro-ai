@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api.auth_v1 import router
-from app.core.settings import Settings
+from app.core.settings import Settings, get_settings
 
 
 SECRET = "test-secret-with-at-least-thirty-two-characters"
@@ -16,6 +16,7 @@ AUDIENCE = "astroai-api-test"
 def _app() -> FastAPI:
     app = FastAPI()
     app.include_router(router)
+    app.dependency_overrides[get_settings] = _settings
     return app
 
 
@@ -47,15 +48,11 @@ def _token(**overrides):
     return jwt.encode(payload, SECRET, algorithm="HS256")
 
 
-def test_me_returns_verified_identity(monkeypatch):
-    from app.api import auth_v1
-
-    monkeypatch.setattr(auth_v1, "get_settings", _settings)
-    auth_v1.get_current_user.__defaults__ = auth_v1.get_current_user.__defaults__
-    app = _app()
-    app.dependency_overrides[auth_v1.get_settings] = _settings
-    client = TestClient(app)
-    response = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {_token()}"})
+def test_me_returns_verified_identity():
+    response = TestClient(_app()).get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {_token()}"},
+    )
     assert response.status_code == 200
     body = response.json()
     assert body["authenticated"] is True
@@ -65,34 +62,28 @@ def test_me_returns_verified_identity(monkeypatch):
     assert body["profile"]["timezone"] == "Asia/Kolkata"
 
 
-def test_me_requires_bearer_token(monkeypatch):
-    from app.api import auth_v1
-
-    app = _app()
-    app.dependency_overrides[auth_v1.get_settings] = _settings
-    response = TestClient(app).get("/api/v1/auth/me")
+def test_me_requires_bearer_token():
+    response = TestClient(_app()).get("/api/v1/auth/me")
     assert response.status_code == 401
 
 
-def test_expired_token_is_rejected(monkeypatch):
-    from app.api import auth_v1
-
+def test_expired_token_is_rejected():
     now = datetime.now(timezone.utc)
     token = _token(iat=now - timedelta(hours=2), exp=now - timedelta(hours=1))
-    app = _app()
-    app.dependency_overrides[auth_v1.get_settings] = _settings
-    response = TestClient(app).get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
+    response = TestClient(_app()).get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
     assert response.status_code == 401
     assert "expired" in response.json()["detail"].lower()
 
 
-def test_wrong_audience_is_rejected(monkeypatch):
-    from app.api import auth_v1
-
+def test_wrong_audience_is_rejected():
     token = _token(aud="other-api")
-    app = _app()
-    app.dependency_overrides[auth_v1.get_settings] = _settings
-    response = TestClient(app).get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
+    response = TestClient(_app()).get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
     assert response.status_code == 401
 
 
