@@ -3,12 +3,12 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-import jwt
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
 from app.core.settings import Settings, get_settings
+from app.core.auth_tokens import AuthenticationError, decode_bearer_token
 
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
@@ -31,25 +31,15 @@ class AuthMeResponse(BaseModel):
 
 
 def _decode_token(token: str, settings: Settings) -> dict[str, Any]:
-    if not settings.auth_enabled:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Authentication is not enabled for this AstroAI runtime.",
-        )
     try:
-        payload = jwt.decode(
-            token,
-            settings.auth_jwt_secret,
-            algorithms=[settings.auth_jwt_algorithm],
-            issuer=settings.auth_jwt_issuer,
-            audience=settings.auth_jwt_audience,
-            options={"require": ["exp", "iat", "sub"]},
+        return decode_bearer_token(token, settings)
+    except AuthenticationError as exc:
+        status_code = (
+            status.HTTP_503_SERVICE_UNAVAILABLE
+            if not settings.auth_enabled
+            else status.HTTP_401_UNAUTHORIZED
         )
-    except jwt.ExpiredSignatureError as exc:
-        raise HTTPException(status_code=401, detail="Authentication token has expired.") from exc
-    except jwt.InvalidTokenError as exc:
-        raise HTTPException(status_code=401, detail="Invalid authentication token.") from exc
-    return payload
+        raise HTTPException(status_code=status_code, detail=str(exc)) from exc
 
 
 def get_current_user(
