@@ -29,3 +29,13 @@ testing sign-in.
 
 OIDC provider secrets are not used by this SPA. The API validates the access
 token against the provider JWKS endpoint, issuer, audience and algorithm.
+
+## Railway hosting
+
+Deploy `web/` as a separate Railway service. Its Dockerfile builds the static
+React application and serves it on port `8080`; use `/health` as its Railway
+healthcheck. The staging API origin is the built-in fallback, while
+`VITE_ASTROAI_API_URL` can override it at build time for another environment.
+
+After Railway generates the public frontend domain, add that exact origin to
+the backend's `ASTROAI_CORS_ORIGINS` setting before enabling OIDC sign-in.
