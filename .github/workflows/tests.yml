@@ -94,3 +94,16 @@ jobs:
 
       - name: Build production image
         run: docker build --tag astroai-ci:${{ github.sha }} .
+
+  frontend-docker:
+    runs-on: ubuntu-latest
+    needs: frontend
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}
+
+      - name: Build frontend image
+        run: docker build --tag astroai-web-ci:${{ github.sha }} web
