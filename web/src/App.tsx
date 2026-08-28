@@ -180,18 +180,55 @@ function Workspace({ token, user, onSignOut }: { token: string; user: User; onSi
   );
 }
 
-function Profiles({ token, profiles, onCreated }: { token: string; profiles: BirthProfile[]; onCreated: () => Promise<void> }) {
+export function Profiles({ token, profiles, onCreated }: { token: string; profiles: BirthProfile[]; onCreated: () => Promise<void> }) {
   const [form, setForm] = useState({ label: "My chart", date: "", time: "", place: "" });
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
   const submit = async (event: FormEvent) => {
-    event.preventDefault(); setBusy(true);
+    event.preventDefault();
+    setBusy(true);
+    setError("");
     try {
       await apiRequest("/api/v1/birth-profiles", token, { method: "POST", body: JSON.stringify(form) });
       setForm({ label: "My chart", date: "", time: "", place: "" });
       await onCreated();
-    } finally { setBusy(false); }
+    } catch (reason) {
+      setError(messageFrom(reason));
+    } finally {
+      setBusy(false);
+    }
   };
-  return <div className="profiles"><div className="profile-grid">{profiles.map((profile) => <article key={profile.profile_id}><span>{profile.is_default ? "Default" : "Saved"}</span><h3>{profile.label}</h3><p>{profile.birth_date} · {profile.birth_time}</p><p>{profile.place}</p></article>)}</div><form className="profile-form" onSubmit={submit}><h3>Add a birth profile</h3><label>Profile name<input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} required /></label><div><label>Birth date<input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} required /></label><label>Exact birth time<input type="time" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} required /></label></div><label>Birth place<input value={form.place} onChange={(e) => setForm({ ...form, place: e.target.value })} placeholder="Borivali, Mumbai" required /></label><button className="primary" disabled={busy}>{busy ? "Saving…" : "Save profile"}</button></form></div>;
+
+  const setDefault = async (profile: BirthProfile) => {
+    setBusy(true);
+    setError("");
+    try {
+      await apiRequest(`/api/v1/birth-profiles/${profile.profile_id}`, token, {
+        method: "PATCH",
+        body: JSON.stringify({ is_default: true }),
+      });
+      await onCreated();
+    } catch (reason) {
+      setError(messageFrom(reason));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return <div className="profiles">
+    {error && <div className="error-banner">{error}</div>}
+    <div className="profile-grid">{profiles.map((profile) => <article key={profile.profile_id}>
+      <span>{profile.is_default ? "Default" : "Saved"}</span>
+      <h3>{profile.label}</h3>
+      <p>{profile.birth_date} · {profile.birth_time}</p>
+      <p>{profile.place}</p>
+      {!profile.is_default && <div className="profile-actions">
+        <button type="button" onClick={() => setDefault(profile)} disabled={busy}>Make default</button>
+      </div>}
+    </article>)}</div>
+    <form className="profile-form" onSubmit={submit}><h3>Add a birth profile</h3><label>Profile name<input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} required /></label><div><label>Birth date<input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} required /></label><label>Exact birth time<input type="time" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} required /></label></div><label>Birth place<input value={form.place} onChange={(e) => setForm({ ...form, place: e.target.value })} placeholder="Borivali, Mumbai" required /></label><button className="primary" disabled={busy}>{busy ? "Saving…" : "Save profile"}</button></form>
+  </div>;
 }
 
 function EmptyChat({ hasProfile, onStart, onProfiles }: { hasProfile: boolean; onStart: () => void; onProfiles: () => void }) {
