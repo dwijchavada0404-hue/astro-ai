@@ -18,23 +18,59 @@ export default function App() {
       setAuthReady(true);
       return;
     }
+    let active = true;
+    const expireSession = () => {
+      if (!active) return;
+      setUser(null);
+      setError("Your secure session expired. Sign in again to continue—your saved profiles and conversations are safe.");
+    };
+    const acceptUser = (nextUser: User) => {
+      if (!active) return;
+      if (nextUser.expired) expireSession();
+      else { setUser(nextUser); setError(""); }
+    };
+    auth.manager.events.addAccessTokenExpired(expireSession);
+    auth.manager.events.addUserUnloaded(expireSession);
+    auth.manager.events.addUserLoaded(acceptUser);
     const finish = async () => {
       try {
         if (window.location.pathname === "/auth/callback") {
           const signedIn = await auth.manager!.signinRedirectCallback();
           window.history.replaceState({}, "", "/");
-          setUser(signedIn);
+          acceptUser(signedIn);
         } else {
-          setUser(await auth.manager!.getUser());
+          const storedUser = await auth.manager!.getUser();
+          if (storedUser) acceptUser(storedUser);
         }
       } catch (reason) {
-        setError(reason instanceof Error ? reason.message : "Sign-in could not be completed.");
+        if (active) setError(reason instanceof Error ? reason.message : "Sign-in could not be completed.");
       } finally {
-        setAuthReady(true);
+        if (active) setAuthReady(true);
       }
     };
     finish();
+    return () => {
+      active = false;
+      auth.manager?.events.removeAccessTokenExpired(expireSession);
+      auth.manager?.events.removeUserUnloaded(expireSession);
+      auth.manager?.events.removeUserLoaded(acceptUser);
+    };
   }, [auth]);
+
+  useEffect(() => {
+    const delay = tokenExpiryDelay(user?.expires_at);
+    if (delay === null) return;
+    if (delay === 0) {
+      setUser(null);
+      setError("Your secure session expired. Sign in again to continue—your saved profiles and conversations are safe.");
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setUser(null);
+      setError("Your secure session expired. Sign in again to continue—your saved profiles and conversations are safe.");
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [user]);
 
   if (!authReady) return <LoadingScreen />;
   const token = usableToken(user);
@@ -44,7 +80,7 @@ export default function App() {
         authConfigured={auth.configured}
         backendOnline={backendOnline}
         error={error}
-        onSignIn={() => auth.manager?.signinRedirect()}
+        onSignIn={() => { setError(""); auth.manager?.signinRedirect(); }}
       />
     );
   }
@@ -359,4 +395,9 @@ export function conversationTitle(question: string) {
 
 export function shouldSubmitQuestion(key: string, shiftKey: boolean) {
   return key === "Enter" && !shiftKey;
+}
+
+export function tokenExpiryDelay(expiresAt: number | undefined, now = Date.now()) {
+  if (!expiresAt) return null;
+  return Math.max(0, expiresAt * 1000 - now);
 }

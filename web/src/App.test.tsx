@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { User } from "oidc-client-ts";
-import App, { Profiles, Workspace, conversationTitle, shouldSubmitQuestion } from "./App";
+import App, { Profiles, Workspace, conversationTitle, shouldSubmitQuestion, tokenExpiryDelay } from "./App";
 
 describe("AstroAI frontend foundation", () => {
   beforeEach(() => {
@@ -68,6 +68,12 @@ describe("AstroAI frontend foundation", () => {
     expect(shouldSubmitQuestion("Enter", false)).toBe(true);
     expect(shouldSubmitQuestion("Enter", true)).toBe(false);
     expect(shouldSubmitQuestion("a", false)).toBe(false);
+  });
+
+  it("calculates when an authenticated session must expire", () => {
+    expect(tokenExpiryDelay(undefined, 1_000)).toBeNull();
+    expect(tokenExpiryDelay(10, 4_000)).toBe(6_000);
+    expect(tokenExpiryDelay(10, 12_000)).toBe(0);
   });
 
   it("deletes a conversation only after confirmation", async () => {
