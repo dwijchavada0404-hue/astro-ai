@@ -90,6 +90,7 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState("");
+  const [selectedProfileId, setSelectedProfileId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -102,6 +103,10 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
       ]);
       setProfiles(profileData.birth_profiles);
       setConversations(conversationData.conversations);
+      setSelectedProfileId((current) => {
+        if (profileData.birth_profiles.some((profile) => profile.profile_id === current)) return current;
+        return (profileData.birth_profiles.find((profile) => profile.is_default) || profileData.birth_profiles[0])?.profile_id || "";
+      });
     } catch (reason) {
       setError(messageFrom(reason));
     }
@@ -163,8 +168,18 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
     finally { setBusy(false); }
   };
 
+  const prepareConversation = () => {
+    if (!profiles.length) { setView("profiles"); setMobileNavOpen(false); return; }
+    setActiveId(null);
+    setMessages([]);
+    setView("chat");
+    setMobileNavOpen(false);
+  };
+
   const startConversation = async () => {
-    const profile = profiles.find((item) => item.is_default) || profiles[0];
+    const profile = profiles.find((item) => item.profile_id === selectedProfileId)
+      || profiles.find((item) => item.is_default)
+      || profiles[0];
     if (!profile) { setView("profiles"); setMobileNavOpen(false); return; }
     setBusy(true);
     try {
@@ -222,7 +237,7 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
       {mobileNavOpen && <button className="nav-scrim" aria-label="Close navigation" onClick={() => setMobileNavOpen(false)} />}
       <aside id="workspace-navigation" aria-label="Workspace navigation" className={mobileNavOpen ? "mobile-open" : ""}>
         <div className="aside-heading"><Brand /><button className="nav-close" aria-label="Close navigation" onClick={() => setMobileNavOpen(false)}>×</button></div>
-        <button className="new-chat" onClick={startConversation} disabled={busy}>＋ New conversation</button>
+        <button className="new-chat" onClick={prepareConversation} disabled={busy}>＋ New conversation</button>
         <div className="conversation-list">
           {conversations.map((item) => <div key={item.conversation_id} className={item.conversation_id === activeId ? "conversation-row active" : "conversation-row"}>
             <button className="conversation-open" onClick={() => openConversation(item.conversation_id)}>{item.title}</button>
@@ -240,7 +255,7 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
         {error && <div className="error-banner">{error}</div>}
         {view === "profiles" ? <Profiles token={token} profiles={profiles} onCreated={refresh} /> : (
           <div className="chat">
-            {!activeId ? <EmptyChat hasProfile={profiles.length > 0} onStart={startConversation} onProfiles={() => setView("profiles")} /> : (
+            {!activeId ? <EmptyChat profiles={profiles} selectedProfileId={selectedProfileId} onSelectProfile={setSelectedProfileId} onStart={startConversation} onProfiles={() => setView("profiles")} /> : (
               <><div className="messages">{messages.length === 0 && <div className="prompt"><div className="star">✦</div><h3>What would you like to understand?</h3><p>Your answer will use the saved chart linked to this conversation.</p></div>}{messages.map((item) => <article key={item.message_id} className={`message ${item.role}`}><span>{item.role === "assistant" ? "✦" : "You"}</span><div>{item.content || "No narrative was returned."}{item.domain && <small>{item.domain}</small>}</div></article>)}</div><form className="composer" onSubmit={ask}><textarea aria-label="Ask AstroAI" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Ask about career, marriage, finances, travel…" maxLength={1000} /><button disabled={busy || !question.trim()}>{busy ? "…" : "↑"}</button></form></>
             )}
           </div>
@@ -316,8 +331,15 @@ export function Profiles({ token, profiles, onCreated }: { token: string; profil
   </div>;
 }
 
-function EmptyChat({ hasProfile, onStart, onProfiles }: { hasProfile: boolean; onStart: () => void; onProfiles: () => void }) {
-  return <div className="empty-chat"><div className="star">✦</div><h3>{hasProfile ? "Begin a new conversation" : "Create your birth profile first"}</h3><p>{hasProfile ? "AstroAI will link your default chart and preserve context across follow-up questions." : "Your birth date, exact time and place are needed to calculate a Vedic chart."}</p><button className="primary" onClick={hasProfile ? onStart : onProfiles}>{hasProfile ? "Start asking" : "Add birth profile"}</button></div>;
+function EmptyChat({ profiles, selectedProfileId, onSelectProfile, onStart, onProfiles }: {
+  profiles: BirthProfile[];
+  selectedProfileId: string;
+  onSelectProfile: (profileId: string) => void;
+  onStart: () => void;
+  onProfiles: () => void;
+}) {
+  const hasProfile = profiles.length > 0;
+  return <div className="empty-chat"><div className="star">✦</div><h3>{hasProfile ? "Begin a new conversation" : "Create your birth profile first"}</h3><p>{hasProfile ? "Choose the chart AstroAI should use. It will remain linked to this conversation for every follow-up question." : "Your birth date, exact time and place are needed to calculate a Vedic chart."}</p>{hasProfile && <label className="chat-profile-picker">Chart for this conversation<select aria-label="Chart for this conversation" value={selectedProfileId} onChange={(event) => onSelectProfile(event.target.value)}>{profiles.map((profile) => <option key={profile.profile_id} value={profile.profile_id}>{profile.label}{profile.is_default ? " (default)" : ""}</option>)}</select></label>}<button className="primary" onClick={hasProfile ? onStart : onProfiles}>{hasProfile ? "Start asking" : "Add birth profile"}</button></div>;
 }
 
 function Brand() { return <div className="brand"><span>✦</span><strong>ASTRO</strong><b>AI</b></div>; }
