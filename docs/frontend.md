@@ -36,6 +36,9 @@ testing sign-in.
 
 OIDC provider secrets are not used by this SPA. The API validates the access
 token against the provider JWKS endpoint, issuer, audience and algorithm.
+The client observes both the token expiry timestamp and OIDC provider session
+events. Expired sessions return to sign-in with a clear message; saved profiles
+and conversations remain server-side and are not removed.
 
 
 ## Railway hosting
