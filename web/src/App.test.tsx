@@ -157,4 +157,19 @@ describe("AstroAI frontend foundation", () => {
       expect.objectContaining({ method: "POST", body: JSON.stringify({ title: "New conversation", birth_profile_id: "partner" }) }),
     ));
   });
+
+  it("shows the birth chart linked to a reopened conversation", async () => {
+    const profile = { profile_id: "partner", label: "Partner chart", birth_date: "2001-05-05", birth_time: "09:30:00", place: "Pune", is_default: false };
+    const conversation = { conversation_id: "chat-1", title: "Relationship timing", birth_profile_id: "partner" };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ birth_profiles: [profile] }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ conversations: [conversation] }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ conversation, messages: [] }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Workspace token="token" user={{ profile: { name: "Dwij" } } as User} onSignOut={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Relationship timing" }));
+
+    expect(await screen.findByLabelText("Active birth profile")).toHaveTextContent("Partner chart");
+  });
 });
