@@ -40,6 +40,24 @@ describe("AstroAI frontend foundation", () => {
     await waitFor(() => expect(onCreated).toHaveBeenCalled());
   });
 
+  it("deletes an unused birth profile after confirmation", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204 });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const onCreated = vi.fn().mockResolvedValue(undefined);
+
+    render(<Profiles token="token" onCreated={onCreated} profiles={[
+      { profile_id: "unused", label: "Old chart", birth_date: "2000-04-04", birth_time: "14:04:00", place: "Mumbai", is_default: true },
+    ]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/v1/birth-profiles/unused"),
+      expect.objectContaining({ method: "DELETE" }),
+    ));
+    await waitFor(() => expect(onCreated).toHaveBeenCalled());
+  });
+
   it("creates a concise conversation title from the first question", () => {
     expect(conversationTitle("  When   will I change my career?  ")).toBe("When will I change my career?");
     expect(conversationTitle("What does my chart suggest about a major international career move during the next three years?")).toHaveLength(50);
