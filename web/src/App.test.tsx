@@ -1,11 +1,16 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { User } from "oidc-client-ts";
 import App, { Profiles, Workspace, conversationTitle } from "./App";
 
 describe("AstroAI frontend foundation", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
   });
 
   it("renders the evidence-led landing experience when OIDC is not configured", async () => {
@@ -58,5 +63,24 @@ describe("AstroAI frontend foundation", () => {
       expect.objectContaining({ method: "DELETE" }),
     ));
     await waitFor(() => expect(screen.queryByRole("button", { name: "Career timing" })).not.toBeInTheDocument());
+  });
+
+  it("keeps workspace navigation available on mobile", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ birth_profiles: [] }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ conversations: [] }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Workspace token="token" user={{ profile: { name: "Dwij" } } as User} onSignOut={vi.fn()} />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    const open = screen.getByRole("button", { name: "Open navigation" });
+    fireEvent.click(open);
+
+    expect(open).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByLabelText("Workspace navigation")).toHaveClass("mobile-open");
+    fireEvent.click(screen.getByRole("button", { name: /Birth profiles/ }));
+
+    expect(screen.getByRole("heading", { name: "Birth profiles" })).toBeInTheDocument();
+    expect(open).toHaveAttribute("aria-expanded", "false");
   });
 });

@@ -92,6 +92,7 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const refresh = async () => {
     try {
@@ -108,9 +109,19 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
 
   useEffect(() => { refresh(); }, [token]);
 
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileNavOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [mobileNavOpen]);
+
   const openConversation = async (id: string) => {
     setActiveId(id);
     setView("chat");
+    setMobileNavOpen(false);
     setError("");
     try {
       const data = await apiRequest<{ messages: Message[] }>(`/api/v1/conversations/${id}`, token);
@@ -135,7 +146,7 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
 
   const startConversation = async () => {
     const profile = profiles.find((item) => item.is_default) || profiles[0];
-    if (!profile) { setView("profiles"); return; }
+    if (!profile) { setView("profiles"); setMobileNavOpen(false); return; }
     setBusy(true);
     try {
       const data = await apiRequest<{ conversation: Conversation }>("/api/v1/conversations", token, {
@@ -146,6 +157,7 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
       setActiveId(data.conversation.conversation_id);
       setMessages([]);
       setView("chat");
+      setMobileNavOpen(false);
     } catch (reason) { setError(messageFrom(reason)); }
     finally { setBusy(false); }
   };
@@ -188,8 +200,9 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
 
   return (
     <main className="workspace">
-      <aside>
-        <Brand />
+      {mobileNavOpen && <button className="nav-scrim" aria-label="Close navigation" onClick={() => setMobileNavOpen(false)} />}
+      <aside id="workspace-navigation" aria-label="Workspace navigation" className={mobileNavOpen ? "mobile-open" : ""}>
+        <div className="aside-heading"><Brand /><button className="nav-close" aria-label="Close navigation" onClick={() => setMobileNavOpen(false)}>×</button></div>
         <button className="new-chat" onClick={startConversation} disabled={busy}>＋ New conversation</button>
         <div className="conversation-list">
           {conversations.map((item) => <div key={item.conversation_id} className={item.conversation_id === activeId ? "conversation-row active" : "conversation-row"}>
@@ -198,12 +211,12 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
           </div>)}
         </div>
         <div className="aside-footer">
-          <button onClick={() => setView("profiles")}>Birth profiles <span>{profiles.length}</span></button>
+          <button onClick={() => { setView("profiles"); setMobileNavOpen(false); }}>Birth profiles <span>{profiles.length}</span></button>
           <button onClick={onSignOut}>Sign out</button>
         </div>
       </aside>
       <section className="content">
-        <header><div><span className="eyebrow">AstroAI workspace</span><h2>{view === "profiles" ? "Birth profiles" : "Ask your chart"}</h2></div><div className="avatar">{(user.profile.name || user.profile.email || "A").charAt(0).toUpperCase()}</div></header>
+        <header><div><span className="eyebrow">AstroAI workspace</span><h2>{view === "profiles" ? "Birth profiles" : "Ask your chart"}</h2></div><div className="header-actions"><button className="mobile-menu" aria-label="Open navigation" aria-controls="workspace-navigation" aria-expanded={mobileNavOpen} onClick={() => setMobileNavOpen(true)}>☰</button><div className="avatar">{(user.profile.name || user.profile.email || "A").charAt(0).toUpperCase()}</div></div></header>
         {error && <div className="error-banner">{error}</div>}
         {view === "profiles" ? <Profiles token={token} profiles={profiles} onCreated={refresh} /> : (
           <div className="chat">
