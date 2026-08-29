@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { User } from "oidc-client-ts";
-import App, { Profiles, Workspace, conversationTitle } from "./App";
+import App, { Profiles, Workspace, conversationTitle, shouldSubmitQuestion } from "./App";
 
 describe("AstroAI frontend foundation", () => {
   beforeEach(() => {
@@ -62,6 +62,12 @@ describe("AstroAI frontend foundation", () => {
     expect(conversationTitle("  When   will I change my career?  ")).toBe("When will I change my career?");
     expect(conversationTitle("What does my chart suggest about a major international career move during the next three years?")).toHaveLength(50);
     expect(conversationTitle("What does my chart suggest about a major international career move during the next three years?")).toMatch(/…$/);
+  });
+
+  it("uses Enter to send while preserving Shift+Enter for a new line", () => {
+    expect(shouldSubmitQuestion("Enter", false)).toBe(true);
+    expect(shouldSubmitQuestion("Enter", true)).toBe(false);
+    expect(shouldSubmitQuestion("a", false)).toBe(false);
   });
 
   it("deletes a conversation only after confirmation", async () => {
