@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { User } from "oidc-client-ts";
 import { apiRequest, checkHealth, type BirthProfile, type Conversation, type Message } from "./api";
 import { createAuthRuntime, usableToken } from "./auth";
@@ -92,8 +92,10 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
   const [question, setQuestion] = useState("");
   const [selectedProfileId, setSelectedProfileId] = useState("");
   const [busy, setBusy] = useState(false);
+  const [asking, setAsking] = useState(false);
   const [error, setError] = useState("");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const refresh = async () => {
     try {
@@ -122,6 +124,10 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [mobileNavOpen]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView?.({ behavior: "smooth", block: "end" });
+  }, [messages, asking]);
 
   const openConversation = async (id: string) => {
     setActiveId(id);
@@ -202,7 +208,7 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
     if (!clean || !activeId || busy) return;
     const optimisticId = `local-${Date.now()}`;
     const isFirstQuestion = messages.length === 0;
-    setQuestion(""); setBusy(true); setError("");
+    setQuestion(""); setBusy(true); setAsking(true); setError("");
     setMessages((current) => [...current, { message_id: optimisticId, role: "user", content: clean }]);
     try {
       const data = await apiRequest<{ user_message: Message; assistant_message: Message }>(`/api/v1/conversations/${activeId}/ask`, token, {
@@ -229,7 +235,7 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
       setQuestion(clean);
       setError(messageFrom(reason));
     }
-    finally { setBusy(false); }
+    finally { setBusy(false); setAsking(false); }
   };
 
   return (
@@ -256,7 +262,7 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
         {view === "profiles" ? <Profiles token={token} profiles={profiles} onCreated={refresh} /> : (
           <div className="chat">
             {!activeId ? <EmptyChat profiles={profiles} selectedProfileId={selectedProfileId} onSelectProfile={setSelectedProfileId} onStart={startConversation} onProfiles={() => setView("profiles")} /> : (
-              <><div className="messages">{messages.length === 0 && <div className="prompt"><div className="star">✦</div><h3>What would you like to understand?</h3><p>Your answer will use the saved chart linked to this conversation.</p></div>}{messages.map((item) => <article key={item.message_id} className={`message ${item.role}`}><span>{item.role === "assistant" ? "✦" : "You"}</span><div>{item.content || "No narrative was returned."}{item.domain && <small>{item.domain}</small>}</div></article>)}</div><form className="composer" onSubmit={ask}><textarea aria-label="Ask AstroAI" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Ask about career, marriage, finances, travel…" maxLength={1000} /><button disabled={busy || !question.trim()}>{busy ? "…" : "↑"}</button></form></>
+              <><div className="messages">{messages.length === 0 && <div className="prompt"><div className="star">✦</div><h3>What would you like to understand?</h3><p>Your answer will use the saved chart linked to this conversation.</p></div>}{messages.map((item) => <article key={item.message_id} className={`message ${item.role}`}><span>{item.role === "assistant" ? "✦" : "You"}</span><div>{item.content || "No narrative was returned."}{item.domain && <small>{item.domain}</small>}</div></article>)}{asking && <article className="message assistant thinking" role="status"><span>✦</span><div>Calculating chart factors and timing<span className="thinking-dots">…</span></div></article>}<div ref={messagesEndRef} /></div><form className="composer" onSubmit={ask}><textarea aria-label="Ask AstroAI" value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={(event) => { if (shouldSubmitQuestion(event.key, event.shiftKey)) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder="Ask about career, marriage, finances, travel…" maxLength={1000} disabled={busy} /><button disabled={busy || !question.trim()}>{busy ? "…" : "↑"}</button></form></>
             )}
           </div>
         )}
@@ -349,4 +355,8 @@ export function conversationTitle(question: string) {
   const clean = question.trim().replace(/\s+/g, " ");
   if (clean.length <= 52) return clean;
   return `${clean.slice(0, 49).trimEnd()}…`;
+}
+
+export function shouldSubmitQuestion(key: string, shiftKey: boolean) {
+  return key === "Enter" && !shiftKey;
 }
