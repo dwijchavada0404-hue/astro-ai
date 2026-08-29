@@ -125,6 +125,14 @@ class ConversationStoreV1:
             row = db.execute("SELECT * FROM conversations WHERE user_id=? AND conversation_id=?", (user_id, conversation_id)).fetchone()
         return self._conversation(row)
 
+    def has_birth_profile_references(self, user_id: str, birth_profile_id: str) -> bool:
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT 1 FROM conversations WHERE user_id=? AND birth_profile_id=? LIMIT 1",
+                (user_id, birth_profile_id),
+            ).fetchone()
+        return row is not None
+
     def update_conversation(self, user_id: str, conversation_id: str, *, title: str | None = None, life_context: dict[str, Any] | None = None, set_life_context: bool = False) -> dict[str, Any] | None:
         current = self.get_conversation(user_id, conversation_id)
         if current is None:
