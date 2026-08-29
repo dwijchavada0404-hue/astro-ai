@@ -83,7 +83,7 @@ function Landing({ authConfigured, backendOnline, error, onSignIn }: {
   );
 }
 
-function Workspace({ token, user, onSignOut }: { token: string; user: User; onSignOut: () => void }) {
+export function Workspace({ token, user, onSignOut }: { token: string; user: User; onSignOut: () => void }) {
   const [view, setView] = useState<View>("chat");
   const [profiles, setProfiles] = useState<BirthProfile[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -118,6 +118,21 @@ function Workspace({ token, user, onSignOut }: { token: string; user: User; onSi
     } catch (reason) { setError(messageFrom(reason)); }
   };
 
+  const deleteConversation = async (conversation: Conversation) => {
+    if (!window.confirm(`Delete “${conversation.title}”? This conversation and its messages will be permanently removed.`)) return;
+    setBusy(true);
+    setError("");
+    try {
+      await apiRequest(`/api/v1/conversations/${conversation.conversation_id}`, token, { method: "DELETE" });
+      setConversations((current) => current.filter((item) => item.conversation_id !== conversation.conversation_id));
+      if (activeId === conversation.conversation_id) {
+        setActiveId(null);
+        setMessages([]);
+      }
+    } catch (reason) { setError(messageFrom(reason)); }
+    finally { setBusy(false); }
+  };
+
   const startConversation = async () => {
     const profile = profiles.find((item) => item.is_default) || profiles[0];
     if (!profile) { setView("profiles"); return; }
@@ -139,16 +154,35 @@ function Workspace({ token, user, onSignOut }: { token: string; user: User; onSi
     event.preventDefault();
     const clean = question.trim();
     if (!clean || !activeId || busy) return;
+    const optimisticId = `local-${Date.now()}`;
+    const isFirstQuestion = messages.length === 0;
     setQuestion(""); setBusy(true); setError("");
-    setMessages((current) => [...current, { message_id: `local-${Date.now()}`, role: "user", content: clean }]);
+    setMessages((current) => [...current, { message_id: optimisticId, role: "user", content: clean }]);
     try {
       const data = await apiRequest<{ user_message: Message; assistant_message: Message }>(`/api/v1/conversations/${activeId}/ask`, token, {
         method: "POST",
         body: JSON.stringify({ question: clean, reference_moment: new Date().toISOString() }),
       });
       setMessages((current) => [...current.filter((item) => !item.message_id.startsWith("local-")), data.user_message, data.assistant_message]);
-      refresh();
-    } catch (reason) { setError(messageFrom(reason)); }
+      if (isFirstQuestion) {
+        try {
+          const title = conversationTitle(clean);
+          const updated = await apiRequest<{ conversation: Conversation }>(`/api/v1/conversations/${activeId}`, token, {
+            method: "PATCH",
+            body: JSON.stringify({ title }),
+          });
+          setConversations((current) => current.map((item) => item.conversation_id === activeId ? updated.conversation : item));
+        } catch {
+          setError("Your answer was saved, but the conversation title could not be updated.");
+        }
+      } else {
+        await refresh();
+      }
+    } catch (reason) {
+      setMessages((current) => current.filter((item) => item.message_id !== optimisticId));
+      setQuestion(clean);
+      setError(messageFrom(reason));
+    }
     finally { setBusy(false); }
   };
 
@@ -158,7 +192,10 @@ function Workspace({ token, user, onSignOut }: { token: string; user: User; onSi
         <Brand />
         <button className="new-chat" onClick={startConversation} disabled={busy}>＋ New conversation</button>
         <div className="conversation-list">
-          {conversations.map((item) => <button key={item.conversation_id} className={item.conversation_id === activeId ? "active" : ""} onClick={() => openConversation(item.conversation_id)}>{item.title}</button>)}
+          {conversations.map((item) => <div key={item.conversation_id} className={item.conversation_id === activeId ? "conversation-row active" : "conversation-row"}>
+            <button className="conversation-open" onClick={() => openConversation(item.conversation_id)}>{item.title}</button>
+            <button className="conversation-delete" aria-label={`Delete ${item.title}`} onClick={() => deleteConversation(item)} disabled={busy}>×</button>
+          </div>)}
         </div>
         <div className="aside-footer">
           <button onClick={() => setView("profiles")}>Birth profiles <span>{profiles.length}</span></button>
@@ -237,3 +274,9 @@ function EmptyChat({ hasProfile, onStart, onProfiles }: { hasProfile: boolean; o
 
 function Brand() { return <div className="brand"><span>✦</span><strong>ASTRO</strong><b>AI</b></div>; }
 function messageFrom(reason: unknown) { return reason instanceof Error ? reason.message : "Something went wrong."; }
+
+export function conversationTitle(question: string) {
+  const clean = question.trim().replace(/\s+/g, " ");
+  if (clean.length <= 52) return clean;
+  return `${clean.slice(0, 49).trimEnd()}…`;
+}

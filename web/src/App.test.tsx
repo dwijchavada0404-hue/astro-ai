@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import App, { Profiles } from "./App";
+import type { User } from "oidc-client-ts";
+import App, { Profiles, Workspace, conversationTitle } from "./App";
 
 describe("AstroAI frontend foundation", () => {
   beforeEach(() => {
@@ -32,5 +33,30 @@ describe("AstroAI frontend foundation", () => {
       expect.objectContaining({ method: "PATCH", body: JSON.stringify({ is_default: true }) }),
     ));
     await waitFor(() => expect(onCreated).toHaveBeenCalled());
+  });
+
+  it("creates a concise conversation title from the first question", () => {
+    expect(conversationTitle("  When   will I change my career?  ")).toBe("When will I change my career?");
+    expect(conversationTitle("What does my chart suggest about a major international career move during the next three years?")).toHaveLength(50);
+    expect(conversationTitle("What does my chart suggest about a major international career move during the next three years?")).toMatch(/…$/);
+  });
+
+  it("deletes a conversation only after confirmation", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ birth_profiles: [] }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ conversations: [{ conversation_id: "chat-1", title: "Career timing", birth_profile_id: "profile-1" }] }) })
+      .mockResolvedValueOnce({ ok: true, status: 204 });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(<Workspace token="token" user={{ profile: { name: "Dwij" } } as User} onSignOut={vi.fn()} />);
+    await screen.findByRole("button", { name: "Career timing" });
+    fireEvent.click(screen.getByRole("button", { name: "Delete Career timing" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/v1/conversations/chat-1"),
+      expect.objectContaining({ method: "DELETE" }),
+    ));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Career timing" })).not.toBeInTheDocument());
   });
 });
