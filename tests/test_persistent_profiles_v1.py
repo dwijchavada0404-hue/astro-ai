@@ -4,7 +4,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api.auth_v1 import AuthenticatedUserProfile, get_current_user
-from app.api.profiles_v1 import _store, router
+from app.api.profiles_v1 import _conversation_store, _store, router
+from app.storage.conversation_store_v1 import ConversationStoreV1
 from app.storage.profile_store_v1 import ProfileStoreV1
 
 
@@ -20,11 +21,14 @@ def _user(user_id: str = "user_123") -> AuthenticatedUserProfile:
 
 
 def _client(tmp_path: Path, user_id: str = "user_123") -> TestClient:
-    store = ProfileStoreV1(str(tmp_path / "profiles.db"))
+    database = str(tmp_path / "profiles.db")
+    store = ProfileStoreV1(database)
+    conversations = ConversationStoreV1(database)
     app = FastAPI()
     app.include_router(router)
     app.dependency_overrides[get_current_user] = lambda: _user(user_id)
     app.dependency_overrides[_store] = lambda: store
+    app.dependency_overrides[_conversation_store] = lambda: conversations
     return TestClient(app)
 
 
