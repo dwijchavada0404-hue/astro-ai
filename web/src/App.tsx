@@ -286,6 +286,20 @@ export function Profiles({ token, profiles, onCreated }: { token: string; profil
     }
   };
 
+  const deleteProfile = async (profile: BirthProfile) => {
+    if (!window.confirm(`Delete “${profile.label}”? This is allowed only when no conversations use this chart.`)) return;
+    setBusy(true);
+    setError("");
+    try {
+      await apiRequest(`/api/v1/birth-profiles/${profile.profile_id}`, token, { method: "DELETE" });
+      await onCreated();
+    } catch (reason) {
+      setError(messageFrom(reason));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return <div className="profiles">
     {error && <div className="error-banner">{error}</div>}
     <div className="profile-grid">{profiles.map((profile) => <article key={profile.profile_id}>
@@ -293,9 +307,10 @@ export function Profiles({ token, profiles, onCreated }: { token: string; profil
       <h3>{profile.label}</h3>
       <p>{profile.birth_date} · {profile.birth_time}</p>
       <p>{profile.place}</p>
-      {!profile.is_default && <div className="profile-actions">
-        <button type="button" onClick={() => setDefault(profile)} disabled={busy}>Make default</button>
-      </div>}
+      <div className="profile-actions">
+        {!profile.is_default && <button type="button" onClick={() => setDefault(profile)} disabled={busy}>Make default</button>}
+        <button type="button" className="profile-delete" onClick={() => deleteProfile(profile)} disabled={busy}>Delete</button>
+      </div>
     </article>)}</div>
     <form className="profile-form" onSubmit={submit}><h3>Add a birth profile</h3><label>Profile name<input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} required /></label><div><label>Birth date<input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} required /></label><label>Exact birth time<input type="time" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} required /></label></div><label>Birth place<input value={form.place} onChange={(e) => setForm({ ...form, place: e.target.value })} placeholder="Borivali, Mumbai" required /></label><button className="primary" disabled={busy}>{busy ? "Saving…" : "Save profile"}</button></form>
   </div>;
