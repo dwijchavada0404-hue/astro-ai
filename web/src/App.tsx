@@ -171,8 +171,9 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
     setMobileNavOpen(false);
     setError("");
     try {
-      const data = await apiRequest<{ messages: Message[] }>(`/api/v1/conversations/${id}`, token);
+      const data = await apiRequest<{ conversation: Conversation; messages: Message[] }>(`/api/v1/conversations/${id}`, token);
       setMessages(data.messages);
+      setConversations((current) => current.map((item) => item.conversation_id === id ? data.conversation : item));
     } catch (reason) { setError(messageFrom(reason)); }
   };
 
@@ -274,6 +275,9 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
     finally { setBusy(false); setAsking(false); }
   };
 
+  const activeConversation = conversations.find((item) => item.conversation_id === activeId);
+  const activeProfile = profiles.find((item) => item.profile_id === activeConversation?.birth_profile_id);
+
   return (
     <main className="workspace">
       {mobileNavOpen && <button className="nav-scrim" aria-label="Close navigation" onClick={() => setMobileNavOpen(false)} />}
@@ -293,7 +297,7 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
         </div>
       </aside>
       <section className="content">
-        <header><div><span className="eyebrow">AstroAI workspace</span><h2>{view === "profiles" ? "Birth profiles" : "Ask your chart"}</h2></div><div className="header-actions"><button className="mobile-menu" aria-label="Open navigation" aria-controls="workspace-navigation" aria-expanded={mobileNavOpen} onClick={() => setMobileNavOpen(true)}>☰</button><div className="avatar">{(user.profile.name || user.profile.email || "A").charAt(0).toUpperCase()}</div></div></header>
+        <header><div><span className="eyebrow">AstroAI workspace</span><h2>{view === "profiles" ? "Birth profiles" : "Ask your chart"}</h2>{view === "chat" && activeConversation && <span className={`active-chart ${activeProfile ? "" : "missing"}`} aria-label="Active birth profile">✦ {activeProfile?.label || "Linked chart unavailable"}</span>}</div><div className="header-actions"><button className="mobile-menu" aria-label="Open navigation" aria-controls="workspace-navigation" aria-expanded={mobileNavOpen} onClick={() => setMobileNavOpen(true)}>☰</button><div className="avatar">{(user.profile.name || user.profile.email || "A").charAt(0).toUpperCase()}</div></div></header>
         {error && <div className="error-banner">{error}</div>}
         {view === "profiles" ? <Profiles token={token} profiles={profiles} onCreated={refresh} /> : (
           <div className="chat">
