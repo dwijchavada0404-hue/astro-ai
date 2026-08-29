@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from app.api.auth_v1 import AuthenticatedUserProfile, get_current_user
 from app.core.settings import Settings, get_settings
+from app.storage.conversation_store_v1 import ConversationStoreV1
 from app.storage.profile_store_v1 import ProfileStoreV1
 
 
@@ -38,6 +39,10 @@ class BirthProfileUpdate(BaseModel):
 
 def _store(settings: Settings = Depends(get_settings)) -> ProfileStoreV1:
     return ProfileStoreV1(settings.profile_database_path)
+
+
+def _conversation_store(settings: Settings = Depends(get_settings)) -> ConversationStoreV1:
+    return ConversationStoreV1(settings.profile_database_path)
 
 
 def _sync_identity(store: ProfileStoreV1, user: AuthenticatedUserProfile) -> dict:
@@ -145,7 +150,15 @@ def delete_birth_profile(
     profile_id: str,
     user: AuthenticatedUserProfile = Depends(get_current_user),
     store: ProfileStoreV1 = Depends(_store),
+    conversations: ConversationStoreV1 = Depends(_conversation_store),
 ):
+    if store.get_birth_profile(user.user_id, profile_id) is None:
+        raise HTTPException(status_code=404, detail="Birth profile not found.")
+    if conversations.has_birth_profile_references(user.user_id, profile_id):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Delete conversations linked to this birth profile before deleting the profile.",
+        )
     if not store.delete_birth_profile(user.user_id, profile_id):
         raise HTTPException(status_code=404, detail="Birth profile not found.")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
