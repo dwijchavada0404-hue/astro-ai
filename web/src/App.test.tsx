@@ -121,4 +121,28 @@ describe("AstroAI frontend foundation", () => {
     expect(screen.getByRole("heading", { name: "Birth profiles" })).toBeInTheDocument();
     expect(open).toHaveAttribute("aria-expanded", "false");
   });
+
+  it("starts a conversation with the chart selected by the user", async () => {
+    const profiles = [
+      { profile_id: "mine", label: "My chart", birth_date: "2000-04-04", birth_time: "14:04:00", place: "Mumbai", is_default: true },
+      { profile_id: "partner", label: "Partner chart", birth_date: "2001-05-05", birth_time: "09:30:00", place: "Pune", is_default: false },
+    ];
+    const created = { conversation_id: "chat-partner", title: "New conversation", birth_profile_id: "partner" };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ birth_profiles: profiles }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ conversations: [] }) })
+      .mockResolvedValueOnce({ ok: true, status: 201, json: async () => ({ conversation: created }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Workspace token="token" user={{ profile: { name: "Dwij" } } as User} onSignOut={vi.fn()} />);
+    const picker = await screen.findByRole("combobox", { name: "Chart for this conversation" });
+    expect(picker).toHaveValue("mine");
+    fireEvent.change(picker, { target: { value: "partner" } });
+    fireEvent.click(screen.getByRole("button", { name: "Start asking" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/v1/conversations"),
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ title: "New conversation", birth_profile_id: "partner" }) }),
+    ));
+  });
 });
