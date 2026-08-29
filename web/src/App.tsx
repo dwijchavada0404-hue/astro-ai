@@ -144,6 +144,25 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
     finally { setBusy(false); }
   };
 
+  const renameConversation = async (conversation: Conversation) => {
+    const requested = window.prompt("Rename conversation", conversation.title);
+    if (requested === null) return;
+    const title = requested.trim().replace(/\s+/g, " ");
+    if (!title) { setError("Conversation title cannot be empty."); return; }
+    if (title.length > 120) { setError("Conversation title must be 120 characters or fewer."); return; }
+    if (title === conversation.title) return;
+    setBusy(true);
+    setError("");
+    try {
+      const data = await apiRequest<{ conversation: Conversation }>(`/api/v1/conversations/${conversation.conversation_id}`, token, {
+        method: "PATCH",
+        body: JSON.stringify({ title }),
+      });
+      setConversations((current) => current.map((item) => item.conversation_id === conversation.conversation_id ? data.conversation : item));
+    } catch (reason) { setError(messageFrom(reason)); }
+    finally { setBusy(false); }
+  };
+
   const startConversation = async () => {
     const profile = profiles.find((item) => item.is_default) || profiles[0];
     if (!profile) { setView("profiles"); setMobileNavOpen(false); return; }
@@ -207,6 +226,7 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
         <div className="conversation-list">
           {conversations.map((item) => <div key={item.conversation_id} className={item.conversation_id === activeId ? "conversation-row active" : "conversation-row"}>
             <button className="conversation-open" onClick={() => openConversation(item.conversation_id)}>{item.title}</button>
+            <button className="conversation-rename" aria-label={`Rename ${item.title}`} title="Rename conversation" onClick={() => renameConversation(item)} disabled={busy}>✎</button>
             <button className="conversation-delete" aria-label={`Delete ${item.title}`} onClick={() => deleteConversation(item)} disabled={busy}>×</button>
           </div>)}
         </div>

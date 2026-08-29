@@ -65,6 +65,26 @@ describe("AstroAI frontend foundation", () => {
     await waitFor(() => expect(screen.queryByRole("button", { name: "Career timing" })).not.toBeInTheDocument());
   });
 
+  it("renames a saved conversation", async () => {
+    const renamed = { conversation_id: "chat-1", title: "Next career move", birth_profile_id: "profile-1" };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ birth_profiles: [] }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ conversations: [{ conversation_id: "chat-1", title: "Career timing", birth_profile_id: "profile-1" }] }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ conversation: renamed }) });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(window, "prompt").mockReturnValue("  Next   career move  ");
+
+    render(<Workspace token="token" user={{ profile: { name: "Dwij" } } as User} onSignOut={vi.fn()} />);
+    await screen.findByRole("button", { name: "Career timing" });
+    fireEvent.click(screen.getByRole("button", { name: "Rename Career timing" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/v1/conversations/chat-1"),
+      expect.objectContaining({ method: "PATCH", body: JSON.stringify({ title: "Next career move" }) }),
+    ));
+    expect(await screen.findByRole("button", { name: "Next career move" })).toBeInTheDocument();
+  });
+
   it("keeps workspace navigation available on mobile", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ birth_profiles: [] }) })
