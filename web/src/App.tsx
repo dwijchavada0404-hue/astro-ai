@@ -360,6 +360,28 @@ export function Profiles({ token, profiles, onCreated }: { token: string; profil
     }
   };
 
+  const renameProfile = async (profile: BirthProfile) => {
+    const requested = window.prompt("Rename birth profile", profile.label);
+    if (requested === null) return;
+    const label = requested.trim().replace(/\s+/g, " ");
+    if (!label) { setError("Profile name cannot be empty."); return; }
+    if (label.length > 80) { setError("Profile name must be 80 characters or fewer."); return; }
+    if (label === profile.label) return;
+    setBusy(true);
+    setError("");
+    try {
+      await apiRequest(`/api/v1/birth-profiles/${profile.profile_id}`, token, {
+        method: "PATCH",
+        body: JSON.stringify({ label }),
+      });
+      await onCreated();
+    } catch (reason) {
+      setError(messageFrom(reason));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const deleteProfile = async (profile: BirthProfile) => {
     if (!window.confirm(`Delete “${profile.label}”? This is allowed only when no conversations use this chart.`)) return;
     setBusy(true);
@@ -383,6 +405,7 @@ export function Profiles({ token, profiles, onCreated }: { token: string; profil
       <p>{profile.place}</p>
       <div className="profile-actions">
         {!profile.is_default && <button type="button" onClick={() => setDefault(profile)} disabled={busy}>Make default</button>}
+        <button type="button" onClick={() => renameProfile(profile)} disabled={busy}>Rename</button>
         <button type="button" className="profile-delete" onClick={() => deleteProfile(profile)} disabled={busy}>Delete</button>
       </div>
     </article>)}</div>
