@@ -65,6 +65,10 @@ queried; it returns HTTP 503 when storage is unavailable.
 
 The V1 profile and conversation repositories use SQLite. Production must mount durable storage at `/data` (or set `ASTROAI_PROFILE_DATABASE_PATH` to another persistent mount). An ephemeral container filesystem will lose users, birth profiles, and conversation history when the instance is replaced.
 
+The container starts with a minimal root entrypoint solely to repair ownership
+of Railway's mounted `/data` directory, then uses `gosu` to run Uvicorn as the
+unprivileged `astroai` user. The application server itself never runs as root.
+
 Run only **one application replica** while SQLite is the persistence backend. Horizontal scaling should wait until the repository layer is migrated to a shared database such as PostgreSQL.
 
 ## Reverse proxy / TLS
