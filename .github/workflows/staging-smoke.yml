@@ -1,0 +1,35 @@
+name: Staging smoke
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify staging services
+        run: |
+          for attempt in 1 2 3 4 5; do
+            if bash scripts/smoke_staging.sh; then
+              exit 0
+            fi
+            echo "Deployment not ready (attempt $attempt/5); retrying in 30 seconds."
+            sleep 30
+          done
+          exit 1

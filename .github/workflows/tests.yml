@@ -85,6 +85,9 @@ jobs:
       - name: Run test suite
         run: python -m pytest -q
 
+      - name: Validate staging smoke script
+        run: bash -n scripts/smoke_staging.sh
+
   docker:
     runs-on: ubuntu-latest
     needs: pytest

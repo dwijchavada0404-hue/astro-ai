@@ -27,6 +27,8 @@ Set these environment variables explicitly in the hosting platform:
 - `ASTROAI_SECURITY_HEADERS_ENABLED=true`
 - `ASTROAI_RATE_LIMIT_ENABLED=true`
 - `ASTROAI_RATE_LIMIT_REQUESTS_PER_MINUTE=120`
+- `ASTROAI_REQUEST_LOGGING_ENABLED=true`
+- `ASTROAI_SLOW_REQUEST_THRESHOLD_MS=2000`
 - `ASTROAI_TRUSTED_HOSTS=<api-hostname>,127.0.0.1,localhost`
 - `ASTROAI_CORS_ORIGINS=<frontend-origin>`
 - `ASTROAI_PROFILE_DATABASE_PATH=/data/astroai_profiles.db`
@@ -51,6 +53,14 @@ request returns HTTP 429 with `Retry-After` and `X-RateLimit-*` headers. The
 in-process limiter matches the required single-replica SQLite deployment; move
 the limiter to a shared store before enabling multiple application replicas.
 
+Request telemetry is emitted as one JSON object per request to standard output,
+where Railway or another hosting provider can collect and search it. Logs include
+the request ID, method, route template, status, duration and environment. Query strings,
+request bodies, authorization headers, token subjects and exception messages are
+deliberately excluded so birth details, record identifiers and user questions are not copied into logs.
+`/readyz` also verifies that the configured SQLite database can be opened and
+queried; it returns HTTP 503 when storage is unavailable.
+
 ## Persistent storage
 
 The V1 profile and conversation repositories use SQLite. Production must mount durable storage at `/data` (or set `ASTROAI_PROFILE_DATABASE_PATH` to another persistent mount). An ephemeral container filesystem will lose users, birth profiles, and conversation history when the instance is replaced.
@@ -73,6 +83,8 @@ Before promoting a release:
 6. `/data` is a persistent volume and has a backup strategy.
 7. API documentation is disabled in production.
 8. API rate limiting is enabled and a 429 response has been smoke-tested.
+9. Structured request logs are visible and `/readyz` reports database status.
+10. The scheduled staging smoke workflow is green.
 
 ## Current V1 limitation
 

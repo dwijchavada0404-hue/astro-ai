@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import re
 import asyncio
+import json
+import logging
+import sqlite3
 from collections import defaultdict, deque
+from pathlib import Path
 from time import monotonic, perf_counter
 from uuid import uuid4
 
@@ -23,6 +27,7 @@ from app.core.auth_tokens import (
 
 _REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 _DOC_PATHS = {"/docs", "/redoc", "/openapi.json"}
+_REQUEST_LOGGER = logging.getLogger("astroai.request")
 
 
 class RequestContextMiddleware(BaseHTTPMiddleware):
@@ -39,6 +44,76 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         response.headers[self.header_name] = request_id
         response.headers["X-Process-Time-Ms"] = f"{(perf_counter() - started) * 1000:.2f}"
         return response
+
+
+class StructuredRequestLoggingMiddleware(BaseHTTPMiddleware):
+    """Emit privacy-safe JSON request telemetry for provider log collection."""
+
+    def __init__(self, app, environment: str, slow_request_threshold_ms: int):
+        super().__init__(app)
+        self.environment = environment
+        self.slow_request_threshold_ms = slow_request_threshold_ms
+
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        started = perf_counter()
+        request_id = getattr(request.state, "request_id", "unavailable")
+        try:
+            response = await call_next(request)
+        except Exception as exc:
+            duration_ms = (perf_counter() - started) * 1000
+            self._write(
+                logging.ERROR,
+                event="request_failed",
+                request=request,
+                request_id=request_id,
+                duration_ms=duration_ms,
+                status_code=500,
+                error_type=type(exc).__name__,
+            )
+            raise
+
+        duration_ms = (perf_counter() - started) * 1000
+        level = logging.WARNING if response.status_code >= 500 or duration_ms >= self.slow_request_threshold_ms else logging.INFO
+        self._write(
+            level,
+            event="request_completed",
+            request=request,
+            request_id=request_id,
+            duration_ms=duration_ms,
+            status_code=response.status_code,
+        )
+        return response
+
+    def _write(
+        self,
+        level: int,
+        *,
+        event: str,
+        request: Request,
+        request_id: str,
+        duration_ms: float,
+        status_code: int,
+        error_type: str | None = None,
+    ) -> None:
+        payload: dict[str, object] = {
+            "duration_ms": round(duration_ms, 2),
+            "environment": self.environment,
+            "event": event,
+            "method": request.method,
+            "route": _route_template(request),
+            "request_id": request_id,
+            "status_code": status_code,
+        }
+        if error_type:
+            payload["error_type"] = error_type
+        _REQUEST_LOGGER.log(level, json.dumps(payload, separators=(",", ":"), sort_keys=True))
+
+
+def _route_template(request: Request) -> str:
+    """Return the registered route pattern without logging record identifiers."""
+    route = request.scope.get("route")
+    template = getattr(route, "path", None)
+    return template if isinstance(template, str) else "<unmatched>"
 
 
 class DocsGuardMiddleware(BaseHTTPMiddleware):
@@ -152,9 +227,27 @@ def _register_probe_routes(app: FastAPI, settings: Settings) -> None:
         app.add_api_route("/livez", livez, methods=["GET"], include_in_schema=False)
 
     if "/readyz" not in route_paths:
-        async def readyz() -> dict[str, str]:
-            return {"status": "ready", "environment": settings.environment}
+        async def readyz() -> Response:
+            storage_ready = _database_ready(settings.profile_database_path)
+            payload = {
+                "status": "ready" if storage_ready else "not_ready",
+                "environment": settings.environment,
+                "checks": {"profile_database": "ok" if storage_ready else "failed"},
+            }
+            return JSONResponse(status_code=200 if storage_ready else 503, content=payload)
         app.add_api_route("/readyz", readyz, methods=["GET"], include_in_schema=False)
+
+
+def _database_ready(database_path: str) -> bool:
+    """Verify that the configured SQLite store can be opened and queried."""
+    try:
+        path = Path(database_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with sqlite3.connect(path, timeout=1) as database:
+            database.execute("SELECT name FROM sqlite_master LIMIT 1").fetchone()
+        return True
+    except (OSError, sqlite3.Error):
+        return False
 
 
 def configure_runtime(app: FastAPI, settings: Settings) -> FastAPI:
@@ -179,6 +272,12 @@ def configure_runtime(app: FastAPI, settings: Settings) -> FastAPI:
         app.add_middleware(ApiAccessControlMiddleware, settings=settings)
 
     app.add_middleware(RequestBodyLimitMiddleware, max_bytes=settings.max_request_body_bytes)
+    if settings.request_logging_enabled:
+        app.add_middleware(
+            StructuredRequestLoggingMiddleware,
+            environment=settings.environment,
+            slow_request_threshold_ms=settings.slow_request_threshold_ms,
+        )
     app.add_middleware(RequestContextMiddleware, header_name=settings.request_id_header)
 
     trusted_hosts = settings.trusted_host_list
