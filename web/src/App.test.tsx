@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { User } from "oidc-client-ts";
-import App, { Profiles, Workspace, conversationTitle, shouldSubmitQuestion, tokenExpiryDelay } from "./App";
+import App, { LegalDocument, Profiles, Workspace, conversationTitle, legalPageFromPath, shouldSubmitQuestion, tokenExpiryDelay } from "./App";
 
 describe("AstroAI frontend foundation", () => {
   beforeEach(() => {
@@ -20,6 +20,25 @@ describe("AstroAI frontend foundation", () => {
     expect(screen.getByRole("heading", { name: /Your chart.*Your questions.*Clearer direction/i })).toBeInTheDocument();
     expect(screen.getByText("Calculated first")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Begin your reading/ })).toBeDisabled();
+    expect(screen.getByRole("link", { name: "Privacy" })).toHaveAttribute("href", "/privacy");
+  });
+
+  it("maps only supported public legal routes", () => {
+    expect(legalPageFromPath("/privacy")).toBe("privacy");
+    expect(legalPageFromPath("/terms/")).toBe("terms");
+    expect(legalPageFromPath("/disclaimer")).toBe("disclaimer");
+    expect(legalPageFromPath("/auth/callback")).toBeNull();
+  });
+
+  it("renders privacy, terms and safety content without authentication", () => {
+    const { rerender } = render(<LegalDocument page="privacy" />);
+    expect(screen.getByRole("heading", { name: "Privacy Notice" })).toBeInTheDocument();
+    expect(screen.getByText(/Railway in the EU region/)).toBeInTheDocument();
+    rerender(<LegalDocument page="terms" />);
+    expect(screen.getByRole("heading", { name: "Terms of Use" })).toBeInTheDocument();
+    rerender(<LegalDocument page="disclaimer" />);
+    expect(screen.getByRole("heading", { name: "Astrology & Safety Disclaimer" })).toBeInTheDocument();
+    expect(screen.getByText(/No guaranteed outcomes/)).toBeInTheDocument();
   });
 
   it("lets a user choose another saved chart as the default", async () => {
