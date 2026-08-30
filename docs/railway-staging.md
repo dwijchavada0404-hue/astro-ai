@@ -20,6 +20,8 @@ Set the following in Railway's service Variables UI. Do not commit these values.
 ASTROAI_ENVIRONMENT=staging
 ASTROAI_DOCS_ENABLED=false
 ASTROAI_SECURITY_HEADERS_ENABLED=true
+ASTROAI_RATE_LIMIT_ENABLED=true
+ASTROAI_RATE_LIMIT_REQUESTS_PER_MINUTE=120
 ASTROAI_PROFILE_DATABASE_PATH=/data/astroai_profiles.db
 ASTROAI_AUTH_ENABLED=true
 ASTROAI_API_AUTH_REQUIRED=true
@@ -45,6 +47,9 @@ The expected response is HTTP 200 with `status: "ok"`. Confirm the service's dep
 ## Current staging boundary
 
 A generated Railway domain is internet reachable. The staging configuration must therefore set `ASTROAI_API_AUTH_REQUIRED=true`, which requires a valid bearer token for every `/api/*` route while leaving `/health`, `/livez`, and `/readyz` available to deployment infrastructure. Development remains backwards-compatible because the setting defaults to `false` outside deployed environments.
+
+The rate limit applies to authenticated `/api/*` requests per user. It does not
+count `/health`, `/livez`, `/readyz`, or browser preflight requests.
 
 ## Operational constraints
 

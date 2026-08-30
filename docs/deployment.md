@@ -25,6 +25,8 @@ Set these environment variables explicitly in the hosting platform:
 - `ASTROAI_ENVIRONMENT=production`
 - `ASTROAI_DOCS_ENABLED=false`
 - `ASTROAI_SECURITY_HEADERS_ENABLED=true`
+- `ASTROAI_RATE_LIMIT_ENABLED=true`
+- `ASTROAI_RATE_LIMIT_REQUESTS_PER_MINUTE=120`
 - `ASTROAI_TRUSTED_HOSTS=<api-hostname>,127.0.0.1,localhost`
 - `ASTROAI_CORS_ORIGINS=<frontend-origin>`
 - `ASTROAI_PROFILE_DATABASE_PATH=/data/astroai_profiles.db`
@@ -42,6 +44,12 @@ For a managed OIDC provider, leave `ASTROAI_AUTH_JWT_SECRET` empty, set
 provider's asymmetric `ASTROAI_AUTH_JWT_ALGORITHM` (normally `RS256`). Issuer
 and audience validation remains mandatory. Existing HS256 deployments remain
 supported for backwards compatibility.
+
+Authenticated `/api/*` traffic is limited per user using a sliding one-minute
+window. Health probes and CORS preflight requests are excluded. A throttled
+request returns HTTP 429 with `Retry-After` and `X-RateLimit-*` headers. The
+in-process limiter matches the required single-replica SQLite deployment; move
+the limiter to a shared store before enabling multiple application replicas.
 
 ## Persistent storage
 
@@ -64,6 +72,7 @@ Before promoting a release:
 5. The frontend origin and API hostname are explicit; wildcards are not used.
 6. `/data` is a persistent volume and has a backup strategy.
 7. API documentation is disabled in production.
+8. API rate limiting is enabled and a 429 response has been smoke-tested.
 
 ## Current V1 limitation
 

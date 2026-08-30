@@ -7,6 +7,7 @@ from app.core.runtime import (
     DocsGuardMiddleware,
     RequestBodyLimitMiddleware,
     RequestContextMiddleware,
+    RateLimitMiddleware,
     SecurityHeadersMiddleware,
     configure_runtime,
 )
@@ -85,6 +86,20 @@ def test_production_requires_api_bearer_authentication():
         )
 
 
+def test_production_requires_rate_limiting():
+    with pytest.raises(ValueError, match="rate limiting"):
+        Settings(
+            environment="production",
+            cors_origins="https://app.example.com",
+            trusted_hosts="api.example.com",
+            docs_enabled=False,
+            auth_enabled=True,
+            api_auth_required=True,
+            auth_jwt_secret="test-secret-with-at-least-thirty-two-characters",
+            rate_limit_enabled=False,
+        )
+
+
 def test_api_auth_requirement_requires_authentication_enabled():
     with pytest.raises(ValueError, match="AUTH_ENABLED"):
         Settings(api_auth_required=True)
@@ -107,6 +122,7 @@ def test_runtime_updates_metadata_and_adds_security_middleware():
     assert RequestContextMiddleware in middleware_classes
     assert RequestBodyLimitMiddleware in middleware_classes
     assert SecurityHeadersMiddleware in middleware_classes
+    assert RateLimitMiddleware in middleware_classes
     assert DocsGuardMiddleware in middleware_classes
     assert any(cls.__name__ == "TrustedHostMiddleware" for cls in middleware_classes)
     assert any(cls.__name__ == "CORSMiddleware" for cls in middleware_classes)
@@ -181,3 +197,70 @@ def test_oversized_request_is_rejected_before_handler():
     response = TestClient(app).post("/echo", content=b"12345")
     assert response.status_code == 413
     assert response.json()["detail"] == "Request body too large."
+
+
+def test_api_rate_limit_returns_retry_metadata():
+    app = FastAPI()
+
+    @app.get("/api/ping")
+    def ping():
+        return {"ok": True}
+
+    configure_runtime(
+        app,
+        Settings(
+            cors_origins="",
+            trusted_hosts="",
+            rate_limit_requests_per_minute=2,
+        ),
+    )
+    client = TestClient(app)
+    first = client.get("/api/ping")
+    second = client.get("/api/ping")
+    limited = client.get("/api/ping")
+
+    assert first.status_code == 200
+    assert first.headers["X-RateLimit-Remaining"] == "1"
+    assert second.headers["X-RateLimit-Remaining"] == "0"
+    assert limited.status_code == 429
+    assert limited.headers["X-RateLimit-Limit"] == "2"
+    assert int(limited.headers["Retry-After"]) >= 1
+
+
+def test_rate_limit_does_not_throttle_health_probes():
+    app = FastAPI()
+    configure_runtime(
+        app,
+        Settings(cors_origins="", trusted_hosts="", rate_limit_requests_per_minute=1),
+    )
+    client = TestClient(app)
+    assert client.get("/livez").status_code == 200
+    assert client.get("/livez").status_code == 200
+
+
+def test_cors_allows_personal_data_deletion_and_exposes_rate_headers():
+    app = FastAPI()
+
+    @app.delete("/api/v1/profile", status_code=204)
+    def delete_profile():
+        return None
+
+    configure_runtime(
+        app,
+        Settings(cors_origins="https://app.example.com", trusted_hosts=""),
+    )
+    response = TestClient(app).options(
+        "/api/v1/profile",
+        headers={
+            "Origin": "https://app.example.com",
+            "Access-Control-Request-Method": "DELETE",
+        },
+    )
+    assert response.status_code == 200
+    assert "DELETE" in response.headers["Access-Control-Allow-Methods"]
+    deletion = TestClient(app).delete(
+        "/api/v1/profile",
+        headers={"Origin": "https://app.example.com"},
+    )
+    assert deletion.status_code == 204
+    assert "X-RateLimit-Limit" in deletion.headers["Access-Control-Expose-Headers"]

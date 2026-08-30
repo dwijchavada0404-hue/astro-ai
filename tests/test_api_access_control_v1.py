@@ -13,7 +13,7 @@ ISSUER = "astroai-test"
 AUDIENCE = "astroai-api-test"
 
 
-def _settings(*, required: bool = True) -> Settings:
+def _settings(*, required: bool = True, rate_limit: int = 120) -> Settings:
     return Settings(
         environment="test",
         cors_origins="",
@@ -23,6 +23,7 @@ def _settings(*, required: bool = True) -> Settings:
         auth_jwt_secret=SECRET,
         auth_jwt_issuer=ISSUER,
         auth_jwt_audience=AUDIENCE,
+        rate_limit_requests_per_minute=rate_limit,
     )
 
 
@@ -39,7 +40,7 @@ def _token(**overrides) -> str:
     return jwt.encode(payload, SECRET, algorithm="HS256")
 
 
-def _app(*, required: bool = True) -> FastAPI:
+def _app(*, required: bool = True, rate_limit: int = 120) -> FastAPI:
     app = FastAPI()
 
     @app.post("/api/v1/question")
@@ -50,7 +51,7 @@ def _app(*, required: bool = True) -> FastAPI:
     def health():
         return {"status": "ok"}
 
-    return configure_runtime(app, _settings(required=required))
+    return configure_runtime(app, _settings(required=required, rate_limit=rate_limit))
 
 
 def test_api_routes_require_bearer_token_when_enabled():
@@ -100,3 +101,13 @@ def test_legacy_api_remains_public_when_gate_is_disabled():
 def test_cors_preflight_is_not_blocked_by_bearer_gate():
     response = TestClient(_app()).options("/api/v1/question")
     assert response.status_code != 401
+
+
+def test_authenticated_users_receive_independent_rate_limits():
+    client = TestClient(_app(rate_limit=1))
+    user_one = {"Authorization": f"Bearer {_token(sub='user_one')}"}
+    user_two = {"Authorization": f"Bearer {_token(sub='user_two')}"}
+
+    assert client.post("/api/v1/question", headers=user_one).status_code == 200
+    assert client.post("/api/v1/question", headers=user_one).status_code == 429
+    assert client.post("/api/v1/question", headers=user_two).status_code == 200
