@@ -40,6 +40,12 @@ The client observes both the token expiry timestamp and OIDC provider session
 events. Expired sessions return to sign-in with a clear message; saved profiles
 and conversations remain server-side and are not removed.
 
+Authenticated users can permanently delete their AstroAI application data from
+the Birth profiles screen after typing an explicit confirmation. This removes
+their conversations, messages, saved birth profiles and AstroAI user metadata,
+then signs them out. The external OIDC identity remains managed by the identity
+provider and is outside AstroAI's application database.
+
 
 ## Railway hosting
 

@@ -77,6 +77,22 @@ describe("AstroAI frontend foundation", () => {
     await waitFor(() => expect(onCreated).toHaveBeenCalled());
   });
 
+  it("deletes all AstroAI data only after typed confirmation", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204 });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(window, "prompt").mockReturnValue("DELETE");
+    const onDataDeleted = vi.fn();
+
+    render(<Profiles token="token" profiles={[]} onCreated={vi.fn().mockResolvedValue(undefined)} onDataDeleted={onDataDeleted} />);
+    fireEvent.click(screen.getByRole("button", { name: "Delete all AstroAI data" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/v1/profile"),
+      expect.objectContaining({ method: "DELETE" }),
+    ));
+    await waitFor(() => expect(onDataDeleted).toHaveBeenCalled());
+  });
+
   it("creates a concise conversation title from the first question", () => {
     expect(conversationTitle("  When   will I change my career?  ")).toBe("When will I change my career?");
     expect(conversationTitle("What does my chart suggest about a major international career move during the next three years?")).toHaveLength(50);

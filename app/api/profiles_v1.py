@@ -82,6 +82,17 @@ def update_profile(
     }
 
 
+@router.delete("/profile", status_code=status.HTTP_204_NO_CONTENT)
+def delete_personal_data(
+    user: AuthenticatedUserProfile = Depends(get_current_user),
+    store: ProfileStoreV1 = Depends(_store),
+    conversations: ConversationStoreV1 = Depends(_conversation_store),
+):
+    conversations.delete_user_conversations(user.user_id)
+    store.delete_user(user.user_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.post("/birth-profiles", status_code=status.HTTP_201_CREATED)
 def create_birth_profile(
     payload: BirthProfileCreate,
