@@ -129,6 +129,7 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
   const [selectedProfileId, setSelectedProfileId] = useState("");
   const [busy, setBusy] = useState(false);
   const [asking, setAsking] = useState(false);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -275,6 +276,18 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
     finally { setBusy(false); setAsking(false); }
   };
 
+  const copyAnswer = async (message: Message) => {
+    if (!message.content) return;
+    setError("");
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard access is unavailable in this browser.");
+      await navigator.clipboard.writeText(message.content);
+      setCopiedMessageId(message.message_id);
+    } catch (reason) {
+      setError(messageFrom(reason));
+    }
+  };
+
   const activeConversation = conversations.find((item) => item.conversation_id === activeId);
   const activeProfile = profiles.find((item) => item.profile_id === activeConversation?.birth_profile_id);
 
@@ -302,7 +315,7 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
         {view === "profiles" ? <Profiles token={token} profiles={profiles} onCreated={refresh} /> : (
           <div className="chat">
             {!activeId ? <EmptyChat profiles={profiles} selectedProfileId={selectedProfileId} onSelectProfile={setSelectedProfileId} onStart={startConversation} onProfiles={() => setView("profiles")} /> : (
-              <><div className="messages">{messages.length === 0 && <div className="prompt"><div className="star">✦</div><h3>What would you like to understand?</h3><p>Your answer will use the saved chart linked to this conversation.</p></div>}{messages.map((item) => <article key={item.message_id} className={`message ${item.role}`}><span>{item.role === "assistant" ? "✦" : "You"}</span><div>{item.content || "No narrative was returned."}{item.domain && <small>{item.domain}</small>}</div></article>)}{asking && <article className="message assistant thinking" role="status"><span>✦</span><div>Calculating chart factors and timing<span className="thinking-dots">…</span></div></article>}<div ref={messagesEndRef} /></div><form className="composer" onSubmit={ask}><textarea aria-label="Ask AstroAI" value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={(event) => { if (shouldSubmitQuestion(event.key, event.shiftKey)) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder="Ask about career, marriage, finances, travel…" maxLength={1000} disabled={busy} /><button disabled={busy || !question.trim()}>{busy ? "…" : "↑"}</button></form></>
+              <><div className="messages">{messages.length === 0 && <div className="prompt"><div className="star">✦</div><h3>What would you like to understand?</h3><p>Your answer will use the saved chart linked to this conversation.</p></div>}{messages.map((item) => <article key={item.message_id} className={`message ${item.role}`}><span>{item.role === "assistant" ? "✦" : "You"}</span><div>{item.content || "No narrative was returned."}{item.domain && <small>{item.domain}</small>}{item.role === "assistant" && item.content && <button className="answer-copy" type="button" aria-label="Copy answer" onClick={() => copyAnswer(item)}>{copiedMessageId === item.message_id ? "Copied" : "Copy"}</button>}</div></article>)}{asking && <article className="message assistant thinking" role="status"><span>✦</span><div>Calculating chart factors and timing<span className="thinking-dots">…</span></div></article>}<div ref={messagesEndRef} /></div><form className="composer" onSubmit={ask}><textarea aria-label="Ask AstroAI" value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={(event) => { if (shouldSubmitQuestion(event.key, event.shiftKey)) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder="Ask about career, marriage, finances, travel…" maxLength={1000} disabled={busy} /><button disabled={busy || !question.trim()}>{busy ? "…" : "↑"}</button></form></>
             )}
           </div>
         )}
