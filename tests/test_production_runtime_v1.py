@@ -1,5 +1,6 @@
 import json
 import logging
+from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
@@ -16,6 +17,9 @@ from app.core.runtime import (
     configure_runtime,
 )
 from app.core.settings import Settings
+
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_settings_parse_csv_values():
@@ -116,6 +120,15 @@ def test_production_requires_structured_request_logging():
             auth_jwt_secret="test-secret-with-at-least-thirty-two-characters",
             request_logging_enabled=False,
         )
+
+
+def test_container_repairs_volume_permissions_then_drops_privileges():
+    dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+    entrypoint = (ROOT / "astroai-entrypoint.sh").read_text(encoding="utf-8")
+    assert 'ENTRYPOINT ["astroai-entrypoint"]' in dockerfile
+    assert "gosu astroai" in entrypoint
+    assert "chown -R astroai:astroai /data" in entrypoint
+    assert "exec gosu astroai" in entrypoint
 
 
 def test_api_auth_requirement_requires_authentication_enabled():

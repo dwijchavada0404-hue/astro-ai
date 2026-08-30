@@ -10,7 +10,10 @@ WORKDIR /app
 RUN groupadd --system astroai \
     && useradd --system --gid astroai --create-home astroai \
     && mkdir -p /data \
-    && chown -R astroai:astroai /app /data
+    && chown -R astroai:astroai /app /data \
+    && apt-get update \
+    && apt-get install --yes --no-install-recommends gosu \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./
 RUN python -m pip install --upgrade pip \
@@ -18,8 +21,9 @@ RUN python -m pip install --upgrade pip \
 
 COPY --chown=astroai:astroai app ./app
 COPY --chown=astroai:astroai README.md ./README.md
+COPY --chmod=755 astroai-entrypoint.sh /usr/local/bin/astroai-entrypoint
 
-USER astroai
+ENTRYPOINT ["astroai-entrypoint"]
 
 EXPOSE 8000
 
