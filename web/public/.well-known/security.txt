@@ -1,0 +1,5 @@
+Contact: https://github.com/dwijchavada0404-hue/astro-ai/issues
+Expires: 2027-08-30T00:00:00Z
+Preferred-Languages: en
+Canonical: https://powerful-exploration-production-9475.up.railway.app/.well-known/security.txt
+Policy: https://powerful-exploration-production-9475.up.railway.app/privacy

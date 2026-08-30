@@ -65,3 +65,23 @@ arguments as well as service variables. Vite reads them while producing the
 static bundle; runtime-only environment variables cannot change an already
 built browser application. These values are intentionally public configuration,
 not provider secrets.
+
+
+## Browser and security baseline
+
+
+AstroAI supports current stable releases of Chrome, Safari, Firefox and Edge,
+including their mobile equivalents. JavaScript and secure HTTPS storage are
+required for the OIDC Authorization Code + PKCE session.
+
+
+The production web container sends a restrictive Content Security Policy that
+allows connections only to the AstroAI API and the configured Auth0 staging
+authority. It also sends HSTS, clickjacking, MIME-sniffing, permissions,
+referrer and cross-origin isolation headers. Hashed static assets are cached
+immutably while application routes remain revalidated.
+
+
+Frontend dependency licenses are checked in CI. Packages with missing license
+metadata or strong copyleft/network-copyleft licenses fail the build pending an
+explicit review.
