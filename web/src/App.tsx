@@ -312,7 +312,7 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
       <section className="content">
         <header><div><span className="eyebrow">AstroAI workspace</span><h2>{view === "profiles" ? "Birth profiles" : "Ask your chart"}</h2>{view === "chat" && activeConversation && <span className={`active-chart ${activeProfile ? "" : "missing"}`} aria-label="Active birth profile">✦ {activeProfile?.label || "Linked chart unavailable"}</span>}</div><div className="header-actions"><button className="mobile-menu" aria-label="Open navigation" aria-controls="workspace-navigation" aria-expanded={mobileNavOpen} onClick={() => setMobileNavOpen(true)}>☰</button><div className="avatar">{(user.profile.name || user.profile.email || "A").charAt(0).toUpperCase()}</div></div></header>
         {error && <div className="error-banner">{error}</div>}
-        {view === "profiles" ? <Profiles token={token} profiles={profiles} onCreated={refresh} /> : (
+        {view === "profiles" ? <Profiles token={token} profiles={profiles} onCreated={refresh} onDataDeleted={onSignOut} /> : (
           <div className="chat">
             {!activeId ? <EmptyChat profiles={profiles} selectedProfileId={selectedProfileId} onSelectProfile={setSelectedProfileId} onStart={startConversation} onProfiles={() => setView("profiles")} /> : (
               <><div className="messages">{messages.length === 0 && <div className="prompt"><div className="star">✦</div><h3>What would you like to understand?</h3><p>Your answer will use the saved chart linked to this conversation.</p></div>}{messages.map((item) => <article key={item.message_id} className={`message ${item.role}`}><span>{item.role === "assistant" ? "✦" : "You"}</span><div>{item.content || "No narrative was returned."}{item.domain && <small>{item.domain}</small>}{item.role === "assistant" && item.content && <button className="answer-copy" type="button" aria-label="Copy answer" onClick={() => copyAnswer(item)}>{copiedMessageId === item.message_id ? "Copied" : "Copy"}</button>}</div></article>)}{asking && <article className="message assistant thinking" role="status"><span>✦</span><div>Calculating chart factors and timing<span className="thinking-dots">…</span></div></article>}<div ref={messagesEndRef} /></div><form className="composer" onSubmit={ask}><textarea aria-label="Ask AstroAI" value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={(event) => { if (shouldSubmitQuestion(event.key, event.shiftKey)) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder="Ask about career, marriage, finances, travel…" maxLength={1000} disabled={busy} /><button disabled={busy || !question.trim()}>{busy ? "…" : "↑"}</button></form></>
@@ -324,7 +324,7 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
   );
 }
 
-export function Profiles({ token, profiles, onCreated }: { token: string; profiles: BirthProfile[]; onCreated: () => Promise<void> }) {
+export function Profiles({ token, profiles, onCreated, onDataDeleted }: { token: string; profiles: BirthProfile[]; onCreated: () => Promise<void>; onDataDeleted?: () => void }) {
   const [form, setForm] = useState({ label: "My chart", date: "", time: "", place: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -396,6 +396,21 @@ export function Profiles({ token, profiles, onCreated }: { token: string; profil
     }
   };
 
+  const deleteAllData = async () => {
+    const confirmation = window.prompt("This permanently deletes every AstroAI profile, conversation and message. Type DELETE to continue.");
+    if (confirmation !== "DELETE") return;
+    setBusy(true);
+    setError("");
+    try {
+      await apiRequest("/api/v1/profile", token, { method: "DELETE" });
+      onDataDeleted?.();
+    } catch (reason) {
+      setError(messageFrom(reason));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return <div className="profiles">
     {error && <div className="error-banner">{error}</div>}
     <div className="profile-grid">{profiles.map((profile) => <article key={profile.profile_id}>
@@ -410,6 +425,7 @@ export function Profiles({ token, profiles, onCreated }: { token: string; profil
       </div>
     </article>)}</div>
     <form className="profile-form" onSubmit={submit}><h3>Add a birth profile</h3><label>Profile name<input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} required /></label><div><label>Birth date<input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} required /></label><label>Exact birth time<input type="time" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} required /></label></div><label>Birth place<input value={form.place} onChange={(e) => setForm({ ...form, place: e.target.value })} placeholder="Borivali, Mumbai" required /></label><button className="primary" disabled={busy}>{busy ? "Saving…" : "Save profile"}</button></form>
+    {onDataDeleted && <section className="danger-zone"><h3>Delete your AstroAI data</h3><p>Permanently remove every saved chart, conversation and message. Your identity-provider login is managed separately.</p><button type="button" onClick={deleteAllData} disabled={busy}>Delete all AstroAI data</button></section>}
   </div>;
 }
 

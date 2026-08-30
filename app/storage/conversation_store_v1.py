@@ -157,6 +157,12 @@ class ConversationStoreV1:
             cursor = db.execute("DELETE FROM conversations WHERE user_id=? AND conversation_id=?", (user_id, conversation_id))
             return cursor.rowcount > 0
 
+    def delete_user_conversations(self, user_id: str) -> int:
+        """Delete every conversation and cascaded message owned by one user."""
+        with self._connect() as db:
+            cursor = db.execute("DELETE FROM conversations WHERE user_id=?", (user_id,))
+            return cursor.rowcount
+
     def add_message(self, user_id: str, conversation_id: str, *, role: str, content: str | None, domain: str | None = None, route: str | None = None, reference_moment: str | None = None, payload: dict[str, Any] | None = None) -> dict[str, Any]:
         if role not in {"user", "assistant"}:
             raise ValueError("role must be user or assistant.")

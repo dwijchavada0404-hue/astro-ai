@@ -43,6 +43,28 @@ def test_profile_sync_and_update(tmp_path):
     assert again.json()["profile"]["display_name"] == "Saved Name"
 
 
+def test_delete_personal_data_removes_profiles_conversations_and_messages(tmp_path):
+    app, store = _app(tmp_path)
+    client = TestClient(app)
+    profile = client.post(
+        "/api/v1/birth-profiles",
+        json={"label": "Me", "date": "2000-04-04", "time": "14:04:00", "place": "Mumbai"},
+    ).json()["birth_profile"]
+    conversations = ConversationStoreV1(str(tmp_path / "profiles-api.db"))
+    conversation = conversations.create_conversation(
+        "user_1", title="Private history", birth_profile_id=profile["profile_id"]
+    )
+    conversations.add_message("user_1", conversation["conversation_id"], role="user", content="Private question")
+
+    response = client.delete("/api/v1/profile")
+
+    assert response.status_code == 204
+    assert store.get_user("user_1") is None
+    assert store.list_birth_profiles("user_1") == []
+    assert conversations.list_conversations("user_1") == []
+    assert conversations.get_conversation("user_1", conversation["conversation_id"]) is None
+
+
 def test_birth_profile_crud_and_first_profile_defaults(tmp_path):
     app, _ = _app(tmp_path)
     client = TestClient(app)
