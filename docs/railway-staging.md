@@ -76,4 +76,6 @@ GitHub Actions runs `scripts/smoke_staging.sh` every six hours and on demand. It
 verifies the frontend and API health endpoints, readiness/storage status,
 frontend Content Security Policy, public security contact, and the API's 401
 authentication boundary. A failed check makes the workflow red without using
-credentials or reading user data.
+credentials or reading user data. It deliberately does not run as a `push`
+check: Railway waits for push CI before deploying, so a pre-deployment smoke
+check would create a circular dependency.
