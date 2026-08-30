@@ -11,6 +11,7 @@ describe("AstroAI frontend foundation", () => {
   afterEach(() => {
     cleanup();
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it("renders the evidence-led landing experience when OIDC is not configured", async () => {
@@ -171,5 +172,25 @@ describe("AstroAI frontend foundation", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Relationship timing" }));
 
     expect(await screen.findByLabelText("Active birth profile")).toHaveTextContent("Partner chart");
+  });
+
+  it("copies an assistant answer to the clipboard", async () => {
+    const profile = { profile_id: "mine", label: "My chart", birth_date: "2000-04-04", birth_time: "14:04:00", place: "Mumbai", is_default: true };
+    const conversation = { conversation_id: "chat-1", title: "Career timing", birth_profile_id: "mine" };
+    const answer = { message_id: "answer-1", role: "assistant" as const, content: "A supportive career period begins next year.", domain: "career" };
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ birth_profiles: [profile] }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ conversations: [conversation] }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ conversation, messages: [answer] }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Workspace token="token" user={{ profile: { name: "Dwij" } } as User} onSignOut={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Career timing" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Copy answer" }));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(answer.content));
+    expect(screen.getByRole("button", { name: "Copy answer" })).toHaveTextContent("Copied");
   });
 });
