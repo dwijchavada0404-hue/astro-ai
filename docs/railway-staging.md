@@ -22,6 +22,8 @@ ASTROAI_DOCS_ENABLED=false
 ASTROAI_SECURITY_HEADERS_ENABLED=true
 ASTROAI_RATE_LIMIT_ENABLED=true
 ASTROAI_RATE_LIMIT_REQUESTS_PER_MINUTE=120
+ASTROAI_REQUEST_LOGGING_ENABLED=true
+ASTROAI_SLOW_REQUEST_THRESHOLD_MS=2000
 ASTROAI_PROFILE_DATABASE_PATH=/data/astroai_profiles.db
 ASTROAI_AUTH_ENABLED=true
 ASTROAI_API_AUTH_REQUIRED=true
@@ -51,9 +53,27 @@ A generated Railway domain is internet reachable. The staging configuration must
 The rate limit applies to authenticated `/api/*` requests per user. It does not
 count `/health`, `/livez`, `/readyz`, or browser preflight requests.
 
+Railway deployment logs receive privacy-safe JSON request events. Use the
+`request_id` returned to the browser to correlate a user-visible failure without
+logging their question, birth details, query string, bearer token or Auth0 subject.
+The `/readyz` probe returns 503 if the mounted SQLite database cannot be opened.
+
 ## Operational constraints
 
 - A volume-backed Railway deployment has a brief replacement gap during redeploy; Railway prevents simultaneous volume mounts to avoid SQLite corruption.
 - The mounted volume is required for every deploy; the container filesystem is ephemeral.
 - Keep data backups outside the running service and verify restoration before using real accounts.
 - Move persistence to PostgreSQL before multi-replica or high-availability deployment.
+
+## Operational monitoring
+
+Railway collects AstroAI's privacy-safe JSON request logs. Search for
+`request_failed`, HTTP 5xx responses, or requests exceeding the configured slow
+threshold. The readiness probe checks that the mounted SQLite database can be
+opened and queried, while liveness remains independent of storage.
+
+GitHub Actions runs `scripts/smoke_staging.sh` every six hours and on demand. It
+verifies the frontend and API health endpoints, readiness/storage status,
+frontend Content Security Policy, public security contact, and the API's 401
+authentication boundary. A failed check makes the workflow red without using
+credentials or reading user data.

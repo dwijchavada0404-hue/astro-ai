@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     security_headers_enabled: bool = True
     rate_limit_enabled: bool = True
     rate_limit_requests_per_minute: int = Field(default=120, ge=1, le=10_000)
+    request_logging_enabled: bool = True
+    slow_request_threshold_ms: int = Field(default=2_000, ge=100, le=120_000)
 
     auth_enabled: bool = False
     api_auth_required: bool = False
@@ -80,6 +82,8 @@ class Settings(BaseSettings):
                 raise ValueError("API bearer authentication must be required in production.")
             if not self.rate_limit_enabled:
                 raise ValueError("API rate limiting must be enabled in production.")
+            if not self.request_logging_enabled:
+                raise ValueError("Structured request logging must be enabled in production.")
         return self
 
 

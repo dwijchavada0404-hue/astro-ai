@@ -1,3 +1,6 @@
+import json
+import logging
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -9,6 +12,7 @@ from app.core.runtime import (
     RequestContextMiddleware,
     RateLimitMiddleware,
     SecurityHeadersMiddleware,
+    StructuredRequestLoggingMiddleware,
     configure_runtime,
 )
 from app.core.settings import Settings
@@ -100,6 +104,20 @@ def test_production_requires_rate_limiting():
         )
 
 
+def test_production_requires_structured_request_logging():
+    with pytest.raises(ValueError, match="Structured request logging"):
+        Settings(
+            environment="production",
+            cors_origins="https://app.example.com",
+            trusted_hosts="api.example.com",
+            docs_enabled=False,
+            auth_enabled=True,
+            api_auth_required=True,
+            auth_jwt_secret="test-secret-with-at-least-thirty-two-characters",
+            request_logging_enabled=False,
+        )
+
+
 def test_api_auth_requirement_requires_authentication_enabled():
     with pytest.raises(ValueError, match="AUTH_ENABLED"):
         Settings(api_auth_required=True)
@@ -123,6 +141,7 @@ def test_runtime_updates_metadata_and_adds_security_middleware():
     assert RequestBodyLimitMiddleware in middleware_classes
     assert SecurityHeadersMiddleware in middleware_classes
     assert RateLimitMiddleware in middleware_classes
+    assert StructuredRequestLoggingMiddleware in middleware_classes
     assert DocsGuardMiddleware in middleware_classes
     assert any(cls.__name__ == "TrustedHostMiddleware" for cls in middleware_classes)
     assert any(cls.__name__ == "CORSMiddleware" for cls in middleware_classes)
@@ -159,9 +178,9 @@ def test_request_body_limit_is_configurable():
     assert body_limit.kwargs["max_bytes"] == 256
 
 
-def test_liveness_and_readiness_probes_are_registered():
+def test_liveness_and_readiness_probes_are_registered(tmp_path):
     app = FastAPI()
-    configure_runtime(app, Settings(cors_origins="", trusted_hosts=""))
+    configure_runtime(app, Settings(cors_origins="", trusted_hosts="", profile_database_path=str(tmp_path / "profiles.db")))
     client = TestClient(app)
     live = client.get("/livez")
     ready = client.get("/readyz")
@@ -169,6 +188,16 @@ def test_liveness_and_readiness_probes_are_registered():
     assert live.json()["status"] == "ok"
     assert ready.status_code == 200
     assert ready.json()["status"] == "ready"
+    assert ready.json()["checks"]["profile_database"] == "ok"
+
+
+def test_readiness_fails_when_database_cannot_be_opened(tmp_path):
+    app = FastAPI()
+    configure_runtime(app, Settings(cors_origins="", trusted_hosts="", profile_database_path=str(tmp_path)))
+    response = TestClient(app).get("/readyz")
+    assert response.status_code == 503
+    assert response.json()["status"] == "not_ready"
+    assert response.json()["checks"]["profile_database"] == "failed"
 
 
 def test_security_headers_are_added():
@@ -264,3 +293,62 @@ def test_cors_allows_personal_data_deletion_and_exposes_rate_headers():
     )
     assert deletion.status_code == 204
     assert "X-RateLimit-Limit" in deletion.headers["Access-Control-Expose-Headers"]
+
+
+def test_structured_request_log_excludes_query_body_and_credentials(caplog):
+    app = FastAPI()
+
+    @app.post("/api/echo")
+    def echo():
+        return {"ok": True}
+
+    configure_runtime(app, Settings(cors_origins="", trusted_hosts=""))
+    with caplog.at_level(logging.INFO, logger="astroai.request"):
+        response = TestClient(app).post(
+            "/api/echo?birth_place=private",
+            content="private question",
+            headers={"Authorization": "Bearer private-token", "X-Request-ID": "trace-123"},
+        )
+
+    payload = json.loads(caplog.records[-1].message)
+    assert payload["event"] == "request_completed"
+    assert payload["route"] == "/api/echo"
+    assert payload["request_id"] == "trace-123"
+    assert payload["status_code"] == 200
+    assert "private" not in caplog.records[-1].message
+    assert "token" not in caplog.records[-1].message
+
+
+def test_structured_log_uses_route_template_instead_of_record_identifier(caplog):
+    app = FastAPI()
+
+    @app.get("/api/conversations/{conversation_id}")
+    def conversation(conversation_id: str):
+        return {"conversation_id": conversation_id}
+
+    configure_runtime(app, Settings(cors_origins="", trusted_hosts=""))
+    with caplog.at_level(logging.INFO, logger="astroai.request"):
+        response = TestClient(app).get("/api/conversations/private-record-123")
+
+    assert response.status_code == 200
+    payload = json.loads(caplog.records[-1].message)
+    assert payload["route"] == "/api/conversations/{conversation_id}"
+    assert "private-record-123" not in caplog.records[-1].message
+
+
+def test_unhandled_error_is_logged_without_exception_message(caplog):
+    app = FastAPI()
+
+    @app.get("/api/fail")
+    def fail():
+        raise RuntimeError("sensitive birth detail")
+
+    configure_runtime(app, Settings(cors_origins="", trusted_hosts=""))
+    with caplog.at_level(logging.ERROR, logger="astroai.request"):
+        response = TestClient(app, raise_server_exceptions=False).get("/api/fail")
+
+    assert response.status_code == 500
+    payload = json.loads(caplog.records[-1].message)
+    assert payload["event"] == "request_failed"
+    assert payload["error_type"] == "RuntimeError"
+    assert "sensitive birth detail" not in caplog.records[-1].message
