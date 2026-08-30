@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     request_id_header: str = "X-Request-ID"
     max_request_body_bytes: int = Field(default=1_048_576, ge=1, le=10_485_760)
     security_headers_enabled: bool = True
+    rate_limit_enabled: bool = True
+    rate_limit_requests_per_minute: int = Field(default=120, ge=1, le=10_000)
 
     auth_enabled: bool = False
     api_auth_required: bool = False
@@ -76,6 +78,8 @@ class Settings(BaseSettings):
                 raise ValueError("Security headers must be enabled in production.")
             if not self.api_auth_required:
                 raise ValueError("API bearer authentication must be required in production.")
+            if not self.rate_limit_enabled:
+                raise ValueError("API rate limiting must be enabled in production.")
         return self
 
 

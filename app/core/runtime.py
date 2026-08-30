@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import re
-from time import perf_counter
+import asyncio
+from collections import defaultdict, deque
+from time import monotonic, perf_counter
 from uuid import uuid4
 
 from fastapi import FastAPI
@@ -86,14 +88,59 @@ class ApiAccessControlMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
         try:
             token = bearer_token_from_header(request.headers.get("authorization"))
-            decode_bearer_token(token, self.settings)
+            claims = decode_bearer_token(token, self.settings)
         except AuthenticationError as exc:
             return JSONResponse(
                 status_code=401,
                 content={"detail": str(exc)},
                 headers={"WWW-Authenticate": "Bearer"},
             )
+        request.state.auth_subject = str(claims.get("sub") or "").strip()
         return await call_next(request)
+
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    """Bound authenticated API traffic with a per-user sliding window."""
+
+    def __init__(self, app, requests_per_minute: int):
+        super().__init__(app)
+        self.limit = requests_per_minute
+        self.window_seconds = 60.0
+        self._requests: dict[str, deque[float]] = defaultdict(deque)
+        self._lock = asyncio.Lock()
+
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        if request.method == "OPTIONS" or not request.url.path.startswith("/api/"):
+            return await call_next(request)
+
+        subject = getattr(request.state, "auth_subject", "")
+        client_host = request.client.host if request.client else "unknown"
+        key = f"user:{subject}" if subject else f"ip:{client_host}"
+        now = monotonic()
+
+        async with self._lock:
+            bucket = self._requests[key]
+            cutoff = now - self.window_seconds
+            while bucket and bucket[0] <= cutoff:
+                bucket.popleft()
+            if len(bucket) >= self.limit:
+                retry_after = max(1, int(self.window_seconds - (now - bucket[0])) + 1)
+                return JSONResponse(
+                    status_code=429,
+                    content={"detail": "Too many requests. Please try again shortly."},
+                    headers={
+                        "Retry-After": str(retry_after),
+                        "X-RateLimit-Limit": str(self.limit),
+                        "X-RateLimit-Remaining": "0",
+                    },
+                )
+            bucket.append(now)
+            remaining = self.limit - len(bucket)
+
+        response = await call_next(request)
+        response.headers["X-RateLimit-Limit"] = str(self.limit)
+        response.headers["X-RateLimit-Remaining"] = str(remaining)
+        return response
 
 
 def _register_probe_routes(app: FastAPI, settings: Settings) -> None:
@@ -122,6 +169,12 @@ def configure_runtime(app: FastAPI, settings: Settings) -> FastAPI:
     if settings.security_headers_enabled:
         app.add_middleware(SecurityHeadersMiddleware)
 
+    if settings.rate_limit_enabled:
+        app.add_middleware(
+            RateLimitMiddleware,
+            requests_per_minute=settings.rate_limit_requests_per_minute,
+        )
+
     if settings.api_auth_required:
         app.add_middleware(ApiAccessControlMiddleware, settings=settings)
 
@@ -138,9 +191,15 @@ def configure_runtime(app: FastAPI, settings: Settings) -> FastAPI:
             CORSMiddleware,
             allow_origins=origins,
             allow_credentials=True,
-            allow_methods=["GET", "POST", "OPTIONS"],
+            allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
             allow_headers=["Authorization", "Content-Type", settings.request_id_header],
-            expose_headers=[settings.request_id_header, "X-Process-Time-Ms"],
+            expose_headers=[
+                settings.request_id_header,
+                "X-Process-Time-Ms",
+                "X-RateLimit-Limit",
+                "X-RateLimit-Remaining",
+                "Retry-After",
+            ],
         )
 
     return app
