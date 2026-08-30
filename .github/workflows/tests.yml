@@ -39,6 +39,9 @@ jobs:
       - name: Test frontend
         run: npm test
 
+      - name: Check frontend dependency licenses
+        run: npm run licenses:check
+
       - name: Build frontend
         run: npm run build
 

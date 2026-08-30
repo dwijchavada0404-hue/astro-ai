@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "test": "vitest run"
+    "test": "vitest run",
+    "licenses:check": "node scripts/check-licenses.mjs"
   },
   "dependencies": {
     "oidc-client-ts": "^3.3.0",
