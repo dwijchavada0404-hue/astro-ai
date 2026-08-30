@@ -59,6 +59,24 @@ describe("AstroAI frontend foundation", () => {
     await waitFor(() => expect(onCreated).toHaveBeenCalled());
   });
 
+  it("renames a birth profile without changing its birth data", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({}) });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(window, "prompt").mockReturnValue("  Partner's   chart  ");
+    const onCreated = vi.fn().mockResolvedValue(undefined);
+
+    render(<Profiles token="token" onCreated={onCreated} profiles={[
+      { profile_id: "partner", label: "Old label", birth_date: "2001-05-05", birth_time: "09:30:00", place: "Pune", is_default: false },
+    ]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Rename" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/v1/birth-profiles/partner"),
+      expect.objectContaining({ method: "PATCH", body: JSON.stringify({ label: "Partner's chart" }) }),
+    ));
+    await waitFor(() => expect(onCreated).toHaveBeenCalled());
+  });
+
   it("creates a concise conversation title from the first question", () => {
     expect(conversationTitle("  When   will I change my career?  ")).toBe("When will I change my career?");
     expect(conversationTitle("What does my chart suggest about a major international career move during the next three years?")).toHaveLength(50);
