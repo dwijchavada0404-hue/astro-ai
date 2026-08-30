@@ -4,8 +4,15 @@ import { apiRequest, checkHealth, type BirthProfile, type Conversation, type Mes
 import { createAuthRuntime, usableToken } from "./auth";
 
 type View = "chat" | "profiles";
+export type LegalPageId = "privacy" | "terms" | "disclaimer";
 
 export default function App() {
+  const legalPage = legalPageFromPath(window.location.pathname);
+  if (legalPage) return <LegalDocument page={legalPage} />;
+  return <AuthenticatedApp />;
+}
+
+function AuthenticatedApp() {
   const auth = useMemo(createAuthRuntime, []);
   const [user, setUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -107,6 +114,7 @@ function Landing({ authConfigured, backendOnline, error, onSignIn }: {
         <div className="hero-actions">
           <button className="primary" disabled={!authConfigured} onClick={onSignIn}>Begin your reading <span>→</span></button>
           {!authConfigured && <small>Secure sign-in will appear when the staging identity provider is connected.</small>}
+          {authConfigured && <small className="legal-consent">By continuing, you agree to the <a href="/terms">Terms</a> and acknowledge the <a href="/privacy">Privacy Notice</a> and <a href="/disclaimer">Safety Disclaimer</a>.</small>}
         </div>
         {error && <div className="error-banner">{error}</div>}
       </section>
@@ -115,6 +123,7 @@ function Landing({ authConfigured, backendOnline, error, onSignIn }: {
         <article><b>02</b><h3>Context that continues</h3><p>Saved profiles and conversations let follow-up questions build on what came before.</p></article>
         <article><b>03</b><h3>Evidence you can inspect</h3><p>Answers remain linked to chart factors, timing activations and conservative confidence.</p></article>
       </section>
+      <LegalFooter />
     </main>
   );
 }
@@ -307,6 +316,7 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
         <div className="aside-footer">
           <button onClick={() => { setView("profiles"); setMobileNavOpen(false); }}>Birth profiles <span>{profiles.length}</span></button>
           <button onClick={onSignOut}>Sign out</button>
+          <LegalLinks />
         </div>
       </aside>
       <section className="content">
@@ -315,7 +325,7 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
         {view === "profiles" ? <Profiles token={token} profiles={profiles} onCreated={refresh} onDataDeleted={onSignOut} /> : (
           <div className="chat">
             {!activeId ? <EmptyChat profiles={profiles} selectedProfileId={selectedProfileId} onSelectProfile={setSelectedProfileId} onStart={startConversation} onProfiles={() => setView("profiles")} /> : (
-              <><div className="messages">{messages.length === 0 && <div className="prompt"><div className="star">✦</div><h3>What would you like to understand?</h3><p>Your answer will use the saved chart linked to this conversation.</p></div>}{messages.map((item) => <article key={item.message_id} className={`message ${item.role}`}><span>{item.role === "assistant" ? "✦" : "You"}</span><div>{item.content || "No narrative was returned."}{item.domain && <small>{item.domain}</small>}{item.role === "assistant" && item.content && <button className="answer-copy" type="button" aria-label="Copy answer" onClick={() => copyAnswer(item)}>{copiedMessageId === item.message_id ? "Copied" : "Copy"}</button>}</div></article>)}{asking && <article className="message assistant thinking" role="status"><span>✦</span><div>Calculating chart factors and timing<span className="thinking-dots">…</span></div></article>}<div ref={messagesEndRef} /></div><form className="composer" onSubmit={ask}><textarea aria-label="Ask AstroAI" value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={(event) => { if (shouldSubmitQuestion(event.key, event.shiftKey)) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder="Ask about career, marriage, finances, travel…" maxLength={1000} disabled={busy} /><button disabled={busy || !question.trim()}>{busy ? "…" : "↑"}</button></form></>
+              <><div className="messages">{messages.length === 0 && <div className="prompt"><div className="star">✦</div><h3>What would you like to understand?</h3><p>Your answer will use the saved chart linked to this conversation.</p></div>}{messages.map((item) => <article key={item.message_id} className={`message ${item.role}`}><span>{item.role === "assistant" ? "✦" : "You"}</span><div>{item.content || "No narrative was returned."}{item.domain && <small>{item.domain}</small>}{item.role === "assistant" && item.content && <button className="answer-copy" type="button" aria-label="Copy answer" onClick={() => copyAnswer(item)}>{copiedMessageId === item.message_id ? "Copied" : "Copy"}</button>}</div></article>)}{asking && <article className="message assistant thinking" role="status"><span>✦</span><div>Calculating chart factors and timing<span className="thinking-dots">…</span></div></article>}<div ref={messagesEndRef} /></div><form className="composer" onSubmit={ask}><textarea aria-label="Ask AstroAI" value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={(event) => { if (shouldSubmitQuestion(event.key, event.shiftKey)) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder="Ask about career, marriage, finances, travel…" maxLength={1000} disabled={busy} /><button disabled={busy || !question.trim()}>{busy ? "…" : "↑"}</button></form><p className="composer-disclaimer">Astrology is for reflection and entertainment—not medical, legal, financial or other professional advice.</p></>
             )}
           </div>
         )}
@@ -441,6 +451,57 @@ function EmptyChat({ profiles, selectedProfileId, onSelectProfile, onStart, onPr
 }
 
 function Brand() { return <div className="brand"><span>✦</span><strong>ASTRO</strong><b>AI</b></div>; }
+
+const LEGAL_CONTENT: Record<LegalPageId, { title: string; intro: string; sections: { heading: string; body: string }[] }> = {
+  privacy: {
+    title: "Privacy Notice",
+    intro: "This notice explains what AstroAI collects, why it is used, where it is processed, and the choices available to you.",
+    sections: [
+      { heading: "Information we process", body: "We process your identity-provider account identifier and available profile claims, birth-profile details you enter (including date, exact time and place), questions, conversations, and basic technical/security logs needed to operate the service." },
+      { heading: "How we use it", body: "We use this information to authenticate you, calculate charts, answer questions, preserve your profiles and conversation history, secure the service, diagnose faults, and prevent abuse. We do not sell your personal information or use your birth data for advertising." },
+      { heading: "Storage and service providers", body: "Application data is hosted on Railway in the EU region. Authentication is provided by Auth0 in the EU region. These providers process information on AstroAI’s behalf under their respective security and privacy terms. Internet access may involve processing across countries." },
+      { heading: "Retention and deletion", body: "Your application data is retained while your AstroAI account is active. You can permanently delete saved charts, conversations, messages and AstroAI account metadata from Birth profiles → Delete all AstroAI data. Your Auth0 identity is managed separately and may require a separate provider-side request." },
+      { heading: "Your choices and rights", body: "You can review and manage saved profiles and conversations in the app, delete individual eligible records, or delete all AstroAI application data. Depending on applicable law, you may also request access, correction, restriction, portability or objection." },
+      { heading: "Security and children", body: "We use encrypted HTTPS transport, authenticated API access, restricted hosts, request limits and persistent storage controls. No online service is risk-free. AstroAI is intended for adults aged 18 or older and is not directed to children." },
+      { heading: "Questions", body: "For a privacy or data-rights request during staging, contact the project owner through the AstroAI GitHub repository issue channel. We may update this notice as the service changes." },
+    ],
+  },
+  terms: {
+    title: "Terms of Use",
+    intro: "By accessing AstroAI, you agree to these terms. Do not use the service if you do not agree.",
+    sections: [
+      { heading: "Eligibility and account", body: "You must be at least 18 years old and provide accurate information. You are responsible for activity performed through your identity-provider account and for keeping that account secure." },
+      { heading: "Permitted use", body: "AstroAI may be used for lawful personal reflection and entertainment. You must not probe or disrupt the service, bypass access controls or rate limits, automate abusive traffic, misuse another person’s data, or use outputs to harm, discriminate against or deceive anyone." },
+      { heading: "Astrology outputs", body: "Outputs are symbolic interpretations generated from deterministic chart calculations and rule-based synthesis. They are not facts, guarantees or predictions of certain outcomes and must not replace your own judgment or qualified professional advice." },
+      { heading: "Availability and changes", body: "This is a staging service. Features may change, be corrected, suspended or withdrawn, and stored data may be unavailable during maintenance or technical failure. We may update these terms and will publish the revised date." },
+      { heading: "No warranty and limited responsibility", body: "The service is provided on an “as is” and “as available” basis to the extent permitted by law. AstroAI does not warrant accuracy, fitness for a particular purpose or uninterrupted availability, and is not responsible for decisions made in reliance on an output." },
+      { heading: "Suspension", body: "Access may be limited or terminated where necessary to protect users or infrastructure, respond to legal requirements, investigate misuse, or enforce these terms." },
+    ],
+  },
+  disclaimer: {
+    title: "Astrology & Safety Disclaimer",
+    intro: "AstroAI is a reflective astrology tool. Its outputs are not professional advice and should never be treated as certain predictions.",
+    sections: [
+      { heading: "No medical advice", body: "Do not use AstroAI to diagnose symptoms, choose or stop treatment, assess emergencies, pregnancy, fertility, mental health risk, or life expectancy. Consult a qualified healthcare professional. In an emergency, contact local emergency services." },
+      { heading: "No financial or legal advice", body: "Do not use an astrology response as the basis for investments, borrowing, insurance, tax, contracts, litigation or other material financial or legal decisions. Consult an appropriately qualified professional." },
+      { heading: "No guaranteed outcomes", body: "Astrological timings and interpretations are symbolic and uncertain. AstroAI cannot guarantee marriage, employment, wealth, health, travel, legal outcomes, another person’s behavior, or any specific future event." },
+      { heading: "Your responsibility", body: "Use outputs as one optional perspective, verify important information independently, consider real-world evidence and circumstances, and make your own decisions. Avoid entering unnecessary sensitive information in questions." },
+    ],
+  },
+};
+
+export function legalPageFromPath(pathname: string): LegalPageId | null {
+  const page = pathname.replace(/^\/+|\/+$/g, "");
+  return page === "privacy" || page === "terms" || page === "disclaimer" ? page : null;
+}
+
+export function LegalDocument({ page }: { page: LegalPageId }) {
+  const document = LEGAL_CONTENT[page];
+  return <main className="legal-page"><nav className="nav"><a href="/" aria-label="AstroAI home"><Brand /></a><a href="/">Back to AstroAI</a></nav><article><span className="eyebrow">Last updated 30 August 2026</span><h1>{document.title}</h1><p className="legal-intro">{document.intro}</p>{document.sections.map((section) => <section key={section.heading}><h2>{section.heading}</h2><p>{section.body}</p></section>)}</article><LegalFooter /></main>;
+}
+
+function LegalLinks() { return <div className="legal-links"><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/disclaimer">Disclaimer</a></div>; }
+function LegalFooter() { return <footer className="legal-footer"><LegalLinks /><p>© 2026 AstroAI · <a href="https://github.com/dwijchavada0404-hue/astro-ai/issues">Contact</a> · For reflection and entertainment only.</p></footer>; }
 function messageFrom(reason: unknown) { return reason instanceof Error ? reason.message : "Something went wrong."; }
 
 export function conversationTitle(question: string) {
