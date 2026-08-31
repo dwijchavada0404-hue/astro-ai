@@ -43,6 +43,31 @@ def test_profile_sync_and_update(tmp_path):
     assert again.json()["profile"]["display_name"] == "Saved Name"
 
 
+def test_personal_data_export_contains_only_the_authenticated_users_records(tmp_path):
+    app, store = _app(tmp_path)
+    client = TestClient(app)
+    profile = client.post(
+        "/api/v1/birth-profiles",
+        json={"label": "Me", "date": "2000-04-04", "time": "14:04:00", "place": "Mumbai"},
+    ).json()["birth_profile"]
+    conversations = ConversationStoreV1(str(tmp_path / "profiles-api.db"))
+    conversation = conversations.create_conversation("user_1", title="Private history", birth_profile_id=profile["profile_id"])
+    conversations.add_message("user_1", conversation["conversation_id"], role="user", content="Private question")
+    store.upsert_user("other", email="other@example.com", display_name="Other", locale="en-IN", timezone_name="Asia/Kolkata")
+    other_profile = store.create_birth_profile("other", label="Other", birth_date="2001-01-01", birth_time="10:00:00", place="Pune", is_default=True)
+    conversations.create_conversation("other", title="Other history", birth_profile_id=other_profile["profile_id"])
+
+    response = client.get("/api/v1/profile/export")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["export_version"] == 1
+    assert payload["profile"]["user_id"] == "user_1"
+    assert [item["label"] for item in payload["birth_profiles"]] == ["Me"]
+    assert len(payload["conversations"]) == 1
+    assert payload["conversations"][0]["messages"][0]["content"] == "Private question"
+
+
 def test_delete_personal_data_removes_profiles_conversations_and_messages(tmp_path):
     app, store = _app(tmp_path)
     client = TestClient(app)

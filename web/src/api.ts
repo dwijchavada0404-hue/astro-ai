@@ -21,7 +21,7 @@ export type Message = {
   domain?: string | null;
 };
 
-const apiUrl = (
+export const apiUrl = (
   import.meta.env.VITE_ASTROAI_API_URL || "https://astro-ai-production-54a7.up.railway.app"
 ).replace(/\/$/, "");
 
@@ -40,6 +40,17 @@ export async function apiRequest<T>(path: string, token: string, init: RequestIn
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
+}
+
+export async function apiDownload(path: string, token: string): Promise<Blob> {
+  const response = await fetch(`${apiUrl}${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    throw new Error(payload?.detail || `AstroAI request failed (${response.status}).`);
+  }
+  return response.blob();
 }
 
 export async function checkHealth(): Promise<boolean> {
