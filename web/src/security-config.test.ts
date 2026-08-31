@@ -10,7 +10,7 @@ describe("frontend production security", () => {
     expect(headers).toContain("object-src 'none'");
     expect(headers).toContain("frame-ancestors 'none'");
     expect(headers).toContain("https://astro-ai-production-54a7.up.railway.app");
-    expect(headers).toContain("https://astroai-staging.eu.auth0.com");
+    expect(headers).toContain("https://dev-q0zcg4qyan6zsd8w.eu.auth0.com");
     expect(headers).not.toMatch(/script-src[^;]*'unsafe-inline'/);
   });
 
