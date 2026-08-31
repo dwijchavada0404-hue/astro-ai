@@ -1,5 +1,13 @@
 # Astro AI — Milestone 1
 
+Copyright © 2026 Dwij Chavada.
+
+AstroAI is free software licensed under the GNU Affero General Public License
+version 3. You may use, modify and redistribute it under those terms, including
+for commercial purposes. If you operate a modified version over a network, you
+must offer its users the complete corresponding source code. See [LICENSE](LICENSE)
+and [NOTICE](NOTICE).
+
 A Vedic astrology calculation API that converts birth date, time, and place into structured chart JSON.
 
 ## Methodology
@@ -17,7 +25,8 @@ A Vedic astrology calculation API that converts birth date, time, and place into
 
 - Python 3.11+ recommended
 - Internet access for place lookup through OpenStreetMap Nominatim
-- A license compatible with Swiss Ephemeris. `pysweph` is distributed under the Swiss Ephemeris licensing terms; review the license before commercial deployment.
+- Compliance with the repository's AGPL-3.0 license and third-party notices.
+  AstroAI uses the AGPL editions of `pysweph` and Swiss Ephemeris.
 
 ## Windows setup
 
@@ -80,6 +89,10 @@ Invoke-RestMethod `
 ## Important production note
 
 For a commercial application, do not rely on a public Nominatim endpoint for high-volume geocoding. Put a proper geocoding provider behind `app/services/geocoding.py` and cache place lookups.
+
+Every hosted or modified deployment must preserve the AGPL notices and provide
+a prominent link to its complete corresponding source code. A proprietary fork
+requires separately obtaining all necessary commercial third-party licences.
 
 ## Web frontend
 

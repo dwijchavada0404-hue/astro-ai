@@ -1,0 +1,14 @@
+AstroAI
+Copyright (C) 2026 Dwij Chavada
+
+AstroAI is licensed under the GNU Affero General Public License, version 3.
+The complete corresponding source code is available at:
+https://github.com/dwijchavada0404-hue/astro-ai
+
+AstroAI uses pysweph, which is licensed under the GNU Affero General Public
+License, version 3, and incorporates Swiss Ephemeris under its AGPL licensing
+option. Third-party copyright and attribution notices remain the property of
+their respective owners.
+
+pysweph: https://github.com/astrorigin/pyswisseph
+Swiss Ephemeris: https://www.astro.com/swisseph/

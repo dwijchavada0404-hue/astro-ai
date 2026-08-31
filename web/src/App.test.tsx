@@ -21,6 +21,10 @@ describe("AstroAI frontend foundation", () => {
     expect(screen.getByText("Calculated first")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Begin your reading/ })).toBeDisabled();
     expect(screen.getByRole("link", { name: "Privacy" })).toHaveAttribute("href", "/privacy");
+    expect(screen.getByRole("link", { name: "Source (AGPL-3.0)" })).toHaveAttribute(
+      "href",
+      "https://github.com/dwijchavada0404-hue/astro-ai",
+    );
   });
 
   it("maps only supported public legal routes", () => {
@@ -36,6 +40,7 @@ describe("AstroAI frontend foundation", () => {
     expect(screen.getByText(/Railway in the EU region/)).toBeInTheDocument();
     rerender(<LegalDocument page="terms" />);
     expect(screen.getByRole("heading", { name: "Terms of Use" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Free software licence" })).toBeInTheDocument();
     rerender(<LegalDocument page="disclaimer" />);
     expect(screen.getByRole("heading", { name: "Astrology & Safety Disclaimer" })).toBeInTheDocument();
     expect(screen.getByText(/No guaranteed outcomes/)).toBeInTheDocument();

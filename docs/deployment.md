@@ -1,5 +1,14 @@
 # AstroAI deployment V1
 
+## Licence requirement
+
+AstroAI is licensed under AGPL-3.0 and uses the AGPL editions of pysweph and
+Swiss Ephemeris. Every network deployment must preserve the copyright and
+licence notices and offer users the complete corresponding source code for the
+version being operated. Keep the public Source (AGPL-3.0) link pointed at that
+source. Do not operate a proprietary deployment without obtaining the necessary
+commercial third-party licences.
+
 AstroAI ships as a provider-neutral Docker image. The production ASGI entrypoint is `app.asgi:app` and the container listens on `$PORT` (default `8000`).
 
 ## Build and smoke test
