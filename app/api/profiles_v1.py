@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date as Date, time as Time
+from datetime import date as Date, datetime, time as Time, timezone
 from functools import lru_cache
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -79,6 +79,34 @@ def update_profile(
             locale=payload.locale if payload.locale is not None else current.get("locale"),
             timezone_name=payload.timezone if payload.timezone is not None else current.get("timezone"),
         )
+    }
+
+
+@router.get("/profile/export")
+def export_personal_data(
+    user: AuthenticatedUserProfile = Depends(get_current_user),
+    store: ProfileStoreV1 = Depends(_store),
+    conversations: ConversationStoreV1 = Depends(_conversation_store),
+):
+    """Return a portable, user-owned snapshot without exposing other users' data."""
+    profile = _sync_identity(store, user)
+    saved_conversations = conversations.list_conversations(user.user_id, limit=100)
+    return {
+        "export_version": 1,
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "profile": profile,
+        "birth_profiles": store.list_birth_profiles(user.user_id),
+        "conversations": [
+            {
+                **conversation,
+                "messages": conversations.list_messages(
+                    user.user_id,
+                    conversation["conversation_id"],
+                    limit=500,
+                ),
+            }
+            for conversation in saved_conversations
+        ],
     }
 
 

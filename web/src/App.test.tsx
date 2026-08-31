@@ -112,6 +112,26 @@ describe("AstroAI frontend foundation", () => {
     await waitFor(() => expect(onDataDeleted).toHaveBeenCalled());
   });
 
+  it("exports a portable copy of the authenticated user's data", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, blob: async () => new Blob(["{}"], { type: "application/json" }) });
+    vi.stubGlobal("fetch", fetchMock);
+    const createObjectURL = vi.fn().mockReturnValue("blob:astroai-export");
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal("URL", { createObjectURL, revokeObjectURL });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+    render(<Profiles token="token" profiles={[]} onCreated={vi.fn().mockResolvedValue(undefined)} onDataDeleted={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Export my data" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/v1/profile/export"),
+      expect.objectContaining({ headers: { Authorization: "Bearer token" } }),
+    ));
+    expect(createObjectURL).toHaveBeenCalled();
+    expect(click).toHaveBeenCalled();
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:astroai-export");
+  });
+
   it("creates a concise conversation title from the first question", () => {
     expect(conversationTitle("  When   will I change my career?  ")).toBe("When will I change my career?");
     expect(conversationTitle("What does my chart suggest about a major international career move during the next three years?")).toHaveLength(50);

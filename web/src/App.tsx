@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { User } from "oidc-client-ts";
-import { apiRequest, checkHealth, type BirthProfile, type Conversation, type Message } from "./api";
+import { apiDownload, apiRequest, checkHealth, type BirthProfile, type Conversation, type Message } from "./api";
 import { createAuthRuntime, usableToken } from "./auth";
 
 type View = "chat" | "profiles";
@@ -421,6 +421,26 @@ export function Profiles({ token, profiles, onCreated, onDataDeleted }: { token:
     }
   };
 
+  const exportData = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const blob = await apiDownload("/api/v1/profile/export", token);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "astroai-data-export.json";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (reason) {
+      setError(messageFrom(reason));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return <div className="profiles">
     {error && <div className="error-banner">{error}</div>}
     <div className="profile-grid">{profiles.map((profile) => <article key={profile.profile_id}>
@@ -435,7 +455,7 @@ export function Profiles({ token, profiles, onCreated, onDataDeleted }: { token:
       </div>
     </article>)}</div>
     <form className="profile-form" onSubmit={submit}><h3>Add a birth profile</h3><label>Profile name<input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} required /></label><div><label>Birth date<input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} required /></label><label>Exact birth time<input type="time" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} required /></label></div><label>Birth place<input value={form.place} onChange={(e) => setForm({ ...form, place: e.target.value })} placeholder="Borivali, Mumbai" required /></label><button className="primary" disabled={busy}>{busy ? "Saving…" : "Save profile"}</button></form>
-    {onDataDeleted && <section className="danger-zone"><h3>Delete your AstroAI data</h3><p>Permanently remove every saved chart, conversation and message. Your identity-provider login is managed separately.</p><button type="button" onClick={deleteAllData} disabled={busy}>Delete all AstroAI data</button></section>}
+    {onDataDeleted && <section className="danger-zone"><h3>Your AstroAI data</h3><p>Download a portable copy of your saved charts and conversations, or permanently delete them. Your identity-provider login is managed separately.</p><button type="button" onClick={exportData} disabled={busy}>Export my data</button><button type="button" onClick={deleteAllData} disabled={busy}>Delete all AstroAI data</button></section>}
   </div>;
 }
 
