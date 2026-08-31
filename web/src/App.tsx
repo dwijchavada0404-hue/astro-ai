@@ -496,6 +496,7 @@ const LEGAL_CONTENT: Record<LegalPageId, { title: string; intro: string; section
       { heading: "Availability and changes", body: "This is a staging service. Features may change, be corrected, suspended or withdrawn, and stored data may be unavailable during maintenance or technical failure. We may update these terms and will publish the revised date." },
       { heading: "No warranty and limited responsibility", body: "The service is provided on an “as is” and “as available” basis to the extent permitted by law. AstroAI does not warrant accuracy, fitness for a particular purpose or uninterrupted availability, and is not responsible for decisions made in reliance on an output." },
       { heading: "Suspension", body: "Access may be limited or terminated where necessary to protect users or infrastructure, respond to legal requirements, investigate misuse, or enforce these terms." },
+      { heading: "Free software licence", body: "AstroAI is free software provided under the GNU Affero General Public License version 3. The complete corresponding source code is available through the Source link on this page. You may use, study, modify and redistribute the software subject to that licence." },
     ],
   },
   disclaimer: {
@@ -520,7 +521,7 @@ export function LegalDocument({ page }: { page: LegalPageId }) {
   return <main className="legal-page"><nav className="nav"><a href="/" aria-label="AstroAI home"><Brand /></a><a href="/">Back to AstroAI</a></nav><article><span className="eyebrow">Last updated 30 August 2026</span><h1>{document.title}</h1><p className="legal-intro">{document.intro}</p>{document.sections.map((section) => <section key={section.heading}><h2>{section.heading}</h2><p>{section.body}</p></section>)}</article><LegalFooter /></main>;
 }
 
-function LegalLinks() { return <div className="legal-links"><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/disclaimer">Disclaimer</a></div>; }
+function LegalLinks() { return <div className="legal-links"><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/disclaimer">Disclaimer</a><a href="https://github.com/dwijchavada0404-hue/astro-ai">Source (AGPL-3.0)</a></div>; }
 function LegalFooter() { return <footer className="legal-footer"><LegalLinks /><p>© 2026 AstroAI · <a href="https://github.com/dwijchavada0404-hue/astro-ai/issues">Contact</a> · For reflection and entertainment only.</p></footer>; }
 function messageFrom(reason: unknown) { return reason instanceof Error ? reason.message : "Something went wrong."; }
 
