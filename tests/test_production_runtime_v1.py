@@ -160,6 +160,26 @@ def test_runtime_updates_metadata_and_adds_security_middleware():
     assert any(cls.__name__ == "CORSMiddleware" for cls in middleware_classes)
 
 
+def test_runtime_allows_patch_preflight_for_hosted_client_updates():
+    app = FastAPI()
+    configure_runtime(
+        app,
+        Settings(
+            cors_origins="https://app.example.com",
+            trusted_hosts="api.example.com",
+        ),
+    )
+    response = TestClient(app).options(
+        "/api/v1/conversations/example",
+        headers={
+            "Origin": "https://app.example.com",
+            "Access-Control-Request-Method": "PATCH",
+        },
+    )
+    assert response.status_code == 200
+    assert "PATCH" in response.headers["access-control-allow-methods"]
+
+
 def test_runtime_registers_api_access_control_when_required():
     app = FastAPI()
     configure_runtime(

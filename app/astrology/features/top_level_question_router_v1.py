@@ -131,7 +131,23 @@ def route_top_level_question_v1(
             life_context,
         )
 
-    domain, understanding = min(matches, key=lambda item: DOMAIN_ORDER.index(item[0]))
+    # The marriage parser deliberately provides a broad ``general_marriage``
+    # fallback for its dedicated endpoint.  It must not win top-level routing
+    # merely because it is earlier in DOMAIN_ORDER when another domain has
+    # explicit evidence (for example, a question containing "career").
+    explicit_matches = [
+        item
+        for item in matches
+        if not (
+            item[0] == "marriage"
+            and item[1].get("primary_event") == "general_marriage"
+            and not item[1].get("detected_events")
+        )
+    ]
+    domain, understanding = min(
+        explicit_matches or matches,
+        key=lambda item: DOMAIN_ORDER.index(item[0]),
+    )
     if domain == "marriage":
         result = route_marriage_question_v3(chart, understanding, reference_moment)
     elif domain == "career":

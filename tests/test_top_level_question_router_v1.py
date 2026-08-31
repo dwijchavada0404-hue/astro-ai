@@ -144,6 +144,26 @@ def test_career_precedence_beats_health_routine_overlap(monkeypatch):
     assert result["domain"] == "career"
 
 
+def test_explicit_career_question_beats_generic_marriage_fallback(monkeypatch):
+    _disable_all(monkeypatch)
+    monkeypatch.setattr(
+        module,
+        "analyze_marriage_question_v3",
+        lambda q: {"available": True, "primary_event": "general_marriage", "detected_events": []},
+    )
+    monkeypatch.setattr(module, "analyze_career_question_v1", lambda q: {"available": True})
+    monkeypatch.setattr(
+        module,
+        "route_career_question_v1",
+        lambda c, q, m: {"available": True, "event": "career", "answer": "career answer"},
+    )
+
+    result = module.route_top_level_question_v1({}, "What general career themes does this chart show?", NOW)
+
+    assert result["domain"] == "career"
+    assert result["answer"] == "career answer"
+
+
 def test_unsupported_question_stays_unsupported(monkeypatch):
     _disable_all(monkeypatch)
     result = module.route_top_level_question_v1({}, "What colour should I paint my desk?", NOW)
