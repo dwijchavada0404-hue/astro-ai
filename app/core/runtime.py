@@ -290,7 +290,11 @@ def configure_runtime(app: FastAPI, settings: Settings) -> FastAPI:
             CORSMiddleware,
             allow_origins=origins,
             allow_credentials=True,
-            allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+            # The browser client updates saved conversation/profile metadata with
+            # PATCH.  Keep the preflight allow-list aligned with the public API
+            # methods so a successful server route is reachable from the hosted
+            # web app as well as from same-origin test clients.
+            allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
             allow_headers=["Authorization", "Content-Type", settings.request_id_header],
             expose_headers=[
                 settings.request_id_header,
