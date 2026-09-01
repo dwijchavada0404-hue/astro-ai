@@ -40,7 +40,7 @@ Set these environment variables explicitly in the hosting platform:
 - `ASTROAI_SLOW_REQUEST_THRESHOLD_MS=2000`
 - `ASTROAI_TRUSTED_HOSTS=<api-hostname>,127.0.0.1,localhost`
 - `ASTROAI_CORS_ORIGINS=<frontend-origin>`
-- `ASTROAI_PROFILE_DATABASE_PATH=/data/astroai_profiles.db`
+- `ASTROAI_DATABASE_URL=<managed PostgreSQL connection URL>` for hosted shared storage, or `ASTROAI_PROFILE_DATABASE_PATH=/data/astroai_profiles.db` for a mounted SQLite volume
 - `ASTROAI_AUTH_ENABLED=true`
 - `ASTROAI_API_AUTH_REQUIRED=true`
 - `ASTROAI_AUTH_JWT_SECRET=<random secret of at least 32 characters>`
@@ -67,18 +67,25 @@ where Railway or another hosting provider can collect and search it. Logs includ
 the request ID, method, route template, status, duration and environment. Query strings,
 request bodies, authorization headers, token subjects and exception messages are
 deliberately excluded so birth details, record identifiers and user questions are not copied into logs.
-`/readyz` also verifies that the configured SQLite database can be opened and
-queried; it returns HTTP 503 when storage is unavailable.
+`/readyz` also verifies that the configured SQLite or PostgreSQL database can
+be opened and queried; it returns HTTP 503 when storage is unavailable.
 
 ## Persistent storage
 
-The V1 profile and conversation repositories use SQLite. Production must mount durable storage at `/data` (or set `ASTROAI_PROFILE_DATABASE_PATH` to another persistent mount). An ephemeral container filesystem will lose users, birth profiles, and conversation history when the instance is replaced.
+The V1 profile and conversation repositories support SQLite and PostgreSQL.
+Production must either mount durable SQLite storage at `/data` (or set
+`ASTROAI_PROFILE_DATABASE_PATH` to another persistent mount), or set
+`ASTROAI_DATABASE_URL` to a managed PostgreSQL connection URL. An ephemeral
+container filesystem will lose users, birth profiles, and conversation history
+when the instance is replaced.
 
 The container starts with a minimal root entrypoint solely to repair ownership
 of Railway's mounted `/data` directory, then uses `gosu` to run Uvicorn as the
 unprivileged `astroai` user. The application server itself never runs as root.
 
-Run only **one application replica** while SQLite is the persistence backend. Horizontal scaling should wait until the repository layer is migrated to a shared database such as PostgreSQL.
+Run only **one application replica** while SQLite is the persistence backend.
+PostgreSQL is the supported shared-store option for a future multi-instance
+deployment.
 
 ## Reverse proxy / TLS
 

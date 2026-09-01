@@ -1,43 +1,26 @@
 from __future__ import annotations
 
-import sqlite3
-from contextlib import contextmanager
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 from uuid import uuid4
+
+from app.storage.database_v1 import DatabaseConnectionV1, connect_database
 
 
 SCHEMA_VERSION = 1
 
 
 class ProfileStoreV1:
-    """Durable SQLite repository for authenticated user metadata and owned birth profiles."""
+    """Durable SQLite/PostgreSQL repository for users and owned birth profiles."""
 
     def __init__(self, database_path: str) -> None:
         if not isinstance(database_path, str) or not database_path.strip():
             raise ValueError("database_path must not be empty.")
         self.database_path = database_path
-        if database_path != ":memory:":
-            Path(database_path).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
         self.initialize()
 
-    @contextmanager
-    def _connect(self) -> Iterator[sqlite3.Connection]:
-        connection = sqlite3.connect(self.database_path, timeout=10)
-        connection.row_factory = sqlite3.Row
-        connection.execute("PRAGMA foreign_keys = ON")
-        connection.execute("PRAGMA busy_timeout = 10000")
-        if self.database_path != ":memory:":
-            connection.execute("PRAGMA journal_mode = WAL")
-        try:
-            yield connection
-            connection.commit()
-        except Exception:
-            connection.rollback()
-            raise
-        finally:
-            connection.close()
+    def _connect(self):
+        return connect_database(self.database_path)
 
     def initialize(self) -> None:
         with self._connect() as db:
@@ -101,11 +84,11 @@ class ProfileStoreV1:
         return datetime.now(timezone.utc).isoformat()
 
     @staticmethod
-    def _row(row: sqlite3.Row | None) -> dict[str, Any] | None:
+    def _row(row: Any | None) -> dict[str, Any] | None:
         return dict(row) if row is not None else None
 
     @classmethod
-    def _repair_all_defaults(cls, db: sqlite3.Connection) -> None:
+    def _repair_all_defaults(cls, db: DatabaseConnectionV1) -> None:
         user_rows = db.execute("SELECT DISTINCT user_id FROM birth_profiles").fetchall()
         for row in user_rows:
             cls._ensure_one_default(db, str(row["user_id"]))
@@ -113,7 +96,7 @@ class ProfileStoreV1:
     @classmethod
     def _ensure_one_default(
         cls,
-        db: sqlite3.Connection,
+        db: DatabaseConnectionV1,
         user_id: str,
         *,
         exclude_profile_id: str | None = None,
@@ -198,9 +181,11 @@ class ProfileStoreV1:
             owner = db.execute("SELECT 1 FROM user_profiles WHERE user_id=?", (user_id,)).fetchone()
             if owner is None:
                 raise ValueError("user profile must exist before creating a birth profile.")
-            existing_count = int(
-                db.execute("SELECT COUNT(*) FROM birth_profiles WHERE user_id=?", (user_id,)).fetchone()[0]
-            )
+            count_row = db.execute(
+                "SELECT COUNT(*) AS profile_count FROM birth_profiles WHERE user_id=?",
+                (user_id,),
+            ).fetchone()
+            existing_count = int(count_row["profile_count"])
             make_default = bool(is_default or existing_count == 0)
             if make_default:
                 db.execute(

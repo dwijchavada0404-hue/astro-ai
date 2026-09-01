@@ -40,7 +40,12 @@ class Settings(BaseSettings):
     ] = "HS256"
     auth_jwt_issuer: str = "astroai"
     auth_jwt_audience: str = "astroai-api"
+    database_url: str = ""
     profile_database_path: str = "data/astroai_profiles.db"
+
+    @property
+    def database_target(self) -> str:
+        return self.database_url.strip() or self.profile_database_path
 
     @property
     def cors_origin_list(self) -> list[str]:
@@ -52,8 +57,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_production_safety(self) -> "Settings":
-        if not self.profile_database_path.strip():
-            raise ValueError("ASTROAI_PROFILE_DATABASE_PATH must not be empty.")
+        if not self.database_target.strip():
+            raise ValueError("ASTROAI_DATABASE_URL or ASTROAI_PROFILE_DATABASE_PATH must not be empty.")
         if self.auth_enabled:
             uses_jwks = bool(self.auth_jwks_url.strip())
             uses_symmetric_algorithm = self.auth_jwt_algorithm.startswith("HS")

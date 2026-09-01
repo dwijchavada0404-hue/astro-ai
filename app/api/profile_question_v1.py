@@ -26,7 +26,7 @@ class SavedProfileQuestionV1Request(BaseModel):
 
 
 def _store(settings: Settings = Depends(get_settings)) -> ProfileStoreV1:
-    return ProfileStoreV1(settings.profile_database_path)
+    return ProfileStoreV1(settings.database_target)
 
 
 def _effective_life_context(payload: SavedProfileQuestionV1Request) -> dict | None:
