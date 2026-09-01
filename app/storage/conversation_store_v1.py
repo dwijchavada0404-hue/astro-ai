@@ -1,38 +1,24 @@
 from __future__ import annotations
 
 import json
-import sqlite3
-from contextlib import contextmanager
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 from uuid import uuid4
+
+from app.storage.database_v1 import connect_database
 
 
 class ConversationStoreV1:
-    """Durable, user-owned conversation/message repository backed by SQLite."""
+    """Durable, user-owned conversation repository backed by SQLite or PostgreSQL."""
 
     def __init__(self, database_path: str) -> None:
         if not isinstance(database_path, str) or not database_path.strip():
             raise ValueError("database_path must not be empty.")
         self.database_path = database_path
-        if database_path != ":memory:":
-            Path(database_path).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
         self.initialize()
 
-    @contextmanager
-    def _connect(self) -> Iterator[sqlite3.Connection]:
-        connection = sqlite3.connect(self.database_path, timeout=10)
-        connection.row_factory = sqlite3.Row
-        connection.execute("PRAGMA foreign_keys = ON")
-        try:
-            yield connection
-            connection.commit()
-        except Exception:
-            connection.rollback()
-            raise
-        finally:
-            connection.close()
+    def _connect(self):
+        return connect_database(self.database_path)
 
     @staticmethod
     def _now() -> str:
@@ -87,14 +73,14 @@ class ConversationStoreV1:
             return None
         return json.dumps(value, ensure_ascii=False, separators=(",", ":"), default=str)
 
-    def _conversation(self, row: sqlite3.Row | None) -> dict[str, Any] | None:
+    def _conversation(self, row: Any | None) -> dict[str, Any] | None:
         if row is None:
             return None
         value = dict(row)
         value["life_context"] = self._loads(value.pop("life_context_json", None))
         return value
 
-    def _message(self, row: sqlite3.Row) -> dict[str, Any]:
+    def _message(self, row: Any) -> dict[str, Any]:
         value = dict(row)
         value["payload"] = self._loads(value.pop("payload_json", None))
         return value

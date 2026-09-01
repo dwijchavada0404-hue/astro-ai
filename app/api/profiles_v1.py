@@ -38,11 +38,11 @@ class BirthProfileUpdate(BaseModel):
 
 
 def _store(settings: Settings = Depends(get_settings)) -> ProfileStoreV1:
-    return ProfileStoreV1(settings.profile_database_path)
+    return ProfileStoreV1(settings.database_target)
 
 
 def _conversation_store(settings: Settings = Depends(get_settings)) -> ConversationStoreV1:
-    return ConversationStoreV1(settings.profile_database_path)
+    return ConversationStoreV1(settings.database_target)
 
 
 def _sync_identity(store: ProfileStoreV1, user: AuthenticatedUserProfile) -> dict:

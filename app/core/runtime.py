@@ -4,9 +4,7 @@ import re
 import asyncio
 import json
 import logging
-import sqlite3
 from collections import defaultdict, deque
-from pathlib import Path
 from time import monotonic, perf_counter
 from uuid import uuid4
 
@@ -18,6 +16,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from app.core.settings import Settings
+from app.storage.database_v1 import connect_database
 from app.core.auth_tokens import (
     AuthenticationError,
     bearer_token_from_header,
@@ -228,7 +227,7 @@ def _register_probe_routes(app: FastAPI, settings: Settings) -> None:
 
     if "/readyz" not in route_paths:
         async def readyz() -> Response:
-            storage_ready = _database_ready(settings.profile_database_path)
+            storage_ready = _database_ready(settings.database_target)
             payload = {
                 "status": "ready" if storage_ready else "not_ready",
                 "environment": settings.environment,
@@ -238,15 +237,13 @@ def _register_probe_routes(app: FastAPI, settings: Settings) -> None:
         app.add_api_route("/readyz", readyz, methods=["GET"], include_in_schema=False)
 
 
-def _database_ready(database_path: str) -> bool:
-    """Verify that the configured SQLite store can be opened and queried."""
+def _database_ready(database_target: str) -> bool:
+    """Verify that the configured SQLite or PostgreSQL store is queryable."""
     try:
-        path = Path(database_path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with sqlite3.connect(path, timeout=1) as database:
-            database.execute("SELECT name FROM sqlite_master LIMIT 1").fetchone()
+        with connect_database(database_target) as database:
+            database.execute("SELECT 1 AS ready").fetchone()
         return True
-    except (OSError, sqlite3.Error):
+    except Exception:
         return False
 
 

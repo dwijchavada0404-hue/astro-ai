@@ -34,11 +34,11 @@ class ConversationQuestion(BaseModel):
 
 
 def _conversation_store(settings: Settings = Depends(get_settings)) -> ConversationStoreV1:
-    return ConversationStoreV1(settings.profile_database_path)
+    return ConversationStoreV1(settings.database_target)
 
 
 def _profile_store(settings: Settings = Depends(get_settings)) -> ProfileStoreV1:
-    return ProfileStoreV1(settings.profile_database_path)
+    return ProfileStoreV1(settings.database_target)
 
 
 def _ensure_birth_profile_owned(store: ProfileStoreV1, user_id: str, birth_profile_id: str | None) -> dict | None:
