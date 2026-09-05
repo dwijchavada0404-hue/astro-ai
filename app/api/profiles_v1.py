@@ -168,6 +168,7 @@ def update_birth_profile(
     payload: BirthProfileUpdate,
     user: AuthenticatedUserProfile = Depends(get_current_user),
     store: ProfileStoreV1 = Depends(_store),
+    conversations: ConversationStoreV1 = Depends(_conversation_store),
 ):
     raw = payload.model_dump(exclude_unset=True)
     changes = {
@@ -178,6 +179,11 @@ def update_birth_profile(
         "is_default": raw.get("is_default"),
     }
     changes = {key: value for key, value in changes.items() if value is not None}
+    if {"birth_date", "birth_time", "place"} & changes.keys() and conversations.has_birth_profile_references(user.user_id, profile_id):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Create a new birth profile to change birth details used by existing conversations.",
+        )
     profile = store.update_birth_profile(user.user_id, profile_id, changes)
     if profile is None:
         raise HTTPException(status_code=404, detail="Birth profile not found.")
