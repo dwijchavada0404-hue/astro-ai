@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { User } from "oidc-client-ts";
 import { apiDownload, apiRequest, checkHealth, type BirthProfile, type Conversation, type Message } from "./api";
 import { createAuthRuntime, usableToken } from "./auth";
+import { parseAstroAiBackup } from "./backup";
 
 type View = "chat" | "profiles";
 export type LegalPageId = "privacy" | "terms" | "disclaimer";
@@ -370,6 +371,7 @@ export function Profiles({ token, profiles, onCreated, onDataDeleted }: { token:
   const [form, setForm] = useState({ label: "My chart", date: "", time: "", place: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [restoreNotice, setRestoreNotice] = useState("");
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -506,8 +508,36 @@ export function Profiles({ token, profiles, onCreated, onDataDeleted }: { token:
     }
   };
 
+  const importData = async (event: FormEvent<HTMLInputElement>) => {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    if (!file) return;
+    setError("");
+    setRestoreNotice("");
+    try {
+      const backup = parseAstroAiBackup(await file.text());
+      const profileCount = Array.isArray(backup.birth_profiles) ? backup.birth_profiles.length : 0;
+      const conversationCount = Array.isArray(backup.conversations) ? backup.conversations.length : 0;
+      if (!window.confirm(`Restore ${profileCount} birth profile${profileCount === 1 ? "" : "s"} and ${conversationCount} conversation${conversationCount === 1 ? "" : "s"} from this backup? Existing AstroAI data will be kept.`)) return;
+      setBusy(true);
+      const data = await apiRequest<{ imported: { birth_profiles: number; conversations: number; messages: number; unlinked_conversations: number } }>("/api/v1/profile/import", token, {
+        method: "POST",
+        body: JSON.stringify(backup),
+      });
+      await onCreated();
+      const imported = data.imported;
+      setRestoreNotice(`Restored ${imported.birth_profiles} birth profile${imported.birth_profiles === 1 ? "" : "s"}, ${imported.conversations} conversation${imported.conversations === 1 ? "" : "s"}, and ${imported.messages} message${imported.messages === 1 ? "" : "s"}.${imported.unlinked_conversations ? ` ${imported.unlinked_conversations} conversation${imported.unlinked_conversations === 1 ? "" : "s"} could not be linked to a restored birth profile.` : ""}`);
+    } catch (reason) {
+      setError(messageFrom(reason));
+    } finally {
+      setBusy(false);
+      input.value = "";
+    }
+  };
+
   return <div className="profiles">
     {error && <div className="error-banner">{error}</div>}
+    {restoreNotice && <div className="restore-notice" role="status">{restoreNotice}</div>}
     <div className="profile-grid">{profiles.map((profile) => <article key={profile.profile_id}>
       <span>{profile.is_default ? "Default" : "Saved"}</span>
       <h3>{profile.label}</h3>
@@ -521,7 +551,7 @@ export function Profiles({ token, profiles, onCreated, onDataDeleted }: { token:
       </div>
     </article>)}</div>
     <form className="profile-form" onSubmit={submit}><h3>Add a birth profile</h3><label>Profile name<input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} required /></label><div><label>Birth date<input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} required /></label><label>Exact birth time<input type="time" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} required /></label></div><label>Birth place<input value={form.place} onChange={(e) => setForm({ ...form, place: e.target.value })} placeholder="Borivali, Mumbai" required /></label><button className="primary" disabled={busy}>{busy ? "Saving…" : "Save profile"}</button></form>
-    {onDataDeleted && <section className="danger-zone"><h3>Your AstroAI data</h3><p>Download a portable copy of your saved charts and conversations, or permanently delete them. Your identity-provider login is managed separately.</p><button type="button" onClick={exportData} disabled={busy}>Export my data</button><button type="button" onClick={deleteAllData} disabled={busy}>Delete all AstroAI data</button></section>}
+    {onDataDeleted && <section className="danger-zone"><h3>Your AstroAI data</h3><p>Download a portable copy of your saved charts and conversations, restore a previous AstroAI export without overwriting current data, or permanently delete your application data. Your identity-provider login is managed separately.</p><div className="data-actions"><button type="button" onClick={exportData} disabled={busy}>Export my data</button><label className={busy ? "restore-upload disabled" : "restore-upload"}>Restore backup<input type="file" accept="application/json,.json" onInput={importData} disabled={busy} /></label><button type="button" onClick={deleteAllData} disabled={busy}>Delete all AstroAI data</button></div></section>}
   </div>;
 }
 
