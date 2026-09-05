@@ -8,7 +8,7 @@ export type LegalPageId = "privacy" | "terms" | "disclaimer";
 
 export function evidenceLabels(payload: unknown): string[] {
   const value = payload && typeof payload === "object" ? payload as Record<string, unknown> : {};
-  const result = value.result && typeof value.result === "object" ? result as Record<string, unknown> : value;
+  const result = value.result && typeof value.result === "object" ? value.result as Record<string, unknown> : value;
   const evidence = Array.isArray(result.evidence) ? result.evidence : Array.isArray(result.indicators) ? result.indicators : [];
   return evidence.map((item) => {
     if (typeof item === "string") return item;
