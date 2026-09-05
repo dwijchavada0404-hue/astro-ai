@@ -271,4 +271,23 @@ describe("AstroAI frontend foundation", () => {
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(answer.content));
     expect(screen.getByRole("button", { name: "Copy answer" })).toHaveTextContent("Copied");
   });
+  it("adds a guided question starter to an empty conversation", async () => {
+    const profile = { profile_id: "mine", label: "My chart", birth_date: "2000-04-04", birth_time: "14:04:00", place: "Mumbai", is_default: true };
+    const conversation = { conversation_id: "chat-1", title: "New conversation", birth_profile_id: "mine" };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ birth_profiles: [profile] }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ conversations: [conversation] }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ conversation, messages: [] }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Workspace token="token" user={{ profile: { name: "Dwij" } } as User} onSignOut={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "New conversation" }));
+    const starter = await screen.findByRole("button", { name: /career direction over the next year/i });
+    fireEvent.click(starter);
+
+    expect(screen.getByRole("textbox", { name: "Ask AstroAI" })).toHaveValue(
+      "What does my chart suggest about my career direction over the next year?",
+    );
+  });
+
 });
