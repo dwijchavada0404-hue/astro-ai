@@ -1,5 +1,7 @@
+from functools import lru_cache
 from typing import Any
 
+from geopy.exc import GeocoderServiceError, GeocoderTimedOut, GeocoderUnavailable
 from geopy.geocoders import Nominatim
 from timezonefinder import TimezoneFinder
 
@@ -9,13 +11,29 @@ _tzf = TimezoneFinder()
 
 
 def resolve_place(place: str) -> dict[str, Any]:
-    location = _geocoder.geocode(
-        place,
-        exactly_one=True,
-        addressdetails=True,
-        language="en",
-        timeout=10,
-    )
+    """Resolve a birth place without leaking provider failures to API callers."""
+
+    normalized_place = place.strip()
+    if not normalized_place:
+        raise ValueError("Birth place must not be empty.")
+
+    return _resolve_normalized_place(normalized_place)
+
+
+@lru_cache(maxsize=1_024)
+def _resolve_normalized_place(place: str) -> dict[str, Any]:
+    try:
+        location = _geocoder.geocode(
+            place,
+            exactly_one=True,
+            addressdetails=True,
+            language="en",
+            timeout=10,
+        )
+    except (GeocoderTimedOut, GeocoderUnavailable, GeocoderServiceError) as exc:
+        raise ValueError(
+            "Birth-place lookup is temporarily unavailable. Please try again in a moment."
+        ) from exc
 
     if location is None:
         raise ValueError(f"Could not find birth place: {place}")
@@ -24,7 +42,7 @@ def resolve_place(place: str) -> dict[str, Any]:
     longitude = float(location.longitude)
     timezone_name = _tzf.timezone_at(
         lat=latitude,
-        lng=longitude
+        lng=longitude,
     )
 
     if not timezone_name:
