@@ -19,6 +19,7 @@ export type Message = {
   role: "user" | "assistant";
   content: string | null;
   domain?: string | null;
+  payload?: unknown;
 };
 
 export const apiUrl = (
