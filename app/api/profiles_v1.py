@@ -37,6 +37,10 @@ class BirthProfileUpdate(BaseModel):
     is_default: bool | None = None
 
 
+class BirthProfileDuplicate(BaseModel):
+    label: str | None = Field(default=None, min_length=1, max_length=80)
+
+
 def _store(settings: Settings = Depends(get_settings)) -> ProfileStoreV1:
     return ProfileStoreV1(settings.database_target)
 
@@ -159,6 +163,30 @@ def get_birth_profile(
     profile = store.get_birth_profile(user.user_id, profile_id)
     if profile is None:
         raise HTTPException(status_code=404, detail="Birth profile not found.")
+    return {"birth_profile": profile}
+
+
+@router.post("/birth-profiles/{profile_id}/duplicate", status_code=status.HTTP_201_CREATED)
+def duplicate_birth_profile(
+    profile_id: str,
+    payload: BirthProfileDuplicate,
+    user: AuthenticatedUserProfile = Depends(get_current_user),
+    store: ProfileStoreV1 = Depends(_store),
+):
+    """Create an independent copy so corrected birth details never rewrite historic chats."""
+    source = store.get_birth_profile(user.user_id, profile_id)
+    if source is None:
+        raise HTTPException(status_code=404, detail="Birth profile not found.")
+    requested_label = payload.label.strip() if payload.label is not None else ""
+    label = requested_label or f"{source['label'][:73].rstrip()} copy"
+    profile = store.create_birth_profile(
+        user.user_id,
+        label=label,
+        birth_date=source["birth_date"],
+        birth_time=source["birth_time"],
+        place=source["place"],
+        is_default=False,
+    )
     return {"birth_profile": profile}
 
 
