@@ -18,6 +18,12 @@ export function evidenceLabels(payload: unknown): string[] {
   }).filter((item): item is string => Boolean(item)).slice(0, 5);
 }
 
+export function filterConversations(conversations: Conversation[], query: string): Conversation[] {
+  const clean = query.trim().replace(/\s+/g, " ").toLocaleLowerCase();
+  if (!clean) return conversations;
+  return conversations.filter((conversation) => conversation.title.toLocaleLowerCase().includes(clean));
+}
+
 export const STARTER_QUESTIONS = [
   "What does my chart suggest about my career direction over the next year?",
   "What relationship patterns are most important for me to understand?",
@@ -155,6 +161,7 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
   const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState("");
   const [selectedProfileId, setSelectedProfileId] = useState("");
+  const [conversationSearch, setConversationSearch] = useState("");
   const [busy, setBusy] = useState(false);
   const [asking, setAsking] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
@@ -321,6 +328,7 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
 
   const activeConversation = conversations.find((item) => item.conversation_id === activeId);
   const activeProfile = profiles.find((item) => item.profile_id === activeConversation?.birth_profile_id);
+  const visibleConversations = useMemo(() => filterConversations(conversations, conversationSearch), [conversations, conversationSearch]);
 
   return (
     <main className="workspace">
@@ -328,12 +336,14 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
       <aside id="workspace-navigation" aria-label="Workspace navigation" className={mobileNavOpen ? "mobile-open" : ""}>
         <div className="aside-heading"><Brand /><button className="nav-close" aria-label="Close navigation" onClick={() => setMobileNavOpen(false)}>×</button></div>
         <button className="new-chat" onClick={prepareConversation} disabled={busy}>＋ New conversation</button>
+        <input className="new-chat" type="search" aria-label="Search conversations" placeholder="Search conversations…" value={conversationSearch} onChange={(event) => setConversationSearch(event.target.value)} />
         <div className="conversation-list">
-          {conversations.map((item) => <div key={item.conversation_id} className={item.conversation_id === activeId ? "conversation-row active" : "conversation-row"}>
+          {visibleConversations.map((item) => <div key={item.conversation_id} className={item.conversation_id === activeId ? "conversation-row active" : "conversation-row"}>
             <button className="conversation-open" onClick={() => openConversation(item.conversation_id)}>{item.title}</button>
             <button className="conversation-rename" aria-label={`Rename ${item.title}`} title="Rename conversation" onClick={() => renameConversation(item)} disabled={busy}>✎</button>
             <button className="conversation-delete" aria-label={`Delete ${item.title}`} onClick={() => deleteConversation(item)} disabled={busy}>×</button>
           </div>)}
+          {conversationSearch.trim() && visibleConversations.length === 0 && <div className="status">No matching conversations</div>}
         </div>
         <div className="aside-footer">
           <button onClick={() => { setView("profiles"); setMobileNavOpen(false); }}>Birth profiles <span>{profiles.length}</span></button>
