@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date as Date, datetime, time as Time, timezone
 from functools import lru_cache
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
@@ -39,6 +40,38 @@ class BirthProfileUpdate(BaseModel):
 
 class BirthProfileDuplicate(BaseModel):
     label: str | None = Field(default=None, min_length=1, max_length=80)
+
+
+class BackupBirthProfileV1(BaseModel):
+    profile_id: str | None = None
+    label: str = Field(min_length=1, max_length=80)
+    birth_date: Date
+    birth_time: Time
+    place: str = Field(min_length=2, max_length=200)
+    is_default: bool = False
+
+
+class BackupMessageV1(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str | None = None
+    domain: str | None = Field(default=None, max_length=80)
+    route: str | None = Field(default=None, max_length=120)
+    reference_moment: str | None = Field(default=None, max_length=100)
+    payload: dict[str, Any] | None = None
+
+
+class BackupConversationV1(BaseModel):
+    conversation_id: str | None = None
+    title: str = Field(min_length=1, max_length=120)
+    birth_profile_id: str | None = None
+    life_context: dict[str, Any] | None = None
+    messages: list[BackupMessageV1] = Field(default_factory=list, max_length=500)
+
+
+class ProfileImportV1(BaseModel):
+    export_version: int
+    birth_profiles: list[BackupBirthProfileV1] = Field(default_factory=list, max_length=100)
+    conversations: list[BackupConversationV1] = Field(default_factory=list, max_length=100)
 
 
 def _store(settings: Settings = Depends(get_settings)) -> ProfileStoreV1:
@@ -111,6 +144,71 @@ def export_personal_data(
             }
             for conversation in saved_conversations
         ],
+    }
+
+
+@router.post("/profile/import", status_code=status.HTTP_201_CREATED)
+def import_personal_data(
+    payload: ProfileImportV1,
+    user: AuthenticatedUserProfile = Depends(get_current_user),
+    store: ProfileStoreV1 = Depends(_store),
+    conversations: ConversationStoreV1 = Depends(_conversation_store),
+):
+    """Add a portable v1 backup to the current account without overwriting existing records."""
+    if payload.export_version != 1:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported AstroAI export version.")
+
+    _sync_identity(store, user)
+    profile_id_map: dict[str, str] = {}
+    imported_profiles = 0
+    imported_conversations = 0
+    imported_messages = 0
+    unlinked_conversations = 0
+
+    for source in payload.birth_profiles:
+        created = store.create_birth_profile(
+            user.user_id,
+            label=source.label,
+            birth_date=source.birth_date.isoformat(),
+            birth_time=source.birth_time.isoformat(),
+            place=source.place,
+            is_default=False,
+        )
+        imported_profiles += 1
+        if source.profile_id:
+            profile_id_map[source.profile_id] = created["profile_id"]
+
+    for source in payload.conversations:
+        mapped_profile_id = profile_id_map.get(source.birth_profile_id) if source.birth_profile_id else None
+        if source.birth_profile_id and mapped_profile_id is None:
+            unlinked_conversations += 1
+        created = conversations.create_conversation(
+            user.user_id,
+            title=source.title,
+            birth_profile_id=mapped_profile_id,
+            life_context=source.life_context,
+        )
+        imported_conversations += 1
+        for message in source.messages:
+            conversations.add_message(
+                user.user_id,
+                created["conversation_id"],
+                role=message.role,
+                content=message.content,
+                domain=message.domain,
+                route=message.route,
+                reference_moment=message.reference_moment,
+                payload=message.payload,
+            )
+            imported_messages += 1
+
+    return {
+        "imported": {
+            "birth_profiles": imported_profiles,
+            "conversations": imported_conversations,
+            "messages": imported_messages,
+            "unlinked_conversations": unlinked_conversations,
+        }
     }
 
 
