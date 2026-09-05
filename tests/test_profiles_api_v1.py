@@ -155,3 +155,23 @@ def test_birth_profile_linked_to_conversation_cannot_be_deleted(tmp_path):
     assert response.status_code == 409
     assert response.json()["detail"] == "Delete conversations linked to this birth profile before deleting the profile."
     assert client.get(f"/api/v1/birth-profiles/{profile_id}").status_code == 200
+
+
+def test_birth_details_linked_to_conversation_cannot_be_changed(tmp_path):
+    app, _ = _app(tmp_path)
+    client = TestClient(app)
+    profile_id = client.post(
+        "/api/v1/birth-profiles",
+        json={"label": "Me", "date": "2000-04-04", "time": "14:04:00", "place": "Mumbai"},
+    ).json()["birth_profile"]["profile_id"]
+    ConversationStoreV1(str(tmp_path / "profiles-api.db")).create_conversation(
+        "user_1", title="Protected history", birth_profile_id=profile_id
+    )
+
+    blocked = client.patch(f"/api/v1/birth-profiles/{profile_id}", json={"place": "Pune"})
+    renamed = client.patch(f"/api/v1/birth-profiles/{profile_id}", json={"label": "Primary chart"})
+
+    assert blocked.status_code == 409
+    assert blocked.json()["detail"] == "Create a new birth profile to change birth details used by existing conversations."
+    assert renamed.status_code == 200
+    assert renamed.json()["birth_profile"]["label"] == "Primary chart"
