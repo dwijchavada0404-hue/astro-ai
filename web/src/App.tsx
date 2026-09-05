@@ -6,6 +6,13 @@ import { createAuthRuntime, usableToken } from "./auth";
 type View = "chat" | "profiles";
 export type LegalPageId = "privacy" | "terms" | "disclaimer";
 
+export const STARTER_QUESTIONS = [
+  "What does my chart suggest about my career direction over the next year?",
+  "What relationship patterns are most important for me to understand?",
+  "What does my chart suggest about my financial growth and stability?",
+  "Is this a supportive period for travel or relocation?",
+] as const;
+
 export default function App() {
   const legalPage = legalPageFromPath(window.location.pathname);
   if (legalPage) return <LegalDocument page={legalPage} />;
@@ -297,6 +304,8 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
     }
   };
 
+  const chooseStarterQuestion = (starter: string) => { setQuestion(starter); setError(""); };
+
   const activeConversation = conversations.find((item) => item.conversation_id === activeId);
   const activeProfile = profiles.find((item) => item.profile_id === activeConversation?.birth_profile_id);
 
@@ -325,7 +334,7 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
         {view === "profiles" ? <Profiles token={token} profiles={profiles} onCreated={refresh} onDataDeleted={onSignOut} /> : (
           <div className="chat">
             {!activeId ? <EmptyChat profiles={profiles} selectedProfileId={selectedProfileId} onSelectProfile={setSelectedProfileId} onStart={startConversation} onProfiles={() => setView("profiles")} /> : (
-              <><div className="messages">{messages.length === 0 && <div className="prompt"><div className="star">✦</div><h3>What would you like to understand?</h3><p>Your answer will use the saved chart linked to this conversation.</p></div>}{messages.map((item) => <article key={item.message_id} className={`message ${item.role}`}><span>{item.role === "assistant" ? "✦" : "You"}</span><div>{item.content || "No narrative was returned."}{item.domain && <small>{item.domain}</small>}{item.role === "assistant" && item.content && <button className="answer-copy" type="button" aria-label="Copy answer" onClick={() => copyAnswer(item)}>{copiedMessageId === item.message_id ? "Copied" : "Copy"}</button>}</div></article>)}{asking && <article className="message assistant thinking" role="status"><span>✦</span><div>Calculating chart factors and timing<span className="thinking-dots">…</span></div></article>}<div ref={messagesEndRef} /></div><form className="composer" onSubmit={ask}><textarea aria-label="Ask AstroAI" value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={(event) => { if (shouldSubmitQuestion(event.key, event.shiftKey)) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder="Ask about career, marriage, finances, travel…" maxLength={1000} disabled={busy} /><button disabled={busy || !question.trim()}>{busy ? "…" : "↑"}</button></form><p className="composer-disclaimer">Astrology is for reflection and entertainment—not medical, legal, financial or other professional advice.</p></>
+              <><div className="messages">{messages.length === 0 && <div className="prompt"><div className="star">✦</div><h3>What would you like to understand?</h3><p>Your answer will use the saved chart linked to this conversation.</p><div className="starter-questions" aria-label="Question starters">{STARTER_QUESTIONS.map((starter) => <button key={starter} type="button" onClick={() => chooseStarterQuestion(starter)} disabled={busy || asking}>{starter}</button>)}</div></div>}{messages.map((item) => <article key={item.message_id} className={`message ${item.role}`}><span>{item.role === "assistant" ? "✦" : "You"}</span><div>{item.content || "No narrative was returned."}{item.domain && <small>{item.domain}</small>}{item.role === "assistant" && item.content && <button className="answer-copy" type="button" aria-label="Copy answer" onClick={() => copyAnswer(item)}>{copiedMessageId === item.message_id ? "Copied" : "Copy"}</button>}</div></article>)}{asking && <article className="message assistant thinking" role="status"><span>✦</span><div>Calculating chart factors and timing<span className="thinking-dots">…</span></div></article>}<div ref={messagesEndRef} /></div><form className="composer" onSubmit={ask}><textarea aria-label="Ask AstroAI" value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={(event) => { if (shouldSubmitQuestion(event.key, event.shiftKey)) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder="Ask about career, marriage, finances, travel…" maxLength={1000} disabled={busy} /><button disabled={busy || !question.trim()}>{busy ? "…" : "↑"}</button></form><p className="composer-disclaimer">Astrology is for reflection and entertainment—not medical, legal, financial or other professional advice.</p></>
             )}
           </div>
         )}
