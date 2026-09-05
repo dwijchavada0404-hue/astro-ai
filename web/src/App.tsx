@@ -414,6 +414,39 @@ export function Profiles({ token, profiles, onCreated, onDataDeleted }: { token:
     }
   };
 
+  const duplicateAndCorrectProfile = async (profile: BirthProfile) => {
+    const requestedLabel = window.prompt("Name the corrected birth profile", `${profile.label} (corrected)`);
+    if (requestedLabel === null) return;
+    const label = requestedLabel.trim().replace(/\s+/g, " ");
+    if (!label) { setError("Profile name cannot be empty."); return; }
+    if (label.length > 80) { setError("Profile name must be 80 characters or fewer."); return; }
+    const date = window.prompt("Correct birth date (YYYY-MM-DD)", profile.birth_date);
+    if (date === null) return;
+    const time = window.prompt("Correct exact birth time (HH:MM)", profile.birth_time.slice(0, 5));
+    if (time === null) return;
+    const place = window.prompt("Correct birth place", profile.place);
+    if (place === null) return;
+    if (!date.trim() || !time.trim() || !place.trim()) { setError("Birth date, exact time and place are required."); return; }
+
+    setBusy(true);
+    setError("");
+    try {
+      const duplicated = await apiRequest<{ birth_profile: BirthProfile }>(`/api/v1/birth-profiles/${profile.profile_id}/duplicate`, token, {
+        method: "POST",
+        body: JSON.stringify({ label }),
+      });
+      await apiRequest(`/api/v1/birth-profiles/${duplicated.birth_profile.profile_id}`, token, {
+        method: "PATCH",
+        body: JSON.stringify({ date: date.trim(), time: time.trim(), place: place.trim() }),
+      });
+      await onCreated();
+    } catch (reason) {
+      setError(messageFrom(reason));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const deleteProfile = async (profile: BirthProfile) => {
     if (!window.confirm(`Delete “${profile.label}”? This is allowed only when no conversations use this chart.`)) return;
     setBusy(true);
@@ -473,6 +506,7 @@ export function Profiles({ token, profiles, onCreated, onDataDeleted }: { token:
       <div className="profile-actions">
         {!profile.is_default && <button type="button" onClick={() => setDefault(profile)} disabled={busy}>Make default</button>}
         <button type="button" onClick={() => renameProfile(profile)} disabled={busy}>Rename</button>
+        <button type="button" onClick={() => duplicateAndCorrectProfile(profile)} disabled={busy}>Duplicate &amp; correct</button>
         <button type="button" className="profile-delete" onClick={() => deleteProfile(profile)} disabled={busy}>Delete</button>
       </div>
     </article>)}</div>
