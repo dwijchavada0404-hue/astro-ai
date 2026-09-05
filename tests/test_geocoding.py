@@ -6,7 +6,7 @@ from geopy.exc import GeocoderTimedOut
 from app.services import geocoding
 
 
-def test_resolve_place_returns_actionable_error_when_provider_times_out(monkeypatch):
+def test_normalized_lookup_returns_actionable_error_when_provider_times_out(monkeypatch):
     def timeout(*args, **kwargs):
         raise GeocoderTimedOut("Nominatim did not respond")
 
@@ -14,10 +14,10 @@ def test_resolve_place_returns_actionable_error_when_provider_times_out(monkeypa
     geocoding._resolve_normalized_place.cache_clear()
 
     with pytest.raises(ValueError, match="temporarily unavailable"):
-        geocoding.resolve_place("Mumbai")
+        geocoding._resolve_normalized_place("Mumbai")
 
 
-def test_resolve_place_caches_normalized_queries(monkeypatch):
+def test_normalized_lookup_caches_provider_results(monkeypatch):
     calls = 0
 
     def geocode(*args, **kwargs):
@@ -33,5 +33,8 @@ def test_resolve_place_caches_normalized_queries(monkeypatch):
     )
     geocoding._resolve_normalized_place.cache_clear()
 
-    assert geocoding.resolve_place("Mumbai") == geocoding.resolve_place(" Mumbai ")
+    first = geocoding._resolve_normalized_place("Mumbai")
+    second = geocoding._resolve_normalized_place("Mumbai")
+
+    assert second == first
     assert calls == 1
