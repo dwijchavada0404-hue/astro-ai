@@ -9,7 +9,7 @@ Railway is AstroAI's selected provider for the private staging phase. It can dep
 3. Railway detects `railway.toml` and builds the root `Dockerfile`.
 4. Add a persistent Railway Volume mounted at `/data`.
 5. Keep **exactly one replica**. The current SQLite store must not be scaled horizontally.
-6. Configure the service healthcheck as `/health` (also defined in `railway.toml`).
+6. Configure the service healthcheck as `/readyz` (also defined in `railway.toml`). This readiness probe verifies that the configured profile/conversation database can be opened and queried before Railway treats the deployment as healthy.
 7. Enable volume backups before storing any real user data.
 
 ## Required service variables
@@ -38,13 +38,14 @@ Railway healthchecks use the `healthcheck.railway.app` host, so it must be inclu
 
 ## Smoke test
 
-After Railway reports a successful deployment, verify:
+After Railway reports a successful deployment, verify both liveness and readiness:
 
 ```bash
-curl --fail --silent --show-error https://<railway-generated-domain>/health
+curl --fail --silent --show-error https://<railway-generated-domain>/livez
+curl --fail --silent --show-error https://<railway-generated-domain>/readyz
 ```
 
-The expected response is HTTP 200 with `status: "ok"`. Confirm the service's deployment logs show the Uvicorn server listening on Railway's injected `PORT`.
+Both should return HTTP 200. The readiness response should report `profile_database: "ok"`. Confirm the service's deployment logs show the Uvicorn server listening on Railway's injected `PORT`.
 
 ## Current staging boundary
 
