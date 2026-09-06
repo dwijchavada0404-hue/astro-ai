@@ -27,6 +27,7 @@ describe("birth profile correction workflow", () => {
     expect(screen.getByLabelText("Corrected birth date")).toHaveValue("2000-04-04");
     expect(screen.getByLabelText("Corrected birth time")).toHaveValue("14:04");
     expect(screen.getByLabelText("Corrected birth place")).toHaveValue("Borivali, Mumbai");
+    expect(screen.getByRole("button", { name: "Close correction form" })).toBeInTheDocument();
     expect(screen.getByText(/original profile and every conversation already linked to it stay unchanged/i)).toBeInTheDocument();
   });
 
