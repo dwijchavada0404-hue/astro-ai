@@ -3,6 +3,7 @@ import type { User } from "oidc-client-ts";
 import { apiDownload, apiRequest, checkHealth, type BirthProfile, type Conversation, type Message } from "./api";
 import { createAuthRuntime, usableToken } from "./auth";
 import { parseAstroAiBackup } from "./backup";
+import { BirthChartViewer } from "./chart-viewer";
 
 type View = "chat" | "profiles";
 export type LegalPageId = "privacy" | "terms" | "disclaimer";
@@ -373,6 +374,7 @@ export function Profiles({ token, profiles, onCreated, onDataDeleted }: { token:
   const [error, setError] = useState("");
   const [restoreNotice, setRestoreNotice] = useState("");
   const [correctionProfile, setCorrectionProfile] = useState<BirthProfile | null>(null);
+  const [chartProfile, setChartProfile] = useState<BirthProfile | null>(null);
   const [correctionForm, setCorrectionForm] = useState({ label: "", date: "", time: "", place: "" });
 
   const submit = async (event: FormEvent) => {
@@ -556,12 +558,14 @@ export function Profiles({ token, profiles, onCreated, onDataDeleted }: { token:
       <p>{profile.birth_date} · {profile.birth_time}</p>
       <p>{profile.place}</p>
       <div className="profile-actions">
+        <button type="button" className="view-chart" onClick={() => { setError(""); setChartProfile(profile); }} disabled={busy}>View chart</button>
         {!profile.is_default && <button type="button" onClick={() => setDefault(profile)} disabled={busy}>Make default</button>}
         <button type="button" onClick={() => renameProfile(profile)} disabled={busy}>Rename</button>
         <button type="button" onClick={() => openProfileCorrection(profile)} disabled={busy}>Duplicate &amp; correct</button>
         <button type="button" className="profile-delete" onClick={() => deleteProfile(profile)} disabled={busy}>Delete</button>
       </div>
     </article>)}</div>
+    {chartProfile && <BirthChartViewer token={token} profile={chartProfile} onClose={() => setChartProfile(null)} />}
     {correctionProfile && <div className="correction-scrim" role="presentation">
       <section className="correction-dialog" role="dialog" aria-modal="true" aria-labelledby="profile-correction-title">
         <form onSubmit={submitProfileCorrection}>
