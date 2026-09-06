@@ -372,6 +372,8 @@ export function Profiles({ token, profiles, onCreated, onDataDeleted }: { token:
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [restoreNotice, setRestoreNotice] = useState("");
+  const [correctionProfile, setCorrectionProfile] = useState<BirthProfile | null>(null);
+  const [correctionForm, setCorrectionForm] = useState({ label: "", date: "", time: "", place: "" });
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -426,32 +428,42 @@ export function Profiles({ token, profiles, onCreated, onDataDeleted }: { token:
     }
   };
 
-  const duplicateAndCorrectProfile = async (profile: BirthProfile) => {
-    const requestedLabel = window.prompt("Name the corrected birth profile", `${profile.label} (corrected)`);
-    if (requestedLabel === null) return;
-    const label = requestedLabel.trim().replace(/\s+/g, " ");
+  const openProfileCorrection = (profile: BirthProfile) => {
+    setError("");
+    setRestoreNotice("");
+    setCorrectionProfile(profile);
+    setCorrectionForm({
+      label: `${profile.label} (corrected)`,
+      date: profile.birth_date,
+      time: profile.birth_time.slice(0, 5),
+      place: profile.place,
+    });
+  };
+
+  const submitProfileCorrection = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!correctionProfile) return;
+    const label = correctionForm.label.trim().replace(/\s+/g, " ");
+    const date = correctionForm.date.trim();
+    const time = correctionForm.time.trim();
+    const place = correctionForm.place.trim();
     if (!label) { setError("Profile name cannot be empty."); return; }
     if (label.length > 80) { setError("Profile name must be 80 characters or fewer."); return; }
-    const date = window.prompt("Correct birth date (YYYY-MM-DD)", profile.birth_date);
-    if (date === null) return;
-    const time = window.prompt("Correct exact birth time (HH:MM)", profile.birth_time.slice(0, 5));
-    if (time === null) return;
-    const place = window.prompt("Correct birth place", profile.place);
-    if (place === null) return;
-    if (!date.trim() || !time.trim() || !place.trim()) { setError("Birth date, exact time and place are required."); return; }
+    if (!date || !time || !place) { setError("Birth date, exact time and place are required."); return; }
 
     setBusy(true);
     setError("");
     try {
-      const duplicated = await apiRequest<{ birth_profile: BirthProfile }>(`/api/v1/birth-profiles/${profile.profile_id}/duplicate`, token, {
+      const duplicated = await apiRequest<{ birth_profile: BirthProfile }>(`/api/v1/birth-profiles/${correctionProfile.profile_id}/duplicate`, token, {
         method: "POST",
         body: JSON.stringify({ label }),
       });
       await apiRequest(`/api/v1/birth-profiles/${duplicated.birth_profile.profile_id}`, token, {
         method: "PATCH",
-        body: JSON.stringify({ date: date.trim(), time: time.trim(), place: place.trim() }),
+        body: JSON.stringify({ date, time, place }),
       });
       await onCreated();
+      setCorrectionProfile(null);
     } catch (reason) {
       setError(messageFrom(reason));
     } finally {
@@ -546,10 +558,22 @@ export function Profiles({ token, profiles, onCreated, onDataDeleted }: { token:
       <div className="profile-actions">
         {!profile.is_default && <button type="button" onClick={() => setDefault(profile)} disabled={busy}>Make default</button>}
         <button type="button" onClick={() => renameProfile(profile)} disabled={busy}>Rename</button>
-        <button type="button" onClick={() => duplicateAndCorrectProfile(profile)} disabled={busy}>Duplicate &amp; correct</button>
+        <button type="button" onClick={() => openProfileCorrection(profile)} disabled={busy}>Duplicate &amp; correct</button>
         <button type="button" className="profile-delete" onClick={() => deleteProfile(profile)} disabled={busy}>Delete</button>
       </div>
     </article>)}</div>
+    {correctionProfile && <div className="correction-scrim" role="presentation">
+      <section className="correction-dialog" role="dialog" aria-modal="true" aria-labelledby="profile-correction-title">
+        <form onSubmit={submitProfileCorrection}>
+          <div className="correction-heading"><div><span>Safe profile correction</span><h3 id="profile-correction-title">Duplicate &amp; correct {correctionProfile.label}</h3></div><button type="button" aria-label="Close correction form" onClick={() => setCorrectionProfile(null)} disabled={busy}>×</button></div>
+          <p className="correction-note">A new birth profile will be created first. Your original profile and every conversation already linked to it stay unchanged.</p>
+          <label>Corrected profile name<input aria-label="Corrected profile name" value={correctionForm.label} onChange={(event) => setCorrectionForm({ ...correctionForm, label: event.target.value })} maxLength={80} required autoFocus /></label>
+          <div className="correction-fields"><label>Birth date<input aria-label="Corrected birth date" type="date" value={correctionForm.date} onChange={(event) => setCorrectionForm({ ...correctionForm, date: event.target.value })} required /></label><label>Exact birth time<input aria-label="Corrected birth time" type="time" value={correctionForm.time} onChange={(event) => setCorrectionForm({ ...correctionForm, time: event.target.value })} required /></label></div>
+          <label>Birth place<input aria-label="Corrected birth place" value={correctionForm.place} onChange={(event) => setCorrectionForm({ ...correctionForm, place: event.target.value })} maxLength={200} required /></label>
+          <div className="correction-actions"><button type="button" onClick={() => setCorrectionProfile(null)} disabled={busy}>Cancel</button><button className="primary" disabled={busy}>{busy ? "Saving corrected copy…" : "Save corrected copy"}</button></div>
+        </form>
+      </section>
+    </div>}
     <form className="profile-form" onSubmit={submit}><h3>Add a birth profile</h3><label>Profile name<input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} required /></label><div><label>Birth date<input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} required /></label><label>Exact birth time<input type="time" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} required /></label></div><label>Birth place<input value={form.place} onChange={(e) => setForm({ ...form, place: e.target.value })} placeholder="Borivali, Mumbai" required /></label><button className="primary" disabled={busy}>{busy ? "Saving…" : "Save profile"}</button></form>
     {onDataDeleted && <section className="danger-zone"><h3>Your AstroAI data</h3><p>Download a portable copy of your saved charts and conversations, restore a previous AstroAI export without overwriting current data, or permanently delete your application data. Your identity-provider login is managed separately.</p><div className="data-actions"><button type="button" onClick={exportData} disabled={busy}>Export my data</button><label className={busy ? "restore-upload disabled" : "restore-upload"}>Restore backup<input type="file" accept="application/json,.json" onInput={importData} disabled={busy} /></label><button type="button" onClick={deleteAllData} disabled={busy}>Delete all AstroAI data</button></div></section>}
   </div>;
