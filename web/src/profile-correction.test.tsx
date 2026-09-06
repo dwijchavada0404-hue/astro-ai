@@ -8,16 +8,29 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+const source = {
+  profile_id: "source-profile",
+  label: "My chart",
+  birth_date: "2000-04-04",
+  birth_time: "14:04:00",
+  place: "Borivali, Mumbai",
+  is_default: true,
+};
+
 describe("birth profile correction workflow", () => {
+  it("opens a prefilled in-app correction form", () => {
+    render(<Profiles token="token" profiles={[source]} onCreated={vi.fn().mockResolvedValue(undefined)} />);
+    fireEvent.click(screen.getByRole("button", { name: "Duplicate & correct" }));
+
+    expect(screen.getByRole("dialog", { name: /Duplicate & correct My chart/ })).toBeInTheDocument();
+    expect(screen.getByLabelText("Corrected profile name")).toHaveValue("My chart (corrected)");
+    expect(screen.getByLabelText("Corrected birth date")).toHaveValue("2000-04-04");
+    expect(screen.getByLabelText("Corrected birth time")).toHaveValue("14:04");
+    expect(screen.getByLabelText("Corrected birth place")).toHaveValue("Borivali, Mumbai");
+    expect(screen.getByText(/original profile and every conversation already linked to it stay unchanged/i)).toBeInTheDocument();
+  });
+
   it("duplicates a profile before applying corrected birth details", async () => {
-    const source = {
-      profile_id: "source-profile",
-      label: "My chart",
-      birth_date: "2000-04-04",
-      birth_time: "14:04:00",
-      place: "Borivali, Mumbai",
-      is_default: true,
-    };
     const duplicate = {
       ...source,
       profile_id: "corrected-profile",
@@ -28,15 +41,13 @@ describe("birth profile correction workflow", () => {
       .mockResolvedValueOnce({ ok: true, status: 201, json: async () => ({ birth_profile: duplicate }) })
       .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ birth_profile: { ...duplicate, birth_time: "14:06:00" } }) });
     vi.stubGlobal("fetch", fetchMock);
-    vi.spyOn(window, "prompt")
-      .mockReturnValueOnce("My chart corrected")
-      .mockReturnValueOnce("2000-04-04")
-      .mockReturnValueOnce("14:06")
-      .mockReturnValueOnce("Borivali, Mumbai");
     const onCreated = vi.fn().mockResolvedValue(undefined);
 
     render(<Profiles token="token" profiles={[source]} onCreated={onCreated} />);
     fireEvent.click(screen.getByRole("button", { name: "Duplicate & correct" }));
+    fireEvent.change(screen.getByLabelText("Corrected profile name"), { target: { value: "My chart corrected" } });
+    fireEvent.change(screen.getByLabelText("Corrected birth time"), { target: { value: "14:06" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save corrected copy" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenNthCalledWith(
       1,
@@ -49,23 +60,18 @@ describe("birth profile correction workflow", () => {
       expect.objectContaining({ method: "PATCH", body: JSON.stringify({ date: "2000-04-04", time: "14:06", place: "Borivali, Mumbai" }) }),
     ));
     expect(onCreated).toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
   it("does not create a duplicate when correction is cancelled", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    vi.spyOn(window, "prompt").mockReturnValueOnce(null);
 
-    render(<Profiles token="token" profiles={[{
-      profile_id: "source-profile",
-      label: "My chart",
-      birth_date: "2000-04-04",
-      birth_time: "14:04:00",
-      place: "Borivali, Mumbai",
-      is_default: true,
-    }]} onCreated={vi.fn().mockResolvedValue(undefined)} />);
+    render(<Profiles token="token" profiles={[source]} onCreated={vi.fn().mockResolvedValue(undefined)} />);
     fireEvent.click(screen.getByRole("button", { name: "Duplicate & correct" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
