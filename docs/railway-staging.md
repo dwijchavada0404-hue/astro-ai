@@ -73,10 +73,14 @@ Railway collects AstroAI's privacy-safe JSON request logs. Search for
 threshold. The readiness probe checks that the mounted SQLite database can be
 opened and queried, while liveness remains independent of storage.
 
-GitHub Actions runs `scripts/smoke_staging.sh` every six hours and on demand. It
-verifies the frontend and API health endpoints, readiness/storage status,
-frontend Content Security Policy, public security contact, and the API's 401
-authentication boundary. A failed check makes the workflow red without using
-credentials or reading user data. It deliberately does not run as a `push`
-check: Railway waits for push CI before deploying, so a pre-deployment smoke
-check would create a circular dependency.
+GitHub Actions runs `scripts/smoke_staging.sh` automatically after the `Tests`
+workflow completes successfully for a push to `main`, and also every six hours
+and on demand. The post-CI trigger avoids making staging availability a
+pre-deployment branch check while still verifying each release after Railway has
+had time to deploy it. The workflow retries for up to roughly six minutes to
+allow the deployment to settle.
+
+The smoke check verifies the frontend and API health endpoints,
+readiness/storage status, frontend Content Security Policy, public security
+contact, and the API's 401 authentication boundary. A failed check makes the
+staging smoke workflow red without using credentials or reading user data.
