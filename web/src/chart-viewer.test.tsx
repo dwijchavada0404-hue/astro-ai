@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDegree, planetRows } from "./chart-viewer";
+import { currentDashaLabel, formatDegree, formatPeriodDate, planetRows } from "./chart-viewer";
 
 describe("birth chart viewer", () => {
   it("prefers the deterministic DMS degree returned by the engine", () => {
@@ -20,5 +20,16 @@ describe("birth chart viewer", () => {
 
   it("renders an empty planetary collection safely", () => {
     expect(planetRows()).toEqual([]);
+  });
+
+  it("formats deterministic Vimshottari periods without timezone shifting", () => {
+    expect(formatPeriodDate("2026-09-06T20:45:00+05:30")).toBe("06 Sep 2026");
+    expect(formatPeriodDate()).toBe("—");
+    expect(formatPeriodDate("not-a-date")).toBe("—");
+  });
+
+  it("labels the current Mahadasha and Antardasha", () => {
+    expect(currentDashaLabel({ mahadasha: "Venus", antardasha: "Mercury" })).toBe("Venus Mahadasha · Mercury Antardasha");
+    expect(currentDashaLabel(null)).toBe("Current period unavailable");
   });
 });
