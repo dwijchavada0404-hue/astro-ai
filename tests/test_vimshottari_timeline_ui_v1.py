@@ -9,6 +9,6 @@ def test_chart_viewer_exposes_engine_mahadasha_timeline():
 
     assert "mahadashas?: Mahadasha[]" in viewer
     assert "Vimshottari Mahadasha timeline" in viewer
-    assert "120-year deterministic sequence" in viewer
+    assert "Select a period to inspect its Antardashas" in viewer
     assert "mahadashaRows(chart?.dashas)" in viewer
     assert 'aria-current={period.isCurrent ? "true" : undefined}' in viewer
