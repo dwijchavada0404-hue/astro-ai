@@ -12,13 +12,29 @@ type Planet = {
 
 type House = { sign?: string; lord?: string };
 
+type CurrentPeriod = {
+  mahadasha?: string;
+  mahadasha_start?: string;
+  mahadasha_end?: string;
+  antardasha?: string;
+  antardasha_start?: string;
+  antardasha_end?: string;
+};
+
+type Dashas = {
+  system?: string;
+  moon_nakshatra?: string;
+  first_mahadasha_lord?: string;
+  current_period?: CurrentPeriod | null;
+};
+
 type Chart = {
   methodology?: Record<string, unknown>;
   birth?: Record<string, unknown>;
   ascendant?: { sign?: string; degree_in_sign?: number; degree_dms?: string };
   planets?: Record<string, Planet>;
   houses?: Record<string, House>;
-  dashas?: Record<string, unknown>;
+  dashas?: Dashas;
 };
 
 type ChartResponse = {
@@ -34,6 +50,17 @@ export function formatDegree(value?: number, dms?: string): string {
 
 export function planetRows(planets?: Record<string, Planet>) {
   return Object.entries(planets || {}).map(([name, planet]) => ({ name, ...planet }));
+}
+
+export function formatPeriodDate(value?: string): string {
+  if (!value) return "—";
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return match ? `${match[3]} ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][Number(match[2]) - 1]} ${match[1]}` : "—";
+}
+
+export function currentDashaLabel(period?: CurrentPeriod | null): string {
+  if (!period?.mahadasha || !period?.antardasha) return "Current period unavailable";
+  return `${period.mahadasha} Mahadasha · ${period.antardasha} Antardasha`;
 }
 
 export function BirthChartViewer({ token, profile, onClose }: { token: string; profile: BirthProfile; onClose: () => void }) {
@@ -62,6 +89,7 @@ export function BirthChartViewer({ token, profile, onClose }: { token: string; p
   const rows = planetRows(chart?.planets);
   const houses = Object.entries(chart?.houses || {});
   const methodology = chart?.methodology || {};
+  const currentPeriod = chart?.dashas?.current_period;
 
   return <div className="chart-scrim" role="presentation">
     <section className="chart-dialog" role="dialog" aria-modal="true" aria-labelledby="birth-chart-title">
@@ -77,9 +105,13 @@ export function BirthChartViewer({ token, profile, onClose }: { token: string; p
           <article><span>Zodiac</span><strong>{String(methodology.zodiac || "sidereal")}</strong><small>{String(methodology.ayanamsa || "Lahiri")} ayanamsa</small></article>
           <article><span>Houses</span><strong>{String(methodology.house_system || "Whole Sign")}</strong><small>{String(methodology.ephemeris || "Swiss Ephemeris")}</small></article>
         </section>
+        <section className="current-dasha" aria-label="Current Vimshottari timing">
+          <div><span>Current Vimshottari timing</span><h4>{currentDashaLabel(currentPeriod)}</h4><p>Moon nakshatra: <strong>{chart.dashas?.moon_nakshatra || "—"}</strong></p></div>
+          {currentPeriod && <div className="dasha-periods"><article><span>Mahadasha</span><strong>{currentPeriod.mahadasha || "—"}</strong><small>{formatPeriodDate(currentPeriod.mahadasha_start)} → {formatPeriodDate(currentPeriod.mahadasha_end)}</small></article><article><span>Antardasha</span><strong>{currentPeriod.antardasha || "—"}</strong><small>{formatPeriodDate(currentPeriod.antardasha_start)} → {formatPeriodDate(currentPeriod.antardasha_end)}</small></article></div>}
+        </section>
         <section className="chart-section"><div className="chart-section-title"><h4>Planetary positions</h4><span>Calculated at birth</span></div><div className="chart-table-wrap"><table><thead><tr><th>Planet</th><th>Sign</th><th>Degree</th><th>House</th><th>Nakshatra</th><th>Motion</th></tr></thead><tbody>{rows.map((planet) => <tr key={planet.name}><td><strong>{planet.name}</strong></td><td>{planet.sign || "—"}</td><td>{formatDegree(planet.degree_in_sign, planet.degree_dms)}</td><td>{planet.house || "—"}</td><td>{planet.nakshatra || "—"}</td><td>{planet.retrograde ? "Retrograde" : "Direct"}</td></tr>)}</tbody></table></div></section>
         <section className="chart-section"><div className="chart-section-title"><h4>Whole Sign houses</h4><span>Sign and house lord</span></div><div className="house-grid">{houses.map(([number, house]) => <article key={number}><span>House {number}</span><strong>{house.sign || "—"}</strong><small>Lord: {house.lord || "—"}</small></article>)}</div></section>
-        <p className="chart-footnote">Calculated from your saved birth details using the deterministic AstroAI engine. Astrology is for reflection and entertainment.</p>
+        <p className="chart-footnote">Calculated from your saved birth details using the deterministic AstroAI engine. Current timing is evaluated when the chart is opened. Astrology is for reflection and entertainment.</p>
       </div>}
     </section>
   </div>;
