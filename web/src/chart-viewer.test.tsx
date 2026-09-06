@@ -17,4 +17,8 @@ describe("birth chart viewer", () => {
       { name: "Saturn", sign: "Aries", house: 9, retrograde: true },
     ]);
   });
+
+  it("renders an empty planetary collection safely", () => {
+    expect(planetRows()).toEqual([]);
+  });
 });
