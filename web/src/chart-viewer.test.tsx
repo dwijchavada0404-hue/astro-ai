@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { currentDashaLabel, formatDegree, formatPeriodDate, planetRows } from "./chart-viewer";
+import { currentDashaLabel, formatDegree, formatPeriodDate, mahadashaRows, planetRows } from "./chart-viewer";
 
 describe("birth chart viewer", () => {
   it("prefers the deterministic DMS degree returned by the engine", () => {
@@ -31,5 +31,19 @@ describe("birth chart viewer", () => {
   it("labels the current Mahadasha and Antardasha", () => {
     expect(currentDashaLabel({ mahadasha: "Venus", antardasha: "Mercury" })).toBe("Venus Mahadasha · Mercury Antardasha");
     expect(currentDashaLabel(null)).toBe("Current period unavailable");
+  });
+
+  it("preserves the engine Mahadasha sequence and marks the current period", () => {
+    expect(mahadashaRows({
+      current_period: { mahadasha: "Sun", antardasha: "Moon" },
+      mahadashas: [
+        { planet: "Venus", start: "2000-01-01", end: "2010-01-01" },
+        { planet: "Sun", start: "2010-01-01", end: "2016-01-01" },
+      ],
+    })).toEqual([
+      { planet: "Venus", start: "2000-01-01", end: "2010-01-01", isCurrent: false },
+      { planet: "Sun", start: "2010-01-01", end: "2016-01-01", isCurrent: true },
+    ]);
+    expect(mahadashaRows()).toEqual([]);
   });
 });
