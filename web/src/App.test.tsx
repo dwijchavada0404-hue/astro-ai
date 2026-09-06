@@ -37,7 +37,7 @@ describe("AstroAI frontend foundation", () => {
   it("renders privacy, terms and safety content without authentication", () => {
     const { rerender } = render(<LegalDocument page="privacy" />);
     expect(screen.getByRole("heading", { name: "Privacy Notice" })).toBeInTheDocument();
-    expect(screen.getByText(/Railway in the EU region/)).toBeInTheDocument();
+    expect(screen.getByText(/Application data is hosted on Railway\. Authentication is provided by Auth0\./)).toBeInTheDocument();
     rerender(<LegalDocument page="terms" />);
     expect(screen.getByRole("heading", { name: "Terms of Use" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Free software licence" })).toBeInTheDocument();
