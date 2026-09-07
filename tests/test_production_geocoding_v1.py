@@ -61,9 +61,10 @@ def test_resolve_place_uses_configured_provider_and_cache(monkeypatch):
         geocoding_user_agent="astro-ai-test/1.0",
         geocoding_timeout_seconds=7,
     )
+    fake_timezone_finder = SimpleNamespace(timezone_at=lambda **kwargs: "Asia/Kolkata")
     monkeypatch.setattr(geocoding, "get_settings", lambda: fake_settings)
     monkeypatch.setattr(geocoding, "OpenMapQuest", FakeOpenMapQuest)
-    monkeypatch.setattr(geocoding._tzf, "timezone_at", lambda **kwargs: "Asia/Kolkata")
+    monkeypatch.setattr(geocoding, "_tzf", fake_timezone_finder)
     geocoding._resolve_normalized_place.cache_clear()
 
     first = geocoding.resolve_place(" Mumbai ")
