@@ -21,14 +21,16 @@ function requireHttps(name: string, value: string): void {
   }
 }
 
-export function resolveFrontendRuntime(
-  env: FrontendEnv,
-): FrontendRuntimeConfig {
+export function resolveFrontendRuntime(env: FrontendEnv): FrontendRuntimeConfig {
   const rawEnvironment = clean(env.VITE_ASTROAI_ENVIRONMENT) || "development";
-  if (!(["development", "staging", "production"] as const).includes(rawEnvironment as never)) {
+  if (
+    rawEnvironment !== "development" &&
+    rawEnvironment !== "staging" &&
+    rawEnvironment !== "production"
+  ) {
     throw new Error("VITE_ASTROAI_ENVIRONMENT must be development, staging, or production.");
   }
-  const environment = rawEnvironment as FrontendRuntimeConfig["environment"];
+  const environment: FrontendRuntimeConfig["environment"] = rawEnvironment;
   const production = environment === "production";
 
   const apiUrl = clean(env.VITE_ASTROAI_API_URL) || (production ? "" : STAGING_API_FALLBACK);
