@@ -6,6 +6,7 @@ from app.astrology.dasha import (
     build_vimshottari_dasha,
     find_current_period,
 )
+from app.astrology.navamsa import build_navamsa_chart
 from app.models.chart import BirthInput
 from app.services.geocoding import resolve_place
 
@@ -43,6 +44,7 @@ def build_chart(payload: BirthInput) -> dict:
 
     now_local = datetime.now(local_tz)
     current_period = find_current_period(dasha, now_local)
+    navamsa = build_navamsa_chart(calculated)
 
     return {
         "methodology": {
@@ -67,6 +69,9 @@ def build_chart(payload: BirthInput) -> dict:
         "ascendant": calculated["ascendant"],
         "planets": calculated["planets"],
         "houses": calculated["houses"],
+        "divisional_charts": {
+            "D9": navamsa,
+        },
         "dashas": {
             **dasha,
             "current_period": current_period,
