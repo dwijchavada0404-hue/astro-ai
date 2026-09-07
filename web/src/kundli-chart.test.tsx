@@ -34,23 +34,28 @@ describe("kundli chart mappings", () => {
     ]);
   });
 
-  it("maps backend house and planet data into fixed South Indian sign cells", () => {
+  it("maps backend house, lord and planet detail data into fixed South Indian sign cells", () => {
     const cells = southIndianCells(
-      { "1": { sign: "Leo" }, "2": { sign: "Virgo" }, "7": { sign: "Aquarius" } },
+      { "1": { sign: "Leo", lord: "Sun" }, "2": { sign: "Virgo", lord: "Mercury" }, "7": { sign: "Aquarius", lord: "Saturn" } },
       {
-        Sun: { sign: "Virgo", house: 2 },
+        Sun: { sign: "Virgo", house: 2, degree_dms: "18°10′00″", nakshatra: "Hasta" },
         Moon: { sign: "Leo", house: 1 },
-        Saturn: { sign: "Aquarius", house: 7, retrograde: true },
+        Saturn: { sign: "Aquarius", house: 7, retrograde: true, degree_dms: "04°03′02″", nakshatra: "Dhanishta" },
       },
     );
     expect(cells).toHaveLength(12);
-    expect(cells.find((cell) => cell.sign === "Leo")).toEqual({ sign: "Leo", houseNumber: 1, planets: [{ name: "Moon", retrograde: false }] });
-    expect(cells.find((cell) => cell.sign === "Virgo")?.planets).toEqual([{ name: "Sun", retrograde: false }]);
-    expect(cells.find((cell) => cell.sign === "Aquarius")).toEqual({ sign: "Aquarius", houseNumber: 7, planets: [{ name: "Saturn", retrograde: true }] });
+    expect(cells.find((cell) => cell.sign === "Leo")).toEqual({ sign: "Leo", houseNumber: 1, lord: "Sun", planets: [{ name: "Moon", retrograde: false, degree: undefined, nakshatra: undefined }] });
+    expect(cells.find((cell) => cell.sign === "Virgo")).toEqual({ sign: "Virgo", houseNumber: 2, lord: "Mercury", planets: [{ name: "Sun", retrograde: false, degree: "18°10′00″", nakshatra: "Hasta" }] });
+    expect(cells.find((cell) => cell.sign === "Aquarius")).toEqual({ sign: "Aquarius", houseNumber: 7, lord: "Saturn", planets: [{ name: "Saturn", retrograde: true, degree: "04°03′02″", nakshatra: "Dhanishta" }] });
   });
 
   it("falls back to the backend house sign when a planet sign is omitted", () => {
-    const cells = southIndianCells({ "1": { sign: "Aries" } }, { Moon: { house: 1 } });
-    expect(cells.find((cell) => cell.sign === "Aries")?.planets).toEqual([{ name: "Moon", retrograde: false }]);
+    const cells = southIndianCells({ "1": { sign: "Aries", lord: "Mars" } }, { Moon: { house: 1 } });
+    expect(cells.find((cell) => cell.sign === "Aries")?.planets).toEqual([{ name: "Moon", retrograde: false, degree: undefined, nakshatra: undefined }]);
+  });
+
+  it("keeps unmapped South Indian cells safe for inspection", () => {
+    const cells = southIndianCells();
+    expect(cells[0]).toEqual({ sign: "Pisces", houseNumber: undefined, lord: "—", planets: [] });
   });
 });
