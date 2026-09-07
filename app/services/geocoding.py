@@ -2,10 +2,15 @@ from functools import lru_cache
 from typing import Any
 
 from geopy.exc import GeocoderServiceError, GeocoderTimedOut, GeocoderUnavailable
-from geopy.geocoders import Nominatim
+from geopy.geocoders import Nominatim, OpenMapQuest
 from timezonefinder import TimezoneFinder
 
+from app.core.settings import get_settings
 
+
+# Preserve the legacy Nominatim instance as a stable seam for existing tests and
+# development/staging behaviour. Production never reaches this path because
+# Settings rejects public Nominatim when ASTROAI_ENVIRONMENT=production.
 _geocoder = Nominatim(user_agent="astro-ai-milestone1/0.1")
 _tzf = TimezoneFinder()
 
@@ -22,14 +27,31 @@ def resolve_place(place: str) -> dict[str, Any]:
 
 @lru_cache(maxsize=1_024)
 def _resolve_normalized_place(place: str) -> dict[str, Any]:
-    try:
-        location = _geocoder.geocode(
-            place,
-            exactly_one=True,
-            addressdetails=True,
-            language="en",
-            timeout=10,
+    settings = get_settings()
+    provider = settings.geocoding_provider
+    timeout = settings.geocoding_timeout_seconds
+
+    if provider == "openmapquest":
+        geocoder = OpenMapQuest(
+            api_key=settings.geocoding_api_key,
+            user_agent=settings.geocoding_user_agent,
+            timeout=timeout,
         )
+        geocode_kwargs = {
+            "exactly_one": True,
+            "timeout": timeout,
+        }
+    else:
+        geocoder = _geocoder
+        geocode_kwargs = {
+            "exactly_one": True,
+            "addressdetails": True,
+            "language": "en",
+            "timeout": timeout,
+        }
+
+    try:
+        location = geocoder.geocode(place, **geocode_kwargs)
     except (GeocoderTimedOut, GeocoderUnavailable, GeocoderServiceError) as exc:
         raise ValueError(
             "Birth-place lookup is temporarily unavailable. Please try again in a moment."
@@ -56,4 +78,5 @@ def _resolve_normalized_place(place: str) -> dict[str, Any]:
         "latitude": latitude,
         "longitude": longitude,
         "timezone": timezone_name,
+        "geocoding_provider": provider,
     }
