@@ -12,7 +12,7 @@ def test_dasamsa_odd_sign_counts_from_same_sign():
 def test_dasamsa_even_sign_counts_from_ninth_sign():
     assert dasamsa_longitude(30.0) == pytest.approx(270.0)
     assert dasamsa_longitude(35.0) == pytest.approx(320.0)
-    assert dasamsa_longitude(47.5) == pytest.approx(75.0)
+    assert dasamsa_longitude(47.5) == pytest.approx(85.0)
 
 
 def test_dasamsa_advances_at_exact_three_degree_boundary():
