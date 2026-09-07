@@ -20,6 +20,7 @@ def _production_settings(**overrides):
         "auth_jwt_secret": "x" * 40,
         "geocoding_provider": "openmapquest",
         "geocoding_api_key": "test-api-key",
+        "profile_database_path": "/data/astroai_profiles.db",
     }
     values.update(overrides)
     return Settings(**values)
