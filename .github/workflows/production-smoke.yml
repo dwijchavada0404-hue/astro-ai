@@ -1,0 +1,38 @@
+name: Production smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ASTROAI_PRODUCTION_FRONTEND_URL: ${{ vars.ASTROAI_PRODUCTION_FRONTEND_URL }}
+      ASTROAI_PRODUCTION_API_URL: ${{ vars.ASTROAI_PRODUCTION_API_URL }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Require production URLs
+        run: |
+          test -n "$ASTROAI_PRODUCTION_FRONTEND_URL"
+          test -n "$ASTROAI_PRODUCTION_API_URL"
+
+      - name: Verify production services
+        run: |
+          for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
+            if bash scripts/smoke_production.sh; then
+              exit 0
+            fi
+            echo "Production not ready (attempt $attempt/12); retrying in 30 seconds."
+            sleep 30
+          done
+          exit 1
