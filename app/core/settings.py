@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import Field, model_validator
@@ -62,7 +63,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_production_safety(self) -> "Settings":
-        if not self.database_target.strip():
+        database_target = self.database_target.strip()
+        if not database_target:
             raise ValueError("ASTROAI_DATABASE_URL or ASTROAI_PROFILE_DATABASE_PATH must not be empty.")
         if self.auth_enabled:
             uses_jwks = bool(self.auth_jwks_url.strip())
@@ -98,7 +100,22 @@ class Settings(BaseSettings):
                 raise ValueError("Structured request logging must be enabled in production.")
             if self.geocoding_provider == "nominatim":
                 raise ValueError("Public Nominatim geocoding is not allowed in production; configure OpenMapQuest.")
+            if not _is_postgres_target(database_target):
+                sqlite_path = Path(database_target).expanduser()
+                if not sqlite_path.is_absolute():
+                    raise ValueError("Production SQLite must use an absolute persistent path under /data.")
+                try:
+                    sqlite_path.relative_to(Path("/data"))
+                except ValueError as exc:
+                    raise ValueError("Production SQLite must be stored under the mounted /data volume.") from exc
+                if sqlite_path == Path("/data"):
+                    raise ValueError("Production SQLite path must name a database file under /data.")
         return self
+
+
+def _is_postgres_target(value: str) -> bool:
+    normalized = value.strip().lower()
+    return normalized.startswith("postgresql://") or normalized.startswith("postgres://")
 
 
 def _csv(value: str) -> list[str]:
