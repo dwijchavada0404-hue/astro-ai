@@ -1,13 +1,15 @@
 import { UserManager, WebStorageStateStore, type User } from "oidc-client-ts";
 
+import { frontendRuntime } from "./runtime-config";
+
 export type AuthRuntime = {
   configured: boolean;
   manager: UserManager | null;
 };
 
 export function createAuthRuntime(): AuthRuntime {
-  const authority = import.meta.env.VITE_OIDC_AUTHORITY?.trim();
-  const clientId = import.meta.env.VITE_OIDC_CLIENT_ID?.trim();
+  const authority = frontendRuntime.oidcAuthority;
+  const clientId = frontendRuntime.oidcClientId;
   if (!authority || !clientId) return { configured: false, manager: null };
 
   const redirectUri = `${window.location.origin}/auth/callback`;
@@ -17,9 +19,9 @@ export function createAuthRuntime(): AuthRuntime {
     redirect_uri: redirectUri,
     post_logout_redirect_uri: window.location.origin,
     response_type: "code",
-    scope: import.meta.env.VITE_OIDC_SCOPE || "openid profile email",
-    extraQueryParams: import.meta.env.VITE_OIDC_AUDIENCE
-      ? { audience: import.meta.env.VITE_OIDC_AUDIENCE }
+    scope: frontendRuntime.oidcScope,
+    extraQueryParams: frontendRuntime.oidcAudience
+      ? { audience: frontendRuntime.oidcAudience }
       : undefined,
     userStore: new WebStorageStateStore({ store: window.sessionStorage }),
     automaticSilentRenew: false,

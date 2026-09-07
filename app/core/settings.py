@@ -110,6 +110,18 @@ class Settings(BaseSettings):
                     raise ValueError("Production SQLite must be stored under the mounted /data volume.") from exc
                 if sqlite_path == Path("/data"):
                     raise ValueError("Production SQLite path must name a database file under /data.")
+            if not self.auth_jwks_url.strip():
+                raise ValueError("Production authentication must use an HTTPS JWKS endpoint; symmetric JWT secrets are not allowed.")
+            if self.auth_jwt_algorithm.startswith("HS"):
+                raise ValueError("Production authentication must use an asymmetric JWT algorithm.")
+            if not self.auth_jwks_url.startswith("https://"):
+                raise ValueError("Production JWKS endpoint must use HTTPS.")
+            if not self.auth_jwt_issuer.startswith("https://"):
+                raise ValueError("Production JWT issuer must be an explicit HTTPS issuer URL.")
+            if self.auth_jwt_issuer.rstrip("/") == "https://astroai":
+                raise ValueError("Production JWT issuer must not use the AstroAI placeholder value.")
+            if self.auth_jwt_audience.strip() == "astroai-api":
+                raise ValueError("Production JWT audience must be explicitly configured for the production API.")
         return self
 
 

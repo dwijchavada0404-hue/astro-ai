@@ -1,3 +1,5 @@
+import { frontendRuntime } from "./runtime-config";
+
 export type BirthProfile = {
   profile_id: string;
   label: string;
@@ -22,9 +24,7 @@ export type Message = {
   payload?: unknown;
 };
 
-export const apiUrl = (
-  import.meta.env.VITE_ASTROAI_API_URL || "https://astro-ai-production-54a7.up.railway.app"
-).replace(/\/$/, "");
+export const apiUrl = frontendRuntime.apiUrl;
 
 export async function apiRequest<T>(path: string, token: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${apiUrl}${path}`, {

@@ -2,6 +2,7 @@ FROM node:22-alpine AS build
 
 WORKDIR /app
 
+ARG VITE_ASTROAI_ENVIRONMENT
 ARG VITE_ASTROAI_API_URL
 ARG VITE_OIDC_AUTHORITY
 ARG VITE_OIDC_CLIENT_ID
@@ -11,7 +12,8 @@ ARG VITE_OIDC_AUDIENCE
 # Vite substitutes VITE_* values while creating the static bundle. Railway
 # service variables are available at runtime by default, so promote the
 # public, non-secret client settings into this build stage explicitly.
-ENV VITE_ASTROAI_API_URL=${VITE_ASTROAI_API_URL} \
+ENV VITE_ASTROAI_ENVIRONMENT=${VITE_ASTROAI_ENVIRONMENT} \
+    VITE_ASTROAI_API_URL=${VITE_ASTROAI_API_URL} \
     VITE_OIDC_AUTHORITY=${VITE_OIDC_AUTHORITY} \
     VITE_OIDC_CLIENT_ID=${VITE_OIDC_CLIENT_ID} \
     VITE_OIDC_SCOPE=${VITE_OIDC_SCOPE} \
