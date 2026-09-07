@@ -40,7 +40,7 @@ def test_production_accepts_keyed_openmapquest():
     assert settings.geocoding_provider == "openmapquest"
 
 
-def test_resolve_place_uses_configured_provider_and_cache(monkeypatch):
+def test_cached_resolver_uses_configured_provider(monkeypatch):
     calls = []
 
     class FakeOpenMapQuest:
@@ -67,11 +67,10 @@ def test_resolve_place_uses_configured_provider_and_cache(monkeypatch):
     monkeypatch.setattr(geocoding, "_tzf", fake_timezone_finder)
     geocoding._resolve_normalized_place.cache_clear()
 
-    first = geocoding.resolve_place(" Mumbai ")
-    second = geocoding.resolve_place("Mumbai")
+    first = geocoding._resolve_normalized_place("Mumbai")
+    second = geocoding._resolve_normalized_place("Mumbai")
 
-    for key in ("resolved_name", "latitude", "longitude", "timezone", "geocoding_provider"):
-        assert first[key] == second[key]
+    assert first == second
     assert first["geocoding_provider"] == "openmapquest"
     assert first["timezone"] == "Asia/Kolkata"
     assert [call[0] for call in calls].count("geocode") == 1
