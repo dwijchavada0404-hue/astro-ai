@@ -16,7 +16,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from app.core.settings import Settings
-from app.storage.database_v1 import connect_database
+from app.storage.database_v1 import connect_database, is_postgres_target
 from app.core.auth_tokens import (
     AuthenticationError,
     bearer_token_from_header,
@@ -238,10 +238,14 @@ def _register_probe_routes(app: FastAPI, settings: Settings) -> None:
 
 
 def _database_ready(database_target: str) -> bool:
-    """Verify that the configured SQLite or PostgreSQL store is queryable."""
+    """Verify the configured store is queryable and SQLite passes a quick integrity check."""
     try:
         with connect_database(database_target) as database:
             database.execute("SELECT 1 AS ready").fetchone()
+            if not is_postgres_target(database_target):
+                row = database.execute("PRAGMA quick_check").fetchone()
+                if row is None or str(row[0]).strip().lower() != "ok":
+                    return False
         return True
     except Exception:
         return False
@@ -288,7 +292,7 @@ def configure_runtime(app: FastAPI, settings: Settings) -> FastAPI:
             allow_origins=origins,
             allow_credentials=True,
             # The browser client updates saved conversation/profile metadata with
-            # PATCH.  Keep the preflight allow-list aligned with the public API
+            # PATCH. Keep the preflight allow-list aligned with the public API
             # methods so a successful server route is reachable from the hosted
             # web app as well as from same-origin test clients.
             allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
