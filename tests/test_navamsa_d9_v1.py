@@ -15,6 +15,11 @@ def test_navamsa_advances_at_exact_three_degree_twenty_minute_boundary():
     assert navamsa_longitude(segment) == pytest.approx(30.0)
 
 
+def test_navamsa_wraps_cleanly_at_full_zodiac_boundary():
+    assert navamsa_longitude(360.0) == pytest.approx(0.0)
+    assert 0.0 <= navamsa_longitude(359.999999) < 360.0
+
+
 def test_build_navamsa_uses_d9_lagna_for_whole_sign_houses_and_marks_vargottama():
     calculated = {
         "ascendant": {"longitude": 0.0, "sign": "Aries"},
