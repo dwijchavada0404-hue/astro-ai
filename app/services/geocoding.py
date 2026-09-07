@@ -8,6 +8,10 @@ from timezonefinder import TimezoneFinder
 from app.core.settings import get_settings
 
 
+# Preserve the legacy Nominatim instance as a stable seam for existing tests and
+# development/staging behaviour. Production never reaches this path because
+# Settings rejects public Nominatim when ASTROAI_ENVIRONMENT=production.
+_geocoder = Nominatim(user_agent="astro-ai-milestone1/0.1")
 _tzf = TimezoneFinder()
 
 
@@ -38,10 +42,7 @@ def _resolve_normalized_place(place: str) -> dict[str, Any]:
             "timeout": timeout,
         }
     else:
-        geocoder = Nominatim(
-            user_agent=settings.geocoding_user_agent,
-            timeout=timeout,
-        )
+        geocoder = _geocoder
         geocode_kwargs = {
             "exactly_one": True,
             "addressdetails": True,
