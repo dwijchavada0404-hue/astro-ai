@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { apiRequest, type BirthProfile } from "./api";
 import { KundliChart } from "./kundli-chart";
 import { NavamsaView } from "./navamsa-view";
+import { DasamsaView } from "./dasamsa-view";
 import "./kundli-chart.css";
 
 type Planet = {
@@ -41,7 +42,7 @@ type Chart = {
   ascendant?: { sign?: string; degree_in_sign?: number; degree_dms?: string };
   planets?: Record<string, Planet>;
   houses?: Record<string, House>;
-  divisional_charts?: { D9?: any };
+  divisional_charts?: { D9?: any; D10?: any };
   dashas?: Dashas;
 };
 
@@ -138,6 +139,7 @@ export function BirthChartViewer({ token, profile, onClose }: { token: string; p
         {timeline.length > 0 && <section className="chart-section"><div className="chart-section-title"><h4>Vimshottari Mahadasha timeline</h4><span>Select a period to inspect its Antardashas</span></div><div className="dasha-timeline">{timeline.map((period, index) => <button type="button" key={`${period.planet || "period"}-${period.start || index}`} className={`${period.isCurrent ? "is-current" : ""} ${period.start === selectedMahadasha?.start ? "is-selected" : ""}`.trim()} aria-current={period.isCurrent ? "true" : undefined} aria-pressed={period.start === selectedMahadasha?.start} onClick={() => setSelectedDashaStart(period.start || null)}><span>{period.isCurrent ? "Current Mahadasha" : `Period ${index + 1}`}</span><strong>{period.planet || "—"}</strong><small>{formatPeriodDate(period.start)} → {formatPeriodDate(period.end)}</small></button>)}</div>{selectedMahadasha && antardashas.length > 0 && <div className="antardasha-panel" aria-label={`${selectedMahadasha.planet || "Selected"} Mahadasha Antardashas`}><div className="antardasha-heading"><div><span>Antardasha drill-down</span><h5>{selectedMahadasha.planet || "—"} Mahadasha</h5></div><small>{formatPeriodDate(selectedMahadasha.start)} → {formatPeriodDate(selectedMahadasha.end)}</small></div><div className="antardasha-grid">{antardashas.map((subperiod, index) => <article key={`${subperiod.planet || "subperiod"}-${subperiod.start || index}`} className={subperiod.isCurrent ? "is-current" : ""} aria-current={subperiod.isCurrent ? "true" : undefined}><span>{subperiod.isCurrent ? "Current Antardasha" : `Antardasha ${index + 1}`}</span><strong>{subperiod.planet || "—"}</strong><small>{formatPeriodDate(subperiod.start)} → {formatPeriodDate(subperiod.end)}</small></article>)}</div></div>}</section>}
         <section className="chart-section"><div className="chart-section-title"><h4>Kundli</h4><span>Choose North or South Indian layout</span></div><KundliChart houses={chart.houses} planets={chart.planets} /></section>
         <NavamsaView chart={chart.divisional_charts?.D9} />
+        <DasamsaView chart={chart.divisional_charts?.D10} />
         <section className="chart-section"><div className="chart-section-title"><h4>Planetary positions</h4><span>Calculated at birth</span></div><div className="chart-table-wrap"><table><thead><tr><th>Planet</th><th>Sign</th><th>Degree</th><th>House</th><th>Nakshatra</th><th>Motion</th></tr></thead><tbody>{rows.map((planet) => <tr key={planet.name}><td><strong>{planet.name}</strong></td><td>{planet.sign || "—"}</td><td>{formatDegree(planet.degree_in_sign, planet.degree_dms)}</td><td>{planet.house || "—"}</td><td>{planet.nakshatra || "—"}</td><td>{planet.retrograde ? "Retrograde" : "Direct"}</td></tr>)}</tbody></table></div></section>
         <section className="chart-section"><div className="chart-section-title"><h4>Whole Sign houses</h4><span>Sign and house lord</span></div><div className="house-grid">{houses.map(([number, house]) => <article key={number}><span>House {number}</span><strong>{house.sign || "—"}</strong><small>Lord: {house.lord || "—"}</small></article>)}</div></section>
         <p className="chart-footnote">Calculated from your saved birth details using the deterministic AstroAI engine. Current timing is evaluated when the chart is opened. Astrology is for reflection and entertainment.</p>
