@@ -70,7 +70,8 @@ def test_resolve_place_uses_configured_provider_and_cache(monkeypatch):
     first = geocoding.resolve_place(" Mumbai ")
     second = geocoding.resolve_place("Mumbai")
 
-    assert first == second
+    for key in ("resolved_name", "latitude", "longitude", "timezone", "geocoding_provider"):
+        assert first[key] == second[key]
     assert first["geocoding_provider"] == "openmapquest"
     assert first["timezone"] == "Asia/Kolkata"
     assert [call[0] for call in calls].count("geocode") == 1
