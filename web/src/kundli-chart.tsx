@@ -2,26 +2,32 @@ import { useState } from "react";
 
 type PlanetPlacement = { house?: number; retrograde?: boolean; sign?: string; degree_dms?: string; nakshatra?: string };
 type HousePlacement = { sign?: string; lord?: string };
+type KundliPlanet = { name: string; retrograde: boolean; degree?: string; nakshatra?: string };
 
 export type KundliHouse = {
   number: number;
   sign: string;
   lord: string;
-  planets: Array<{ name: string; retrograde: boolean; degree?: string; nakshatra?: string }>;
+  planets: KundliPlanet[];
 };
 
 export type SouthIndianCell = {
   sign: string;
   houseNumber?: number;
-  planets: Array<{ name: string; retrograde: boolean }>;
+  lord: string;
+  planets: KundliPlanet[];
 };
 
+function enginePlanet(name: string, planet: PlanetPlacement): KundliPlanet {
+  return { name, retrograde: Boolean(planet.retrograde), degree: planet.degree_dms, nakshatra: planet.nakshatra };
+}
+
 export function kundliHouses(houses?: Record<string, HousePlacement>, planets?: Record<string, PlanetPlacement>): KundliHouse[] {
-  const byHouse = new Map<number, Array<{ name: string; retrograde: boolean; degree?: string; nakshatra?: string }>>();
+  const byHouse = new Map<number, KundliPlanet[]>();
   Object.entries(planets || {}).forEach(([name, planet]) => {
     if (typeof planet.house !== "number" || planet.house < 1 || planet.house > 12) return;
     const current = byHouse.get(planet.house) || [];
-    current.push({ name, retrograde: Boolean(planet.retrograde), degree: planet.degree_dms, nakshatra: planet.nakshatra });
+    current.push(enginePlanet(name, planet));
     byHouse.set(planet.house, current);
   });
   return Array.from({ length: 12 }, (_, index) => {
@@ -37,23 +43,28 @@ export const SOUTH_INDIAN_SIGNS = [
 ] as const;
 
 export function southIndianCells(houses?: Record<string, HousePlacement>, planets?: Record<string, PlanetPlacement>): SouthIndianCell[] {
-  const houseBySign = new Map<string, number>();
+  const houseBySign = new Map<string, { number: number; lord: string }>();
   Object.entries(houses || {}).forEach(([number, house]) => {
     const parsed = Number(number);
-    if (house.sign && Number.isInteger(parsed) && parsed >= 1 && parsed <= 12) houseBySign.set(house.sign, parsed);
+    if (house.sign && Number.isInteger(parsed) && parsed >= 1 && parsed <= 12) {
+      houseBySign.set(house.sign, { number: parsed, lord: house.lord || "—" });
+    }
   });
 
-  const planetsBySign = new Map<string, Array<{ name: string; retrograde: boolean }>>();
+  const planetsBySign = new Map<string, KundliPlanet[]>();
   Object.entries(planets || {}).forEach(([name, planet]) => {
     const fallbackSign = typeof planet.house === "number" ? houses?.[String(planet.house)]?.sign : undefined;
     const sign = planet.sign || fallbackSign;
     if (!sign || !SOUTH_INDIAN_SIGNS.includes(sign as (typeof SOUTH_INDIAN_SIGNS)[number])) return;
     const current = planetsBySign.get(sign) || [];
-    current.push({ name, retrograde: Boolean(planet.retrograde) });
+    current.push(enginePlanet(name, planet));
     planetsBySign.set(sign, current);
   });
 
-  return SOUTH_INDIAN_SIGNS.map((sign) => ({ sign, houseNumber: houseBySign.get(sign), planets: planetsBySign.get(sign) || [] }));
+  return SOUTH_INDIAN_SIGNS.map((sign) => {
+    const house = houseBySign.get(sign);
+    return { sign, houseNumber: house?.number, lord: house?.lord || "—", planets: planetsBySign.get(sign) || [] };
+  });
 }
 
 const POSITIONS: Record<number, { x: number; y: number }> = {
@@ -66,6 +77,13 @@ const SOUTH_GRID_AREAS: Record<string, string> = {
   Aquarius:"2 / 1", Cancer:"2 / 4", Capricorn:"3 / 1", Leo:"3 / 4",
   Sagittarius:"4 / 1", Scorpio:"4 / 2", Libra:"4 / 3", Virgo:"4 / 4",
 };
+
+function HouseInspector({ houseNumber, sign, lord, planets }: { houseNumber?: number; sign: string; lord: string; planets: KundliPlanet[] }) {
+  return <section className="kundli-inspector" aria-live="polite" aria-label={houseNumber ? `House ${houseNumber} details` : `${sign} sign details`}>
+    <div className="kundli-inspector-heading"><div><span>Selected house</span><h5>{houseNumber ? `House ${houseNumber} · ${sign}` : `${sign} · House unavailable`}</h5></div><small>Lord: <strong>{lord}</strong></small></div>
+    {planets.length > 0 ? <div className="kundli-planet-grid">{planets.map((planet) => <article key={planet.name}><span>{planet.retrograde ? "Retrograde planet" : "Planet"}</span><strong>{planet.name}{planet.retrograde ? " ℞" : ""}</strong><small>{planet.degree || "Degree unavailable"}</small><small>{planet.nakshatra || "Nakshatra unavailable"}</small></article>)}</div> : <p className="kundli-empty">No planets are placed in this house in the calculated natal chart.</p>}
+  </section>;
+}
 
 export function NorthIndianKundli({ houses, planets }: { houses?: Record<string, HousePlacement>; planets?: Record<string, PlanetPlacement> }) {
   const rows = kundliHouses(houses, planets);
@@ -89,26 +107,30 @@ export function NorthIndianKundli({ houses, planets }: { houses?: Record<string,
         </g>;
       })}
     </svg>
-    <section className="kundli-inspector" aria-live="polite" aria-label={`House ${selectedHouse.number} details`}>
-      <div className="kundli-inspector-heading"><div><span>Selected house</span><h5>House {selectedHouse.number} · {selectedHouse.sign}</h5></div><small>Lord: <strong>{selectedHouse.lord}</strong></small></div>
-      {selectedHouse.planets.length > 0 ? <div className="kundli-planet-grid">{selectedHouse.planets.map((planet) => <article key={planet.name}><span>{planet.retrograde ? "Retrograde planet" : "Planet"}</span><strong>{planet.name}{planet.retrograde ? " ℞" : ""}</strong><small>{planet.degree || "Degree unavailable"}</small><small>{planet.nakshatra || "Nakshatra unavailable"}</small></article>)}</div> : <p className="kundli-empty">No planets are placed in this house in the calculated natal chart.</p>}
-    </section>
+    <HouseInspector houseNumber={selectedHouse.number} sign={selectedHouse.sign} lord={selectedHouse.lord} planets={selectedHouse.planets} />
     <p className="kundli-legend">Select any house for details. House numbers, signs, lords and planets come directly from the calculated chart. ℞ marks retrograde motion.</p>
   </div>;
 }
 
 export function SouthIndianKundli({ houses, planets }: { houses?: Record<string, HousePlacement>; planets?: Record<string, PlanetPlacement> }) {
   const cells = southIndianCells(houses, planets);
+  const lagnaCell = cells.find((cell) => cell.houseNumber === 1) || cells[0];
+  const [selectedSign, setSelectedSign] = useState(lagnaCell.sign);
+  const selectedCell = cells.find((cell) => cell.sign === selectedSign) || lagnaCell;
   return <div className="kundli-shell">
-    <div className="south-kundli" role="img" aria-label="South Indian style birth chart with fixed zodiac signs">
-      {cells.map((cell) => <article key={cell.sign} className={`south-kundli-cell ${cell.houseNumber === 1 ? "is-lagna" : ""}`} style={{ gridArea: SOUTH_GRID_AREAS[cell.sign] }}>
-        <span>{cell.houseNumber === 1 ? "Lagna · House 1" : cell.houseNumber ? `House ${cell.houseNumber}` : ""}</span>
-        <strong>{cell.sign}</strong>
-        {cell.planets.length > 0 && <small>{cell.planets.map((planet) => `${planet.name}${planet.retrograde ? " ℞" : ""}`).join(" · ")}</small>}
-      </article>)}
+    <div className="south-kundli" role="group" aria-label="South Indian style birth chart with selectable fixed zodiac signs">
+      {cells.map((cell) => {
+        const selected = cell.sign === selectedCell.sign;
+        return <button type="button" key={cell.sign} className={`south-kundli-cell ${cell.houseNumber === 1 ? "is-lagna" : ""} ${selected ? "is-selected" : ""}`.trim()} style={{ gridArea: SOUTH_GRID_AREAS[cell.sign] }} aria-label={`${cell.sign}, ${cell.houseNumber ? `House ${cell.houseNumber}` : "house unavailable"}, ${cell.planets.length} planets`} aria-pressed={selected} onClick={() => setSelectedSign(cell.sign)}>
+          <span>{cell.houseNumber === 1 ? "Lagna · House 1" : cell.houseNumber ? `House ${cell.houseNumber}` : ""}</span>
+          <strong>{cell.sign}</strong>
+          {cell.planets.length > 0 && <small>{cell.planets.map((planet) => `${planet.name}${planet.retrograde ? " ℞" : ""}`).join(" · ")}</small>}
+        </button>;
+      })}
       <div className="south-kundli-center" aria-hidden="true"><strong>South Indian</strong><span>Fixed signs</span></div>
     </div>
-    <p className="kundli-legend">South Indian layout keeps zodiac signs fixed and rotates houses from the Lagna. House and planet placements come directly from the calculated chart.</p>
+    <HouseInspector houseNumber={selectedCell.houseNumber} sign={selectedCell.sign} lord={selectedCell.lord} planets={selectedCell.planets} />
+    <p className="kundli-legend">Select any sign cell for house details. South Indian signs stay fixed while houses rotate from the Lagna; all house, lord and planet details come directly from the calculated chart.</p>
   </div>;
 }
 
