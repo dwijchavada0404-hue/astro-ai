@@ -8,3 +8,4 @@ pysweph>=2.10.3.6,<2.11
 geopy>=2.4,<3
 timezonefinder>=8,<9
 tzdata>=2025.2
+requests>=2.32,<3

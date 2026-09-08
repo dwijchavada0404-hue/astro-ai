@@ -39,9 +39,19 @@ def test_keyed_provider_requires_api_key():
         Settings(environment="staging", geocoding_provider="openmapquest", geocoding_api_key="")
 
 
+def test_geoapify_requires_api_key():
+    with pytest.raises(ValueError, match="ASTROAI_GEOCODING_API_KEY"):
+        Settings(environment="staging", geocoding_provider="geoapify", geocoding_api_key="")
+
+
 def test_production_accepts_keyed_openmapquest():
     settings = _production_settings()
     assert settings.geocoding_provider == "openmapquest"
+
+
+def test_production_accepts_keyed_geoapify():
+    settings = _production_settings(geocoding_provider="geoapify")
+    assert settings.geocoding_provider == "geoapify"
 
 
 def test_cached_resolver_uses_configured_provider(monkeypatch):
@@ -81,3 +91,51 @@ def test_cached_resolver_uses_configured_provider(monkeypatch):
     init = calls[0][1]
     assert init["api_key"] == "secret-key"
     assert init["timeout"] == 7
+
+
+def test_cached_resolver_uses_geoapify(monkeypatch):
+    calls = []
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "results": [{
+                    "lat": 19.076,
+                    "lon": 72.8777,
+                    "formatted": "Mumbai, Maharashtra, India",
+                }]
+            }
+
+    def fake_get(url, **kwargs):
+        calls.append((url, kwargs))
+        return FakeResponse()
+
+    fake_settings = SimpleNamespace(
+        geocoding_provider="geoapify",
+        geocoding_api_key="secret-key",
+        geocoding_user_agent="astro-ai-test/1.0",
+        geocoding_timeout_seconds=7,
+    )
+    fake_timezone_finder = SimpleNamespace(timezone_at=lambda **kwargs: "Asia/Kolkata")
+    monkeypatch.setattr(geocoding, "get_settings", lambda: fake_settings)
+    monkeypatch.setattr(geocoding.requests, "get", fake_get)
+    monkeypatch.setattr(geocoding, "_tzf", fake_timezone_finder)
+    geocoding._resolve_normalized_place.cache_clear()
+
+    first = geocoding._resolve_normalized_place("Mumbai")
+    second = geocoding._resolve_normalized_place("Mumbai")
+
+    assert first == second
+    assert first["geocoding_provider"] == "geoapify"
+    assert first["resolved_name"] == "Mumbai, Maharashtra, India"
+    assert first["timezone"] == "Asia/Kolkata"
+    assert len(calls) == 1
+    url, kwargs = calls[0]
+    assert url == "https://api.geoapify.com/v1/geocode/search"
+    assert kwargs["params"]["text"] == "Mumbai"
+    assert kwargs["params"]["apiKey"] == "secret-key"
+    assert kwargs["params"]["limit"] == 1
+    assert kwargs["timeout"] == 7
