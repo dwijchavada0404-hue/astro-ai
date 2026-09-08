@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     database_url: str = ""
     profile_database_path: str = "data/astroai_profiles.db"
 
-    geocoding_provider: Literal["nominatim", "openmapquest"] = "nominatim"
+    geocoding_provider: Literal["nominatim", "openmapquest", "geoapify"] = "nominatim"
     geocoding_api_key: str = ""
     geocoding_timeout_seconds: int = Field(default=10, ge=1, le=30)
     geocoding_user_agent: str = "astro-ai/1.0"
@@ -81,8 +81,8 @@ class Settings(BaseSettings):
                 raise ValueError("Explicit JWT issuer and audience are required when authentication is enabled.")
         if self.api_auth_required and not self.auth_enabled:
             raise ValueError("ASTROAI_API_AUTH_REQUIRED requires ASTROAI_AUTH_ENABLED=true.")
-        if self.geocoding_provider == "openmapquest" and not self.geocoding_api_key.strip():
-            raise ValueError("ASTROAI_GEOCODING_API_KEY is required when OpenMapQuest geocoding is selected.")
+        if self.geocoding_provider in {"openmapquest", "geoapify"} and not self.geocoding_api_key.strip():
+            raise ValueError("ASTROAI_GEOCODING_API_KEY is required when a keyed geocoding provider is selected.")
         if self.environment == "production":
             if "*" in self.cors_origin_list:
                 raise ValueError("Wildcard CORS origins are not allowed in production.")
@@ -99,7 +99,7 @@ class Settings(BaseSettings):
             if not self.request_logging_enabled:
                 raise ValueError("Structured request logging must be enabled in production.")
             if self.geocoding_provider == "nominatim":
-                raise ValueError("Public Nominatim geocoding is not allowed in production; configure OpenMapQuest.")
+                raise ValueError("Public Nominatim geocoding is not allowed in production; configure a keyed provider.")
             if not _is_postgres_target(database_target):
                 sqlite_path = Path(database_target).expanduser()
                 if not sqlite_path.is_absolute():
