@@ -27,6 +27,24 @@ def route_family_children_question_v1(chart: dict[str, Any], question: str, refe
     intent = str(understanding.get("primary_intent") or "unknown")
     natal = analyze_family_children_v1(chart)
 
+    # Exact future child count is not treated as a reliable deterministic
+    # prediction. Keep the request in the correct domain and return structured
+    # family evidence so the answer layer can explain the boundary naturally.
+    if intent == "children_count":
+        timing = analyze_family_children_timing_v1(chart, reference_moment)
+        return {
+            "available": True,
+            "route": "family_children_count_boundary_v1",
+            "event": "family_children",
+            "primary_intent": intent,
+            "understanding": understanding,
+            "natal": natal,
+            "timing": timing,
+            "answer": None,
+            "limitation": "An exact future number of children is not treated as a reliable astrological prediction.",
+            "children_question_boundary": "child_count",
+        }
+
     if intent == "family_overview":
         synthesis = analyze_family_children_synthesis_v1(chart, reference_moment)
         return {"available": bool(synthesis.get("available")), "route": "family_children_synthesis_v1", "event": "family_children", "primary_intent": intent, "understanding": understanding, "synthesis": synthesis, "answer": synthesis.get("answer") if synthesis.get("available") else synthesis.get("reason"), "limitation": synthesis.get("limitation") or natal.get("limitation"), "children_question_boundary": synthesis.get("children_question_boundary")}
