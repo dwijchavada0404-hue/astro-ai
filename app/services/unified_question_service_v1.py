@@ -5,6 +5,7 @@ from typing import Any
 
 from app.astrology.features.top_level_question_router_v1 import route_top_level_question_v1
 from app.services.answer_experience_v2 import AnswerLanguage, present_answer_v2
+from app.services.question_language_aliases_v1 import normalize_question_for_routing_v1
 
 
 MAX_QUESTION_LENGTH = 1000
@@ -41,6 +42,48 @@ def _validate_life_context(life_context: dict[str, Any] | None) -> None:
         raise ValueError("life_context must be a dictionary when provided.")
 
 
+def _nonempty_text(*values: Any) -> str | None:
+    for value in values:
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _fallback_narrative(routed: dict[str, Any], language: AnswerLanguage) -> str:
+    """Guarantee that an API response never persists a null assistant narrative."""
+    result = routed.get("result") if isinstance(routed.get("result"), dict) else {}
+    direct = _nonempty_text(
+        routed.get("answer"),
+        routed.get("reason"),
+        result.get("answer"),
+        result.get("summary"),
+        result.get("reason"),
+    )
+    if direct:
+        return direct
+
+    domain = str(routed.get("domain") or "")
+    messages = {
+        "hinglish": {
+            "marriage": "Is sawaal ke liye chart signals mil rahe hain, lekin current calculation se reliable marriage conclusion complete nahi ho paaya. Main incomplete ya invented prediction dene ke bajay is reading ko dobara calculate karne ki zarurat bata raha hoon.",
+            "family_children": "Is sawaal ke liye family/parenting signals mil rahe hain, lekin current calculation se reliable timing window complete nahi ho paayi. Main incomplete ya invented date dene ke bajay is reading ko dobara calculate karne ki zarurat bata raha hoon.",
+            "default": "Chart analysis complete hua, lekin is request ke liye reliable narrative generate nahi ho paaya. Incomplete ya invented prediction dikhane ke bajay AstroAI is reading ko unavailable mark kar raha hai.",
+        },
+        "english": {
+            "marriage": "The chart signals were found, but the current calculation could not complete a reliable marriage conclusion. Rather than inventing a prediction, this reading needs to be recalculated.",
+            "family_children": "The family/parenting signals were found, but the current calculation could not complete a reliable timing window. Rather than inventing a date, this reading needs to be recalculated.",
+            "default": "The chart analysis completed, but a reliable narrative could not be generated for this request. AstroAI is marking the reading unavailable rather than inventing a prediction.",
+        },
+        "hindi": {
+            "marriage": "कुंडली में संकेत मिले हैं, लेकिन वर्तमान गणना विश्वसनीय विवाह निष्कर्ष पूरा नहीं कर पाई। अनुमान गढ़ने के बजाय इस रीडिंग की दोबारा गणना आवश्यक है।",
+            "family_children": "परिवार और पालन-पोषण के संकेत मिले हैं, लेकिन वर्तमान गणना विश्वसनीय समय-सीमा पूरी नहीं कर पाई। कोई तारीख गढ़ने के बजाय इस रीडिंग की दोबारा गणना आवश्यक है।",
+            "default": "कुंडली का विश्लेषण पूरा हुआ, लेकिन इस प्रश्न के लिए विश्वसनीय उत्तर तैयार नहीं हो पाया। अनुमान गढ़ने के बजाय AstroAI इस रीडिंग को अनुपलब्ध बता रहा है।",
+        },
+    }
+    selected = messages[language]
+    return selected.get(domain, selected["default"])
+
+
 def answer_unified_question_v1(
     chart: dict[str, Any],
     question: str,
@@ -54,9 +97,10 @@ def answer_unified_question_v1(
     _validate_reference_moment(reference_moment)
     _validate_life_context(life_context)
 
+    routing_question = normalize_question_for_routing_v1(cleaned_question)
     routed = route_top_level_question_v1(
         chart,
-        cleaned_question,
+        routing_question,
         reference_moment,
         life_context=life_context,
     )
@@ -66,7 +110,14 @@ def answer_unified_question_v1(
     available = bool(routed.get("available"))
     domain = routed.get("domain")
     route = routed.get("route") or "unsupported"
-    answer = present_answer_v2(routed, answer_language) if available else routed.get("reason")
+
+    # Presentation can synthesize a natural answer from structured engine output.
+    # Even unavailable inner routes may carry a useful reason/answer at the top
+    # level, so never discard it merely because available=False.
+    presented = present_answer_v2(routed, answer_language) if available else None
+    answer = _nonempty_text(presented, routed.get("answer"), routed.get("reason"))
+    if answer is None:
+        answer = _fallback_narrative(routed, answer_language)
 
     status = "answered" if available else "unsupported"
     return {
@@ -85,5 +136,6 @@ def answer_unified_question_v1(
             "answer_experience": "v2",
             "reality_override_enabled": life_context is not None,
             "guaranteed_outcome": False,
+            "routing_alias_applied": routing_question != cleaned_question,
         },
     }
