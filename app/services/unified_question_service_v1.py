@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Any
 
 from app.astrology.features.top_level_question_router_v1 import route_top_level_question_v1
+from app.services.answer_experience_v2 import AnswerLanguage, present_answer_v2
 
 
 MAX_QUESTION_LENGTH = 1000
@@ -45,13 +46,9 @@ def answer_unified_question_v1(
     question: str,
     reference_moment: datetime,
     life_context: dict[str, Any] | None = None,
+    answer_language: AnswerLanguage = "hinglish",
 ) -> dict[str, Any]:
-    """Production-facing service contract for AstroAI's mature domain router.
-
-    This layer intentionally does not alter astrology scores or domain decisions.
-    It validates transport-facing inputs and normalizes router output into a stable
-    envelope that a web/mobile client can consume consistently.
-    """
+    """Production-facing service contract with deterministic routing and natural presentation."""
     _validate_chart(chart)
     cleaned_question = _validate_question(question)
     _validate_reference_moment(reference_moment)
@@ -69,7 +66,7 @@ def answer_unified_question_v1(
     available = bool(routed.get("available"))
     domain = routed.get("domain")
     route = routed.get("route") or "unsupported"
-    answer = routed.get("answer") or routed.get("reason")
+    answer = present_answer_v2(routed, answer_language) if available else routed.get("reason")
 
     status = "answered" if available else "unsupported"
     return {
@@ -80,10 +77,12 @@ def answer_unified_question_v1(
         "domain": domain,
         "route": route,
         "answer": answer,
+        "answer_language": answer_language,
         "limitation": routed.get("limitation"),
         "result": routed,
         "meta": {
             "deterministic_router": True,
+            "answer_experience": "v2",
             "reality_override_enabled": life_context is not None,
             "guaranteed_outcome": False,
         },
