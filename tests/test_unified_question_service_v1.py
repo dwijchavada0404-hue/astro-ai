@@ -30,6 +30,50 @@ def test_service_normalizes_successful_router_output(monkeypatch):
     assert result["meta"]["guaranteed_outcome"] is False
 
 
+def test_job_change_timing_uses_event_window_not_engine_methodology(monkeypatch):
+    monkeypatch.setattr(
+        module,
+        "route_top_level_question_v1",
+        lambda chart, question, moment, life_context=None: {
+            "available": True,
+            "domain": "career",
+            "route": "career_event_v1",
+            "answer": "Career event themes are ranked from natal evidence and available dasha timing. Scores represent symbolic activation strength.",
+            "result": {
+                "primary_intent": "job_change",
+                "event_result": {
+                    "future": {
+                        "event_specific_period": {
+                            "start": "2027-02-12T00:00:00+05:30",
+                            "end": "2027-10-19T00:00:00+05:30",
+                        }
+                    }
+                },
+            },
+        },
+    )
+    result = module.answer_unified_question_v1(CHART, "Meri job change kab hogi", NOW)
+    assert "Feb 2027 – Oct 2027" in result["answer"]
+    assert "job change" in result["answer"].lower()
+    assert "Career event themes are ranked" not in result["answer"]
+    assert "symbolic activation strength" not in result["answer"]
+
+
+def test_job_change_timing_respects_english_language(monkeypatch):
+    monkeypatch.setattr(
+        module,
+        "route_top_level_question_v1",
+        lambda chart, question, moment, life_context=None: {
+            "available": True,
+            "domain": "career",
+            "route": "career_event_v1",
+            "result": {"primary_intent": "job_change", "event_result": {"future": {"career_timing_period": {"start": "2028-01-01", "end": "2028-06-30"}}}},
+        },
+    )
+    result = module.answer_unified_question_v1(CHART, "When will I change jobs?", NOW, answer_language="english")
+    assert result["answer"].startswith("Your chart shows Jan 2028 – Jun 2028")
+
+
 def test_unsupported_question_has_stable_envelope(monkeypatch):
     monkeypatch.setattr(
         module,
