@@ -5,6 +5,7 @@ import { LifeContextOnboarding } from "./life-context-onboarding";
 import "./styles.css";
 import "./backup.css";
 import "./chart-viewer.css";
+import "./reading-progress.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
