@@ -49,6 +49,66 @@ def _nonempty_text(*values: Any) -> str | None:
     return None
 
 
+def _month(value: Any) -> str | None:
+    if not value:
+        return None
+    try:
+        dt = value if isinstance(value, datetime) else datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        return dt.strftime("%b %Y")
+    except (TypeError, ValueError):
+        return None
+
+
+def _period_range(period: Any) -> str | None:
+    if not isinstance(period, dict):
+        return None
+    start, end = _month(period.get("start")), _month(period.get("end"))
+    if start and end:
+        return start if start == end else f"{start} – {end}"
+    return start or end
+
+
+def _career_event_narrative(routed: dict[str, Any], language: AnswerLanguage) -> str | None:
+    """Answer career-event timing directly from deterministic event windows."""
+    if routed.get("domain") != "career":
+        return None
+    result = routed.get("result") if isinstance(routed.get("result"), dict) else {}
+    intent = str(result.get("primary_intent") or "")
+    if intent not in {"job_change", "new_job", "promotion", "foreign_work"}:
+        return None
+    event_result = result.get("event_result") if isinstance(result.get("event_result"), dict) else {}
+    future = event_result.get("future") if isinstance(event_result.get("future"), dict) else {}
+    period = future.get("event_specific_period") or future.get("career_timing_period")
+    window = _period_range(period)
+    if not window:
+        return None
+
+    labels = {
+        "job_change": ("job change", "job change", "नौकरी बदलने"),
+        "new_job": ("new job", "new job", "नई नौकरी"),
+        "promotion": ("promotion", "promotion", "प्रमोशन"),
+        "foreign_work": ("foreign/MNC work", "foreign or international work", "विदेशी या अंतरराष्ट्रीय काम"),
+    }
+    hinglish_label, english_label, hindi_label = labels[intent]
+    return {
+        "hinglish": (
+            f"Aapki kundli mein {hinglish_label} ke liye {window} ka period comparatively sabse strong dikh raha hai. "
+            "Is phase mein professional transition aur career movement ke signals zyada active hote hain, isliye interviews, offers ya role/company change ki movement isi window ke aas-paas stronger ho sakti hai. "
+            "Isse favourable timing samjhein, fixed guarantee nahi."
+        ),
+        "english": (
+            f"Your chart shows {window} as the comparatively strongest upcoming period for a {english_label}. "
+            "Professional-transition and career-movement indicators are more active in this phase, so interviews, offers or a role/company change may gain momentum around this window. "
+            "Treat it as favourable timing rather than a fixed guarantee."
+        ),
+        "hindi": (
+            f"आपकी कुंडली में {hindi_label} के लिए {window} का समय तुलनात्मक रूप से सबसे मजबूत दिखाई देता है। "
+            "इस चरण में पेशेवर बदलाव और करियर मूवमेंट के संकेत अधिक सक्रिय रहते हैं, इसलिए इंटरव्यू, ऑफर या भूमिका/कंपनी बदलने की प्रक्रिया इस समय के आसपास तेज हो सकती है। "
+            "इसे अनुकूल समय मानें, निश्चित गारंटी नहीं।"
+        ),
+    }[language]
+
+
 def _fallback_narrative(routed: dict[str, Any], language: AnswerLanguage) -> str:
     """Guarantee that an API response never persists a null assistant narrative."""
     result = routed.get("result") if isinstance(routed.get("result"), dict) else {}
@@ -112,10 +172,11 @@ def answer_unified_question_v1(
     route = routed.get("route") or "unsupported"
 
     # Presentation can synthesize a natural answer from structured engine output.
-    # Even unavailable inner routes may carry a useful reason/answer at the top
-    # level, so never discard it merely because available=False.
+    # Career-event timing is handled first so internal score/methodology copy can
+    # never leak as the primary response to questions such as job-change timing.
+    career_presented = _career_event_narrative(routed, answer_language) if available else None
     presented = present_answer_v2(routed, answer_language) if available else None
-    answer = _nonempty_text(presented, routed.get("answer"), routed.get("reason"))
+    answer = _nonempty_text(career_presented, presented, routed.get("answer"), routed.get("reason"))
     if answer is None:
         answer = _fallback_narrative(routed, answer_language)
 
