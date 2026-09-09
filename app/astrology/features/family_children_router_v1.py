@@ -28,8 +28,8 @@ def route_family_children_question_v1(chart: dict[str, Any], question: str, refe
     natal = analyze_family_children_v1(chart)
 
     # Exact future child count is not treated as a reliable deterministic
-    # prediction. Keep the request in the correct domain and return structured
-    # family evidence so the answer layer can explain the boundary naturally.
+    # prediction. Keep the request in the correct domain and answer naturally;
+    # never leak an unrelated marriage/event-engine fallback to the user.
     if intent == "children_count":
         timing = analyze_family_children_timing_v1(chart, reference_moment)
         return {
@@ -40,7 +40,11 @@ def route_family_children_question_v1(chart: dict[str, Any], question: str, refe
             "understanding": understanding,
             "natal": natal,
             "timing": timing,
-            "answer": None,
+            "answer": (
+                "Aapki kundli se family aur children ke yog, parenting pattern aur stronger family-growth periods dekhe ja sakte hain, "
+                "lekin exact kitne bachche honge us number ko certainty ke saath fix karna reliable nahi hai. "
+                "Isliye 1, 2 ya 3 jaisa artificial number dene ke bajay chart ke actual children indications aur unke stronger timing periods ko meaningful reading maana jana chahiye."
+            ),
             "limitation": "An exact future number of children is not treated as a reliable astrological prediction.",
             "children_question_boundary": "child_count",
         }
@@ -49,9 +53,6 @@ def route_family_children_question_v1(chart: dict[str, Any], question: str, refe
         synthesis = analyze_family_children_synthesis_v1(chart, reference_moment)
         return {"available": bool(synthesis.get("available")), "route": "family_children_synthesis_v1", "event": "family_children", "primary_intent": intent, "understanding": understanding, "synthesis": synthesis, "answer": synthesis.get("answer") if synthesis.get("available") else synthesis.get("reason"), "limitation": synthesis.get("limitation") or natal.get("limitation"), "children_question_boundary": synthesis.get("children_question_boundary")}
 
-    # Timing intent must win over the broad children/parenting event match. A
-    # question such as "When will I have kids?" contains both signals; routing
-    # it to the event summary used to discard the engine's past/future windows.
     if understanding.get("requires_timing_engine") or intent == "family_timing":
         timing = analyze_family_children_timing_v1(chart, reference_moment)
         return {"available": bool(timing.get("available")), "route": "family_children_timing_v1", "event": "family_children", "event_key": EVENT_MAP.get(intent), "primary_intent": intent, "understanding": understanding, "timing": timing, "answer": timing.get("answer") if timing.get("available") else timing.get("reason"), "limitation": timing.get("limitation") or natal.get("limitation")}
