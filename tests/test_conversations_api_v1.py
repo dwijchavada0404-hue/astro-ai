@@ -27,14 +27,7 @@ def _app(tmp_path: Path, user_id: str = "user_1"):
 
 
 def _birth_profile(profiles: ProfileStoreV1, user_id: str = "user_1") -> str:
-    return profiles.create_birth_profile(
-        user_id,
-        label="Me",
-        birth_date="2000-04-04",
-        birth_time="14:04:00",
-        place="Borivali, Mumbai",
-        is_default=True,
-    )["profile_id"]
+    return profiles.create_birth_profile(user_id, label="Me", birth_date="2000-04-04", birth_time="14:04:00", place="Borivali, Mumbai", is_default=True)["profile_id"]
 
 
 def test_conversation_crud_is_authenticated_and_owned(tmp_path):
@@ -60,49 +53,41 @@ def test_other_users_birth_profile_cannot_be_linked(tmp_path):
     other_app.dependency_overrides[get_current_user] = lambda: AuthenticatedUserProfile(user_id="other")
     other_app.dependency_overrides[conversations_v1._conversation_store] = lambda: conversations
     other_app.dependency_overrides[conversations_v1._profile_store] = lambda: profiles
-    response = TestClient(other_app).post("/api/v1/conversations", json={"title": "No access", "birth_profile_id": owner_profile})
-    assert response.status_code == 404
+    assert TestClient(other_app).post("/api/v1/conversations", json={"title": "No access", "birth_profile_id": owner_profile}).status_code == 404
 
 
 def test_ask_uses_saved_birth_profile_persists_turns_and_next_context(tmp_path, monkeypatch):
     app, conversations, profiles = _app(tmp_path)
     profile_id = _birth_profile(profiles)
     client = TestClient(app)
-    conversation_id = client.post(
-        "/api/v1/conversations",
-        json={"title": "Career", "birth_profile_id": profile_id, "life_context": {"milestones": {}}},
-    ).json()["conversation"]["conversation_id"]
+    conversation_id = client.post("/api/v1/conversations", json={"title": "Career", "birth_profile_id": profile_id, "life_context": {"milestones": {}}}).json()["conversation"]["conversation_id"]
 
     monkeypatch.setattr(conversations_v1, "build_chart", lambda birth: {"birth": birth.model_dump(mode="json"), "houses": {"10": {}}, "planets": {}})
-    monkeypatch.setattr(
-        conversations_v1,
-        "answer_unified_question_v1",
-        lambda chart, question, reference_moment, life_context=None: {
-            "api_contract_version": "v1",
-            "status": "answered",
-            "question": question.strip(),
-            "reference_moment": reference_moment.isoformat(),
-            "domain": "career",
-            "route": "top_level_to_career",
-            "answer": "Career answer",
-            "limitation": "bounded",
+    seen = {}
+    def fake_answer(chart, question, reference_moment, life_context=None, answer_language="hinglish"):
+        seen["language"] = answer_language
+        return {
+            "api_contract_version": "v1", "status": "answered", "question": question.strip(),
+            "reference_moment": reference_moment.isoformat(), "domain": "career", "route": "top_level_to_career",
+            "answer": "Career answer", "answer_language": answer_language, "limitation": "bounded",
             "result": {"available": True, "life_context": {"milestones": {"career_change": {"state": "likely_pending"}}}},
             "meta": {"deterministic_router": True, "reality_override_enabled": True, "guaranteed_outcome": False},
-        },
-    )
+        }
+    monkeypatch.setattr(conversations_v1, "answer_unified_question_v1", fake_answer)
 
-    response = client.post(
-        f"/api/v1/conversations/{conversation_id}/ask",
-        json={"question": " When is career stability likely? ", "reference_moment": NOW.isoformat()},
-    )
+    response = client.post(f"/api/v1/conversations/{conversation_id}/ask", json={"question": " When is career stability likely? ", "reference_moment": NOW.isoformat()})
     assert response.status_code == 200
     assert response.json()["answer"]["domain"] == "career"
+    assert seen["language"] == "hinglish"
     assert response.json()["next_life_context"]["milestones"]["career_change"]["state"] == "likely_pending"
 
+    response = client.post(f"/api/v1/conversations/{conversation_id}/ask", json={"question": "Career?", "reference_moment": NOW.isoformat(), "answer_language": "english"})
+    assert response.status_code == 200
+    assert seen["language"] == "english"
+
     messages = conversations.list_messages("user_1", conversation_id)
-    assert len(messages) == 2
+    assert len(messages) == 4
     assert messages[0]["role"] == "user"
     assert messages[1]["role"] == "assistant"
     assert messages[1]["route"] == "top_level_to_career"
-    saved = conversations.get_conversation("user_1", conversation_id)
-    assert saved["life_context"]["milestones"]["career_change"]["state"] == "likely_pending"
+    assert conversations.get_conversation("user_1", conversation_id)["life_context"]["milestones"]["career_change"]["state"] == "likely_pending"

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date as Date, datetime, time as Time
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field
@@ -31,6 +32,7 @@ class ConversationUpdate(BaseModel):
 class ConversationQuestion(BaseModel):
     question: str = Field(min_length=1, max_length=1000)
     reference_moment: datetime
+    answer_language: Literal["hinglish", "english", "hindi"] = "hinglish"
 
 
 def _conversation_store(settings: Settings = Depends(get_settings)) -> ConversationStoreV1:
@@ -52,143 +54,62 @@ def _ensure_birth_profile_owned(store: ProfileStoreV1, user_id: str, birth_profi
 
 def _birth_input(profile: dict) -> BirthInput:
     try:
-        return BirthInput(
-            date=Date.fromisoformat(profile["birth_date"]),
-            time=Time.fromisoformat(profile["birth_time"]),
-            place=profile["place"],
-        )
+        return BirthInput(date=Date.fromisoformat(profile["birth_date"]), time=Time.fromisoformat(profile["birth_time"]), place=profile["place"])
     except (KeyError, ValueError, TypeError) as exc:
         raise HTTPException(status_code=422, detail="Saved birth profile is invalid.") from exc
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-def create_conversation(
-    payload: ConversationCreate,
-    user: AuthenticatedUserProfile = Depends(get_current_user),
-    conversations: ConversationStoreV1 = Depends(_conversation_store),
-    profiles: ProfileStoreV1 = Depends(_profile_store),
-):
+def create_conversation(payload: ConversationCreate, user: AuthenticatedUserProfile = Depends(get_current_user), conversations: ConversationStoreV1 = Depends(_conversation_store), profiles: ProfileStoreV1 = Depends(_profile_store)):
     _ensure_birth_profile_owned(profiles, user.user_id, payload.birth_profile_id)
-    value = conversations.create_conversation(
-        user.user_id,
-        title=payload.title.strip(),
-        birth_profile_id=payload.birth_profile_id,
-        life_context=payload.life_context,
-    )
+    value = conversations.create_conversation(user.user_id, title=payload.title.strip(), birth_profile_id=payload.birth_profile_id, life_context=payload.life_context)
     return {"conversation": value}
 
 
 @router.get("")
-def list_conversations(
-    limit: int = Query(default=50, ge=1, le=100),
-    user: AuthenticatedUserProfile = Depends(get_current_user),
-    conversations: ConversationStoreV1 = Depends(_conversation_store),
-):
+def list_conversations(limit: int = Query(default=50, ge=1, le=100), user: AuthenticatedUserProfile = Depends(get_current_user), conversations: ConversationStoreV1 = Depends(_conversation_store)):
     return {"conversations": conversations.list_conversations(user.user_id, limit=limit)}
 
 
 @router.get("/{conversation_id}")
-def get_conversation(
-    conversation_id: str,
-    message_limit: int = Query(default=200, ge=1, le=500),
-    user: AuthenticatedUserProfile = Depends(get_current_user),
-    conversations: ConversationStoreV1 = Depends(_conversation_store),
-):
+def get_conversation(conversation_id: str, message_limit: int = Query(default=200, ge=1, le=500), user: AuthenticatedUserProfile = Depends(get_current_user), conversations: ConversationStoreV1 = Depends(_conversation_store)):
     value = conversations.get_conversation(user.user_id, conversation_id)
-    if value is None:
-        raise HTTPException(status_code=404, detail="Conversation not found.")
-    messages = conversations.list_messages(user.user_id, conversation_id, limit=message_limit)
-    return {"conversation": value, "messages": messages}
+    if value is None: raise HTTPException(status_code=404, detail="Conversation not found.")
+    return {"conversation": value, "messages": conversations.list_messages(user.user_id, conversation_id, limit=message_limit)}
 
 
 @router.patch("/{conversation_id}")
-def update_conversation(
-    conversation_id: str,
-    payload: ConversationUpdate,
-    user: AuthenticatedUserProfile = Depends(get_current_user),
-    conversations: ConversationStoreV1 = Depends(_conversation_store),
-):
+def update_conversation(conversation_id: str, payload: ConversationUpdate, user: AuthenticatedUserProfile = Depends(get_current_user), conversations: ConversationStoreV1 = Depends(_conversation_store)):
     raw = payload.model_dump(exclude_unset=True)
-    value = conversations.update_conversation(
-        user.user_id,
-        conversation_id,
-        title=raw.get("title"),
-        life_context=raw.get("life_context"),
-        set_life_context="life_context" in raw,
-    )
-    if value is None:
-        raise HTTPException(status_code=404, detail="Conversation not found.")
+    value = conversations.update_conversation(user.user_id, conversation_id, title=raw.get("title"), life_context=raw.get("life_context"), set_life_context="life_context" in raw)
+    if value is None: raise HTTPException(status_code=404, detail="Conversation not found.")
     return {"conversation": value}
 
 
 @router.delete("/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_conversation(
-    conversation_id: str,
-    user: AuthenticatedUserProfile = Depends(get_current_user),
-    conversations: ConversationStoreV1 = Depends(_conversation_store),
-):
-    if not conversations.delete_conversation(user.user_id, conversation_id):
-        raise HTTPException(status_code=404, detail="Conversation not found.")
+def delete_conversation(conversation_id: str, user: AuthenticatedUserProfile = Depends(get_current_user), conversations: ConversationStoreV1 = Depends(_conversation_store)):
+    if not conversations.delete_conversation(user.user_id, conversation_id): raise HTTPException(status_code=404, detail="Conversation not found.")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/{conversation_id}/ask")
-def ask_in_conversation(
-    conversation_id: str,
-    payload: ConversationQuestion,
-    user: AuthenticatedUserProfile = Depends(get_current_user),
-    conversations: ConversationStoreV1 = Depends(_conversation_store),
-    profiles: ProfileStoreV1 = Depends(_profile_store),
-):
+def ask_in_conversation(conversation_id: str, payload: ConversationQuestion, user: AuthenticatedUserProfile = Depends(get_current_user), conversations: ConversationStoreV1 = Depends(_conversation_store), profiles: ProfileStoreV1 = Depends(_profile_store)):
     conversation = conversations.get_conversation(user.user_id, conversation_id)
-    if conversation is None:
-        raise HTTPException(status_code=404, detail="Conversation not found.")
+    if conversation is None: raise HTTPException(status_code=404, detail="Conversation not found.")
     birth_profile_id = conversation.get("birth_profile_id")
-    if not birth_profile_id:
-        raise HTTPException(status_code=422, detail="Conversation must be linked to a saved birth profile before asking astrology questions.")
+    if not birth_profile_id: raise HTTPException(status_code=422, detail="Conversation must be linked to a saved birth profile before asking astrology questions.")
     profile = _ensure_birth_profile_owned(profiles, user.user_id, birth_profile_id)
     assert profile is not None
     try:
         chart = build_chart(_birth_input(profile))
-        answer = answer_unified_question_v1(
-            chart,
-            payload.question,
-            payload.reference_moment,
-            life_context=conversation.get("life_context"),
-        )
+        answer = answer_unified_question_v1(chart, payload.question, payload.reference_moment, life_context=conversation.get("life_context"), answer_language=payload.answer_language)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    user_message = conversations.add_message(
-        user.user_id,
-        conversation_id,
-        role="user",
-        content=answer.get("question") or payload.question,
-        reference_moment=payload.reference_moment.isoformat(),
-    )
-    assistant_message = conversations.add_message(
-        user.user_id,
-        conversation_id,
-        role="assistant",
-        content=answer.get("answer"),
-        domain=answer.get("domain"),
-        route=answer.get("route"),
-        reference_moment=answer.get("reference_moment"),
-        payload=answer,
-    )
+    user_message = conversations.add_message(user.user_id, conversation_id, role="user", content=answer.get("question") or payload.question, reference_moment=payload.reference_moment.isoformat())
+    assistant_message = conversations.add_message(user.user_id, conversation_id, role="assistant", content=answer.get("answer"), domain=answer.get("domain"), route=answer.get("route"), reference_moment=answer.get("reference_moment"), payload=answer)
     routed = answer.get("result") if isinstance(answer.get("result"), dict) else {}
     next_context = routed.get("life_context") or conversation.get("life_context")
     if next_context != conversation.get("life_context"):
-        conversations.update_conversation(
-            user.user_id,
-            conversation_id,
-            life_context=next_context,
-            set_life_context=True,
-        )
-    return {
-        "conversation_id": conversation_id,
-        "user_message": user_message,
-        "assistant_message": assistant_message,
-        "answer": answer,
-        "next_life_context": next_context,
-    }
+        conversations.update_conversation(user.user_id, conversation_id, life_context=next_context, set_life_context=True)
+    return {"conversation_id": conversation_id, "user_message": user_message, "assistant_message": assistant_message, "answer": answer, "next_life_context": next_context}
