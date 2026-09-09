@@ -1,0 +1,32 @@
+.message.assistant.thinking > div {
+  font-size: 0;
+  min-height: 1.5rem;
+}
+
+.message.assistant.thinking > div::after {
+  content: "Aapki birth chart analyse kar raha hoon…";
+  font-size: 0.95rem;
+  animation: astroai-reading-progress 8s steps(1, end) infinite;
+}
+
+@keyframes astroai-reading-progress {
+  0%, 24.99% {
+    content: "Aapki birth chart analyse kar raha hoon…";
+  }
+  25%, 49.99% {
+    content: "Dasha aur antardasha positions dekh raha hoon…";
+  }
+  50%, 74.99% {
+    content: "Important houses aur planetary influences check kar raha hoon…";
+  }
+  75%, 100% {
+    content: "Timing signals ko aapke life context se match kar raha hoon…";
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .message.assistant.thinking > div::after {
+    animation: none;
+    content: "Aapki kundli, dasha aur timing signals analyse kar raha hoon…";
+  }
+}
