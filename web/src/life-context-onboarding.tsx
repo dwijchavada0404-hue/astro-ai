@@ -10,7 +10,6 @@ export type BasicLifeContext = {
 // V2 intentionally re-opens the one-time context prompt for existing users so
 // they can add home/property reality context introduced after V1.
 const STORAGE_KEY = "astroai.basic-life-context.v2";
-const MIN_ANSWER_WAIT_MS = 2000;
 
 export function lifeContextPayload(value: BasicLifeContext) {
   const milestones: Record<string, { state: string; note: string; achieved_date?: string }> = {};
@@ -53,15 +52,6 @@ export function LifeContextOnboarding({ children }: PropsWithChildren) {
         if (context && typeof init.body === "string") {
           try { const body = JSON.parse(init.body); if (!body.life_context) init = { ...init, body: JSON.stringify({ ...body, life_context: lifeContextPayload(context) }) }; } catch { /* API validates malformed input */ }
         }
-      }
-      // Keep the visible analysis state on screen for at least two seconds.
-      // The API starts immediately; this is presentation pacing, not fake work.
-      if (authenticated && url.includes("/api/v1/conversations/") && url.endsWith("/ask") && (init.method || "GET").toUpperCase() === "POST") {
-        const started = Date.now();
-        const response = await originalFetch(input, init);
-        const remaining = MIN_ANSWER_WAIT_MS - (Date.now() - started);
-        if (remaining > 0) await new Promise((resolve) => window.setTimeout(resolve, remaining));
-        return response;
       }
       return originalFetch(input, init);
     };
