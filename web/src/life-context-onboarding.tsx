@@ -3,29 +3,34 @@ import { PropsWithChildren, useEffect, useState } from "react";
 export type BasicLifeContext = {
   relationshipStatus: "single" | "in_relationship" | "engaged" | "married" | "separated" | "divorced" | "widowed" | "prefer_not_to_say";
   hasChildren: "yes" | "no" | "prefer_not_to_say";
+  ownsHome: "yes" | "no" | "prefer_not_to_say";
+  homeAchievedMonth?: string;
 };
 
-const STORAGE_KEY = "astroai.basic-life-context.v1";
+// V2 intentionally re-opens the one-time context prompt for existing users so
+// they can add home/property reality context introduced after V1.
+const STORAGE_KEY = "astroai.basic-life-context.v2";
+const MIN_ANSWER_WAIT_MS = 2000;
 
 export function lifeContextPayload(value: BasicLifeContext) {
-  const milestones: Record<string, { state: string; note: string }> = {};
-  if (["engaged", "married", "separated", "divorced", "widowed"].includes(value.relationshipStatus)) {
-    milestones.committed_relationship = { state: "user_confirmed_achieved", note: `User-reported relationship status: ${value.relationshipStatus}.` };
-  } else {
-    milestones.committed_relationship = { state: "unknown", note: `User-reported relationship status: ${value.relationshipStatus}.` };
-  }
+  const milestones: Record<string, { state: string; note: string; achieved_date?: string }> = {};
+  milestones.committed_relationship = ["engaged", "married", "separated", "divorced", "widowed"].includes(value.relationshipStatus)
+    ? { state: "user_confirmed_achieved", note: `User-reported relationship status: ${value.relationshipStatus}.` }
+    : { state: "unknown", note: `User-reported relationship status: ${value.relationshipStatus}.` };
   milestones.family_parenting = value.hasChildren === "yes"
     ? { state: "user_confirmed_achieved", note: "User reports having one or more children." }
     : { state: "unknown", note: value.hasChildren === "no" ? "User reports no children." : "User preferred not to provide children context." };
+  milestones.home_property = value.ownsHome === "yes"
+    ? { state: "user_confirmed_achieved", note: "User reports already owning/buying a home or property.", ...(value.homeAchievedMonth ? { achieved_date: value.homeAchievedMonth } : {}) }
+    : { state: "unknown", note: value.ownsHome === "no" ? "User reports not yet owning/buying a home." : "User preferred not to provide home/property context." };
   return { milestones };
 }
 
 function storedContext(): BasicLifeContext | null {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
+    const raw = window.localStorage.getItem(STORAGE_KEY); if (!raw) return null;
     const value = JSON.parse(raw) as BasicLifeContext;
-    return value?.relationshipStatus && value?.hasChildren ? value : null;
+    return value?.relationshipStatus && value?.hasChildren && value?.ownsHome ? value : null;
   } catch { return null; }
 }
 
@@ -33,6 +38,8 @@ export function LifeContextOnboarding({ children }: PropsWithChildren) {
   const [show, setShow] = useState(false);
   const [relationshipStatus, setRelationshipStatus] = useState<BasicLifeContext["relationshipStatus"]>("single");
   const [hasChildren, setHasChildren] = useState<BasicLifeContext["hasChildren"]>("no");
+  const [ownsHome, setOwnsHome] = useState<BasicLifeContext["ownsHome"]>("no");
+  const [homeAchievedMonth, setHomeAchievedMonth] = useState("");
 
   useEffect(() => {
     const originalFetch = window.fetch.bind(window);
@@ -41,15 +48,20 @@ export function LifeContextOnboarding({ children }: PropsWithChildren) {
       const headers = new Headers(init.headers || (input instanceof Request ? input.headers : undefined));
       const authenticated = headers.has("Authorization");
       if (authenticated && !storedContext() && url.includes("/api/v1/birth-profiles")) setShow(true);
-
       if (authenticated && url.endsWith("/api/v1/conversations") && (init.method || "GET").toUpperCase() === "POST") {
         const context = storedContext();
         if (context && typeof init.body === "string") {
-          try {
-            const body = JSON.parse(init.body);
-            if (!body.life_context) init = { ...init, body: JSON.stringify({ ...body, life_context: lifeContextPayload(context) }) };
-          } catch { /* leave malformed payload to the API */ }
+          try { const body = JSON.parse(init.body); if (!body.life_context) init = { ...init, body: JSON.stringify({ ...body, life_context: lifeContextPayload(context) }) }; } catch { /* API validates malformed input */ }
         }
+      }
+      // Keep the visible analysis state on screen for at least two seconds.
+      // The API starts immediately; this is presentation pacing, not fake work.
+      if (authenticated && url.includes("/api/v1/conversations/") && url.endsWith("/ask") && (init.method || "GET").toUpperCase() === "POST") {
+        const started = Date.now();
+        const response = await originalFetch(input, init);
+        const remaining = MIN_ANSWER_WAIT_MS - (Date.now() - started);
+        if (remaining > 0) await new Promise((resolve) => window.setTimeout(resolve, remaining));
+        return response;
       }
       return originalFetch(input, init);
     };
@@ -57,30 +69,14 @@ export function LifeContextOnboarding({ children }: PropsWithChildren) {
   }, []);
 
   const save = () => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ relationshipStatus, hasChildren } satisfies BasicLifeContext));
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ relationshipStatus, hasChildren, ownsHome, homeAchievedMonth: ownsHome === "yes" ? homeAchievedMonth : "" } satisfies BasicLifeContext));
     setShow(false);
   };
 
-  return <>
-    {children}
-    {show && <div role="dialog" aria-modal="true" aria-labelledby="life-context-title" style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(7,9,20,.72)", display: "grid", placeItems: "center", padding: 20 }}>
-      <section style={{ width: "min(520px, 100%)", background: "#fff", color: "#171526", borderRadius: 20, padding: 28, boxShadow: "0 24px 80px rgba(0,0,0,.35)" }}>
-        <div className="eyebrow">A little real-life context</div>
-        <h2 id="life-context-title">Help AstroAI understand where you are today</h2>
-        <p>This prevents the chart from predicting milestones that have already happened. You can choose “Prefer not to say”.</p>
-        <label style={{ display: "grid", gap: 8, marginTop: 18 }}>Relationship status
-          <select aria-label="Relationship status" value={relationshipStatus} onChange={(e) => setRelationshipStatus(e.target.value as BasicLifeContext["relationshipStatus"])} style={{ padding: 12, borderRadius: 10 }}>
-            <option value="single">Single</option><option value="in_relationship">In a relationship</option><option value="engaged">Engaged</option><option value="married">Married</option><option value="separated">Separated</option><option value="divorced">Divorced</option><option value="widowed">Widowed</option><option value="prefer_not_to_say">Prefer not to say</option>
-          </select>
-        </label>
-        <label style={{ display: "grid", gap: 8, marginTop: 18 }}>Do you have children?
-          <select aria-label="Children status" value={hasChildren} onChange={(e) => setHasChildren(e.target.value as BasicLifeContext["hasChildren"])} style={{ padding: 12, borderRadius: 10 }}>
-            <option value="no">No</option><option value="yes">Yes</option><option value="prefer_not_to_say">Prefer not to say</option>
-          </select>
-        </label>
-        <button className="primary" type="button" onClick={save} style={{ marginTop: 24 }}>Save and continue →</button>
-        <p style={{ fontSize: 12, opacity: .7, marginTop: 14 }}>These answers are user-provided context only. AstroAI does not infer marital or parenting status from your birth chart.</p>
-      </section>
-    </div>}
-  </>;
+  return <>{children}{show && <div role="dialog" aria-modal="true" aria-labelledby="life-context-title" style={{ position:"fixed",inset:0,zIndex:1000,background:"rgba(7,9,20,.72)",display:"grid",placeItems:"center",padding:20 }}><section style={{ width:"min(520px, 100%)",maxHeight:"90vh",overflowY:"auto",background:"#fff",color:"#171526",borderRadius:20,padding:28,boxShadow:"0 24px 80px rgba(0,0,0,.35)" }}><div className="eyebrow">A little real-life context</div><h2 id="life-context-title">Help AstroAI understand where you are today</h2><p>This prevents the chart from predicting milestones that have already happened. You can choose “Prefer not to say”.</p>
+    <label style={{display:"grid",gap:8,marginTop:18}}>Relationship status<select aria-label="Relationship status" value={relationshipStatus} onChange={(e)=>setRelationshipStatus(e.target.value as BasicLifeContext["relationshipStatus"])} style={{padding:12,borderRadius:10}}><option value="single">Single</option><option value="in_relationship">In a relationship</option><option value="engaged">Engaged</option><option value="married">Married</option><option value="separated">Separated</option><option value="divorced">Divorced</option><option value="widowed">Widowed</option><option value="prefer_not_to_say">Prefer not to say</option></select></label>
+    <label style={{display:"grid",gap:8,marginTop:18}}>Do you have children?<select aria-label="Children status" value={hasChildren} onChange={(e)=>setHasChildren(e.target.value as BasicLifeContext["hasChildren"])} style={{padding:12,borderRadius:10}}><option value="no">No</option><option value="yes">Yes</option><option value="prefer_not_to_say">Prefer not to say</option></select></label>
+    <label style={{display:"grid",gap:8,marginTop:18}}>Have you already bought or owned a home/property?<select aria-label="Home ownership status" value={ownsHome} onChange={(e)=>setOwnsHome(e.target.value as BasicLifeContext["ownsHome"])} style={{padding:12,borderRadius:10}}><option value="no">No</option><option value="yes">Yes</option><option value="prefer_not_to_say">Prefer not to say</option></select></label>
+    {ownsHome === "yes" && <label style={{display:"grid",gap:8,marginTop:18}}>When did you first buy/own it? <small>(optional)</small><input aria-label="Home achieved month" type="month" value={homeAchievedMonth} onChange={(e)=>setHomeAchievedMonth(e.target.value)} style={{padding:12,borderRadius:10}} /></label>}
+    <button className="primary" type="button" onClick={save} style={{marginTop:24}}>Save and continue →</button><p style={{fontSize:12,opacity:.7,marginTop:14}}>These are user-provided facts only. AstroAI does not infer marital, parenting or property ownership status from your birth chart.</p></section></div>}</>;
 }
