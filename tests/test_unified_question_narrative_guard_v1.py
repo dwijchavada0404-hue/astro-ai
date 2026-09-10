@@ -41,7 +41,9 @@ def test_unavailable_inner_route_hides_internal_reason_copy(monkeypatch):
         datetime(2026, 9, 9, tzinfo=timezone.utc),
     )
     assert "No usable dasha" not in answer["answer"]
-    assert "family/parenting signals" in answer["answer"]
+    assert "clear timing indication" in answer["answer"]
+    assert "calculation" not in answer["answer"].lower()
+    assert "recalculated" not in answer["answer"].lower()
 
 
 def test_available_route_hides_internal_methodology_copy(monkeypatch):
