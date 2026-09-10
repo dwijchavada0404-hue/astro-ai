@@ -1,7 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
-import { AnswerLanguageExperience } from "./answer-language";
 import { LifeContextOnboarding } from "./life-context-onboarding";
 import { NaturalThinkingExperience } from "./natural-thinking-experience";
 import "./styles.css";
@@ -13,11 +12,9 @@ import "./answer-language.css";
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <LifeContextOnboarding>
-      <AnswerLanguageExperience>
-        <NaturalThinkingExperience>
-          <App />
-        </NaturalThinkingExperience>
-      </AnswerLanguageExperience>
+      <NaturalThinkingExperience>
+        <App />
+      </NaturalThinkingExperience>
     </LifeContextOnboarding>
   </StrictMode>,
 );
