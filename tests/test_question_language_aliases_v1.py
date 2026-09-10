@@ -32,3 +32,20 @@ def test_english_first_kid_timing_remains_supported():
     analysis = analyze_family_children_question_v1(routed)
     assert analysis["available"] is True
     assert analysis["requires_timing_engine"] is True
+
+
+def test_hinglish_child_count_maps_to_family_children_count_boundary():
+    routed = normalize_question_for_routing_v1("mere kitne bache hoge")
+    assert routed == "how many children will i have"
+    analysis = analyze_family_children_question_v1(routed)
+    assert analysis["available"] is True
+    assert analysis["event"] == "family_children"
+    assert analysis["primary_intent"] == "children_count"
+    assert analysis["safety"]["child_count_or_sex_prediction_allowed"] is False
+
+
+def test_hinglish_bacche_spelling_maps_to_family_children_count_boundary():
+    routed = normalize_question_for_routing_v1("mere kitne bacche honge?")
+    assert routed == "how many children will i have"
+    analysis = analyze_family_children_question_v1(routed)
+    assert analysis["primary_intent"] == "children_count"
