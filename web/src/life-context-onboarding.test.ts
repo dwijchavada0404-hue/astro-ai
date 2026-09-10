@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { lifeContextPayload } from "./life-context-onboarding";
+import { hasCompleteLifeContextSelection, lifeContextPayload } from "./life-context-onboarding";
 
 describe("basic life context onboarding", () => {
+  it("requires explicit selections before life context can be saved", () => {
+    expect(hasCompleteLifeContextSelection({ relationshipStatus:"", hasChildren:"", ownsHome:"" })).toBe(false);
+    expect(hasCompleteLifeContextSelection({ relationshipStatus:"single", hasChildren:"no", ownsHome:"no" })).toBe(true);
+  });
   it("marks marriage parenting and home ownership as user-confirmed facts", () => {
     const result = lifeContextPayload({ relationshipStatus:"married", hasChildren:"yes", ownsHome:"yes", homeAchievedMonth:"2025-12" });
     expect(result.milestones.committed_relationship.state).toBe("user_confirmed_achieved");
