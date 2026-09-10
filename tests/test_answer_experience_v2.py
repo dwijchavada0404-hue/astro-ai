@@ -47,6 +47,13 @@ def test_child_count_boundary_is_natural_in_each_answer_language():
     assert "कृत्रिम संख्या" in present_answer_v2(routed, "hindi")
 
 
+def test_finance_timing_uses_a_natural_safe_answer_in_each_language():
+    routed = {"domain":"finance_wealth","result":{"timing":{"future":{"strongest_period":{"start":"2027-03-01","end":"2028-02-01"}}}}}
+    assert "Mar 2027 – Feb 2028" in present_answer_v2(routed, "hinglish")
+    assert "fixed guarantee" in present_answer_v2(routed, "english")
+    assert "निश्चित गारंटी" in present_answer_v2(routed, "hindi")
+
+
 def test_foreign_travel_answer_is_not_engine_debug_copy():
     routed = {"domain":"location_settlement","answer":"Location events are ranked from natal patterns and available dasha timing; scores describe activation, not event probability.","result":{"event_result":{"future":{"timing_period":{"start":"2027-01-01","end":"2027-09-30"}}}}}
     answer = present_answer_v2(routed)
