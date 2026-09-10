@@ -27,6 +27,12 @@ def test_new_job_is_not_generic_job_change():
     assert result["timing_requested"] is True
 
 
+def test_change_my_job_with_timing_is_job_change():
+    result = analyze_career_question_v1("When will I change my job?")
+    assert result["primary_intent"] == "job_change"
+    assert result["requires_event_engine"] is True
+
+
 def test_unrelated_question_is_unknown():
     result = analyze_career_question_v1("When will I get married?")
     assert result["available"] is False
