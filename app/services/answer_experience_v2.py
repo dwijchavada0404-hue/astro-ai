@@ -24,7 +24,8 @@ def _month(value: Any) -> str | None:
     except (TypeError, ValueError): return None
 
 
-def _range(period: dict[str, Any]) -> str | None:
+def _range(period: Any) -> str | None:
+    period = _dict(period)
     start, end = _month(period.get("start")), _month(period.get("end"))
     if start and end: return start if start == end else f"{start} – {end}"
     return start or end
@@ -138,6 +139,16 @@ def present_answer_v2(routed: dict[str, Any], language: AnswerLanguage = "hingli
         future = _range(_timing_period(result, "future"))
         if future:
             return {"hinglish":f"Aapke chart mein finances aur wealth-building ke liye {future} ka period comparatively zyada supportive dikh raha hai. Is phase mein income, savings discipline aur long-term financial planning par focus karna zyada meaningful ho sakta hai. Isse investment return ya paisa milne ki fixed guarantee na samjhein.","english":f"Your chart shows {future} as a comparatively more supportive period for finances and wealth-building. This can be a meaningful phase to focus on income, saving discipline and long-term financial planning. It is not a fixed guarantee of investment returns or money.","hindi":f"आपकी कुंडली में वित्त और धन-संचय के लिए {future} का समय तुलनात्मक रूप से अधिक अनुकूल दिखाई देता है। इस चरण में आय, बचत की आदत और दीर्घकालिक वित्तीय योजना पर ध्यान देना अधिक सार्थक हो सकता है। इसे निवेश रिटर्न या धन मिलने की निश्चित गारंटी न मानें।"}[language]
+
+    if domain == "education_learning":
+        synthesis = _dict(result.get("synthesis"))
+        event_result = _dict(result.get("event_result"))
+        future = _range(_timing_period(result, "future")) or _range(synthesis.get("strongest_future_period"))
+        focus = event_result.get("label") or synthesis.get("strongest_area")
+        if isinstance(focus, str) or future:
+            focus_text = str(focus or "study and skill development").replace("_", " ")
+            timing_text = {"hinglish": f" {future} ke aas-paas is direction mein progress ke liye comparatively supportive phase dikh raha hai." if future else "", "english": f" Around {future}, this looks like a comparatively supportive phase for progress in that direction." if future else "", "hindi": f" {future} के आसपास इस दिशा में प्रगति के लिए तुलनात्मक रूप से सहायक समय दिखाई देता है।" if future else ""}[language]
+            return {"hinglish": f"Aapki kundli mein learning ke liye {focus_text} ka theme zyada strong dikh raha hai.{timing_text} Isse admission, exam result ya certificate ki guarantee na samjhein; ye study aur skill-building ke liye supportive pattern hai.", "english": f"Your chart places more emphasis on {focus_text} in learning.{timing_text} This is not a guarantee of admission, exam results or certification; it is a supportive study and skill-building pattern.", "hindi": f"आपकी कुंडली में सीखने के लिए {focus_text} का विषय अधिक मजबूत दिखाई देता है।{timing_text} इसे प्रवेश, परीक्षा परिणाम या प्रमाणन की गारंटी न मानें; यह पढ़ाई और कौशल-विकास के लिए सहायक पैटर्न है।"}[language]
 
     if domain in {"location_settlement", "travel_journeys"}:
         future = _range(_timing_period(result, "future"))

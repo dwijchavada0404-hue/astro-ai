@@ -61,6 +61,14 @@ def test_finance_source_answer_hides_raw_scores():
     assert "salary, career and profession-linked income" in answer
 
 
+def test_education_answer_uses_natural_timing_without_guarantees():
+    routed = {"domain":"education_learning","result":{"synthesis":{"strongest_area":"skill_development","strongest_future_period":{"start":"2027-01-01","end":"2027-09-30"}}}}
+    answer = present_answer_v2(routed)
+    assert "skill development" in answer
+    assert "Jan 2027 – Sep 2027" in answer
+    assert "guarantee" in answer
+
+
 def test_foreign_travel_answer_is_not_engine_debug_copy():
     routed = {"domain":"location_settlement","answer":"Location events are ranked from natal patterns and available dasha timing; scores describe activation, not event probability.","result":{"event_result":{"future":{"timing_period":{"start":"2027-01-01","end":"2027-09-30"}}}}}
     answer = present_answer_v2(routed)
