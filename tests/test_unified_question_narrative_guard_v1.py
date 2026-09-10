@@ -66,3 +66,13 @@ def test_available_route_hides_remaining_engine_copy(monkeypatch):
     answer = service.answer_unified_question_v1({"chart": "fixture"}, "When should I study?", datetime(2026, 9, 9, tzinfo=timezone.utc))
     assert "timing compares symbolic" not in answer["answer"].lower()
     assert "guesswork" in answer["answer"].lower()
+
+
+def test_available_route_hides_ranked_event_engine_copy(monkeypatch):
+    monkeypatch.setattr(service, "route_top_level_question_v1", lambda *args, **kwargs: {
+        "available": True, "domain": "education_learning", "route": "education_event",
+        "answer": "Education events are ranked from natal learning patterns and available dasha timing; scores describe activation, not outcome probability.",
+        "result": {"available": True},
+    })
+    answer = service.answer_unified_question_v1({"chart": "fixture"}, "Will I get admission?", datetime(2026, 9, 9, tzinfo=timezone.utc))
+    assert "events are ranked" not in answer["answer"].lower()
