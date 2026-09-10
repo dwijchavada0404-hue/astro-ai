@@ -55,6 +55,7 @@ _INTERNAL_COPY_MARKERS = (
     "no usable dasha", "methodology", "current calculation could not",
     "timing compares symbolic", "event intelligence separates", "trajectory layer compares",
     "combined health & wellbeing outlook", "describes symbolic lifestyle",
+    "events are ranked from natal",
 )
 
 
