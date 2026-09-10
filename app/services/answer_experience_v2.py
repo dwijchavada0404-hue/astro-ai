@@ -24,7 +24,8 @@ def _month(value: Any) -> str | None:
     except (TypeError, ValueError): return None
 
 
-def _range(period: dict[str, Any]) -> str | None:
+def _range(period: Any) -> str | None:
+    period = _dict(period)
     start, end = _month(period.get("start")), _month(period.get("end"))
     if start and end: return start if start == end else f"{start} – {end}"
     return start or end
