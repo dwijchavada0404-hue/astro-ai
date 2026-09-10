@@ -20,6 +20,11 @@ describe("answer language", () => {
     expect(JSON.parse(String(body))).toMatchObject({ question: "Meri job change kab hogi", answer_language: "hindi" });
   });
 
+  it("uses the selected English value in ask payloads", () => {
+    const body = withAnswerLanguage(JSON.stringify({ question: "When will I change jobs?" }), "english");
+    expect(JSON.parse(String(body))).toMatchObject({ answer_language: "english" });
+  });
+
   it("does not alter unrelated JSON payloads", () => {
     const body = JSON.stringify({ title: "New conversation" });
     expect(withAnswerLanguage(body, "english")).toBe(body);
