@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { User } from "oidc-client-ts";
-import App, { LegalDocument, Profiles, Workspace, conversationTitle, legalPageFromPath, shouldSubmitQuestion, tokenExpiryDelay } from "./App";
+import App, { LegalDocument, Profiles, Workspace, conversationTitle, displayMessageContent, legalPageFromPath, shouldSubmitQuestion, tokenExpiryDelay } from "./App";
 
 describe("AstroAI frontend foundation", () => {
   beforeEach(() => {
@@ -12,6 +12,11 @@ describe("AstroAI frontend foundation", () => {
     cleanup();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  it("never exposes an internal empty-answer fallback", () => {
+    expect(displayMessageContent("", "assistant")).toContain("couldn’t prepare a clear reading");
+    expect(displayMessageContent("", "assistant")).not.toContain("No narrative");
   });
 
   it("renders the evidence-led landing experience when OIDC is not configured", async () => {
