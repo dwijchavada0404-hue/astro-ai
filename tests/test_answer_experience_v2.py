@@ -54,6 +54,13 @@ def test_finance_timing_uses_a_natural_safe_answer_in_each_language():
     assert "निश्चित गारंटी" in present_answer_v2(routed, "hindi")
 
 
+def test_finance_source_answer_hides_raw_scores():
+    routed = {"domain":"finance_wealth","result":{"source_of_wealth":{"primary_source_label":"salary, career and profession-linked income","secondary_source_label":"networks, scaling, side income and multiple-income opportunities","primary_score":0.91}}}
+    answer = present_answer_v2(routed, "hinglish")
+    assert "0.91" not in answer
+    assert "salary, career and profession-linked income" in answer
+
+
 def test_foreign_travel_answer_is_not_engine_debug_copy():
     routed = {"domain":"location_settlement","answer":"Location events are ranked from natal patterns and available dasha timing; scores describe activation, not event probability.","result":{"event_result":{"future":{"timing_period":{"start":"2027-01-01","end":"2027-09-30"}}}}}
     answer = present_answer_v2(routed)
