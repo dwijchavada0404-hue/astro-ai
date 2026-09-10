@@ -49,6 +49,20 @@ def _nonempty_text(*values: Any) -> str | None:
     return None
 
 
+_INTERNAL_COPY_MARKERS = (
+    "no narrative was returned", "dedicated evidence engine", "not yet been implemented",
+    "symbolic activation", "scores represent", "ranked from natal", "event probability",
+    "no usable dasha", "methodology", "current calculation could not",
+)
+
+
+def _user_facing_text(*values: Any) -> str | None:
+    for value in values:
+        if isinstance(value, str) and value.strip() and not any(marker in value.lower() for marker in _INTERNAL_COPY_MARKERS):
+            return value.strip()
+    return None
+
+
 def _month(value: Any) -> str | None:
     if not value:
         return None
@@ -112,7 +126,7 @@ def _career_event_narrative(routed: dict[str, Any], language: AnswerLanguage) ->
 def _fallback_narrative(routed: dict[str, Any], language: AnswerLanguage) -> str:
     """Guarantee that an API response never persists a null assistant narrative."""
     result = routed.get("result") if isinstance(routed.get("result"), dict) else {}
-    direct = _nonempty_text(
+    direct = _user_facing_text(
         routed.get("answer"),
         routed.get("reason"),
         result.get("answer"),
@@ -127,17 +141,17 @@ def _fallback_narrative(routed: dict[str, Any], language: AnswerLanguage) -> str
         "hinglish": {
             "marriage": "Is sawaal ke liye chart signals mil rahe hain, lekin current calculation se reliable marriage conclusion complete nahi ho paaya. Main incomplete ya invented prediction dene ke bajay is reading ko dobara calculate karne ki zarurat bata raha hoon.",
             "family_children": "Is sawaal ke liye family/parenting signals mil rahe hain, lekin current calculation se reliable timing window complete nahi ho paayi. Main incomplete ya invented date dene ke bajay is reading ko dobara calculate karne ki zarurat bata raha hoon.",
-            "default": "Chart analysis complete hua, lekin is request ke liye reliable narrative generate nahi ho paaya. Incomplete ya invented prediction dikhane ke bajay AstroAI is reading ko unavailable mark kar raha hai.",
+            "default": "Is sawaal ke liye main abhi clear, reliable reading nahi de paa raha hoon. Main guesswork ya artificial prediction dene ke bajay yahin rukunga.",
         },
         "english": {
             "marriage": "The chart signals were found, but the current calculation could not complete a reliable marriage conclusion. Rather than inventing a prediction, this reading needs to be recalculated.",
             "family_children": "The family/parenting signals were found, but the current calculation could not complete a reliable timing window. Rather than inventing a date, this reading needs to be recalculated.",
-            "default": "The chart analysis completed, but a reliable narrative could not be generated for this request. AstroAI is marking the reading unavailable rather than inventing a prediction.",
+            "default": "I cannot give a clear, reliable reading for this question right now. Rather than guess or invent a prediction, I will leave it there.",
         },
         "hindi": {
             "marriage": "कुंडली में संकेत मिले हैं, लेकिन वर्तमान गणना विश्वसनीय विवाह निष्कर्ष पूरा नहीं कर पाई। अनुमान गढ़ने के बजाय इस रीडिंग की दोबारा गणना आवश्यक है।",
             "family_children": "परिवार और पालन-पोषण के संकेत मिले हैं, लेकिन वर्तमान गणना विश्वसनीय समय-सीमा पूरी नहीं कर पाई। कोई तारीख गढ़ने के बजाय इस रीडिंग की दोबारा गणना आवश्यक है।",
-            "default": "कुंडली का विश्लेषण पूरा हुआ, लेकिन इस प्रश्न के लिए विश्वसनीय उत्तर तैयार नहीं हो पाया। अनुमान गढ़ने के बजाय AstroAI इस रीडिंग को अनुपलब्ध बता रहा है।",
+            "default": "मैं अभी इस प्रश्न के लिए स्पष्ट और विश्वसनीय रीडिंग नहीं दे सकता। अनुमान या कृत्रिम भविष्यवाणी देने के बजाय मैं यहीं रुकूँगा।",
         },
     }
     selected = messages[language]
@@ -176,7 +190,7 @@ def answer_unified_question_v1(
     # never leak as the primary response to questions such as job-change timing.
     career_presented = _career_event_narrative(routed, answer_language) if available else None
     presented = present_answer_v2(routed, answer_language) if available else None
-    answer = _nonempty_text(career_presented, presented, routed.get("answer"), routed.get("reason"))
+    answer = _user_facing_text(career_presented, presented, routed.get("answer"), routed.get("reason"))
     if answer is None:
         answer = _fallback_narrative(routed, answer_language)
 
