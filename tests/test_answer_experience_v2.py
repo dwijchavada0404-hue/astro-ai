@@ -69,6 +69,20 @@ def test_foreign_travel_answer_is_not_engine_debug_copy():
     assert "Location events are ranked" not in answer
 
 
+def test_travel_overview_uses_a_natural_answer():
+    routed = {"domain":"travel_journeys","result":{"synthesis":{"strongest_area":"international_exposure"}}}
+    answer = present_answer_v2(routed)
+    assert "international exposure" in answer
+    assert "combined Travel" not in answer
+
+
+def test_travel_safety_boundary_is_natural_in_hinglish():
+    routed = {"domain":"travel_journeys","result":{"route":"travel_journeys_safety_boundary_v1"}}
+    answer = present_answer_v2(routed)
+    assert "visa approval" in answer
+    assert "symbolic" not in answer.lower()
+
+
 def test_health_answer_is_natural_and_non_medical():
     routed = {"domain":"health_wellbeing","result":{"synthesis":{"strongest_area":"stress_balance","strongest_future_period":{"start":"2027-01-01","end":"2027-09-30"}}}}
     answer = present_answer_v2(routed)
