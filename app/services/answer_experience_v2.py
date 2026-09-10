@@ -105,6 +105,31 @@ def present_answer_v2(routed: dict[str, Any], language: AnswerLanguage = "hingli
             past_text = {"hinglish":f" Isse pehle {past} bhi family/parenting themes ke liye strong raha tha." if past else "","english":f" An earlier strong family/parenting phase was {past}." if past else "","hindi":f" इससे पहले {past} भी परिवार/पालन-पोषण के विषयों के लिए मजबूत समय था।" if past else ""}[language]
             return {"hinglish":f"Family aur parenting ke perspective se {future} aapke chart ka comparatively stronger upcoming period dikh raha hai.{past_text} Isse conception ya childbirth ki fixed prediction na samjhein; astrology yahan family growth aur parenting-related timing themes dikha rahi hai.","english":f"From a family and parenting perspective, {future} is the comparatively stronger upcoming period in your chart.{past_text} This should not be read as a fixed prediction of conception or childbirth; it reflects stronger family-growth and parenting timing themes.","hindi":f"परिवार और पालन-पोषण के दृष्टिकोण से {future} आपकी कुंडली में तुलनात्मक रूप से अधिक मजबूत आगामी समय है।{past_text} इसे गर्भधारण या बच्चे के जन्म की निश्चित भविष्यवाणी न मानें; यह परिवार-वृद्धि और पालन-पोषण से जुड़े मजबूत समय संकेत हैं।"}[language]
 
+    if domain == "health_wellbeing":
+        route = str(_dict(routed.get("result")).get("route") or "")
+        if route == "health_wellbeing_safety_boundary_v1":
+            return {
+                "hinglish": "Main kundli ke through energy, routine, stress balance, rest aur self-care ke themes par baat kar sakta hoon, lekin disease, diagnosis, treatment ya medicine ki prediction/recommendation nahi dunga. Symptoms ya health concern ke liye doctor ki advice ko priority dein.",
+                "english": "I can discuss chart-based themes around energy, routine, stress balance, rest and self-care, but I cannot predict or advise on disease, diagnosis, treatment or medication. For symptoms or a health concern, please prioritise medical advice.",
+                "hindi": "मैं कुंडली के आधार पर ऊर्जा, दिनचर्या, तनाव-संतुलन, आराम और स्व-देखभाल के विषयों पर बात कर सकता हूँ, लेकिन बीमारी, निदान, उपचार या दवा की भविष्यवाणी अथवा सलाह नहीं दूँगा। किसी लक्षण या स्वास्थ्य संबंधी चिंता के लिए चिकित्सकीय सलाह को प्राथमिकता दें।",
+            }[language]
+        synthesis = _dict(result.get("synthesis"))
+        event_result = _dict(result.get("event_result"))
+        future = _range(_timing_period(result, "future")) or _range(synthesis.get("strongest_future_period"))
+        focus = event_result.get("label") or synthesis.get("strongest_area")
+        if isinstance(focus, str) or future:
+            focus_text = str(focus or "routine, rest and self-care").replace("_", " ")
+            timing_text = {
+                "hinglish": f" {future} ke aas-paas is par focus rakhna comparatively zyada supportive ho sakta hai." if future else "",
+                "english": f" Around {future}, focusing on this may be comparatively more supportive." if future else "",
+                "hindi": f" {future} के आसपास इस पर ध्यान देना तुलनात्मक रूप से अधिक सहायक हो सकता है।" if future else "",
+            }[language]
+            return {
+                "hinglish": f"Aapki kundli mein wellbeing ke liye {focus_text} ka theme zyada important dikh raha hai.{timing_text} Isse medical prediction na samjhein; ise healthy routine aur self-care par dhyan dene ke reflection ke roop mein dekhein.",
+                "english": f"Your chart places more emphasis on {focus_text} for wellbeing.{timing_text} This is not a medical prediction; treat it as a reflection to support healthy routine and self-care.",
+                "hindi": f"आपकी कुंडली में wellbeing के लिए {focus_text} का विषय अधिक महत्वपूर्ण दिखाई देता है।{timing_text} इसे चिकित्सकीय भविष्यवाणी न मानें; इसे स्वस्थ दिनचर्या और स्व-देखभाल पर ध्यान देने के संकेत के रूप में देखें।",
+            }[language]
+
     if domain == "finance_wealth":
         source = _dict(result.get("source_of_wealth"))
         primary, secondary = source.get("primary_source_label"), source.get("secondary_source_label")
