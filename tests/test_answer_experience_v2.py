@@ -40,6 +40,13 @@ def test_family_children_timing_is_specific_but_not_childbirth_prediction():
     assert "fixed prediction" in answer
 
 
+def test_child_count_boundary_is_natural_in_each_answer_language():
+    routed = {"domain":"family_children","result":{"children_question_boundary":"child_count"}}
+    assert "artificial number" in present_answer_v2(routed, "hinglish")
+    assert "will not invent" in present_answer_v2(routed, "english")
+    assert "कृत्रिम संख्या" in present_answer_v2(routed, "hindi")
+
+
 def test_foreign_travel_answer_is_not_engine_debug_copy():
     routed = {"domain":"location_settlement","answer":"Location events are ranked from natal patterns and available dasha timing; scores describe activation, not event probability.","result":{"event_result":{"future":{"timing_period":{"start":"2027-01-01","end":"2027-09-30"}}}}}
     answer = present_answer_v2(routed)
