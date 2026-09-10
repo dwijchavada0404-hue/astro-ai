@@ -21,7 +21,7 @@ CAREER_INTENTS: dict[str, tuple[str, ...]] = {
         "promotion", "promoted", "recognition", "increased responsibility", "higher role",
     ),
     "job_change": (
-        "job change", "change job", "switch job", "switch jobs", "career change",
+        "job change", "change job", "change my job", "change jobs", "switch job", "switch jobs", "career change",
         "professional transition", "change company", "switch company",
     ),
     "new_job": (
