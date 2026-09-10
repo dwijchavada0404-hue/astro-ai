@@ -5,6 +5,9 @@ from typing import Any
 
 
 INTENTS: dict[str, tuple[str, ...]] = {
+    "children_count": (
+        "how many children", "how many child", "how many kids", "number of children", "number of kids",
+    ),
     "children_parenting": (
         "have children", "have a child", "have kids", "children", "child", "kids", "parenthood", "parenting", "become a parent",
     ),
@@ -48,7 +51,7 @@ def analyze_family_children_question_v1(question: str) -> dict[str, Any]:
 
     timing_requested = "family_timing" in matched
     substantive = {key: value for key, value in scores.items() if key != "family_timing"}
-    priority = ["children_parenting", "family_growth", "family_change", "family_support", "family_overview", "family_direction"]
+    priority = ["children_count", "children_parenting", "family_growth", "family_change", "family_support", "family_overview", "family_direction"]
 
     primary = "unknown"
     if substantive:
