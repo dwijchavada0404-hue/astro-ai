@@ -23,7 +23,7 @@ def test_available_route_never_returns_null_narrative(monkeypatch):
     assert answer["answer"].strip()
 
 
-def test_unavailable_inner_route_surfaces_reason_instead_of_null(monkeypatch):
+def test_unavailable_inner_route_hides_internal_reason_copy(monkeypatch):
     monkeypatch.setattr(
         service,
         "route_top_level_question_v1",
@@ -40,4 +40,16 @@ def test_unavailable_inner_route_surfaces_reason_instead_of_null(monkeypatch):
         "Mera pehla bacha kab hoga",
         datetime(2026, 9, 9, tzinfo=timezone.utc),
     )
-    assert answer["answer"] == "No usable dasha periods are available for Family & Children timing analysis."
+    assert "No usable dasha" not in answer["answer"]
+    assert "family/parenting signals" in answer["answer"]
+
+
+def test_available_route_hides_internal_methodology_copy(monkeypatch):
+    monkeypatch.setattr(service, "route_top_level_question_v1", lambda *args, **kwargs: {
+        "available": True, "domain": "career", "route": "career_event",
+        "answer": "Career event themes are ranked from natal evidence and available dasha timing. Scores represent symbolic activation strength.",
+        "result": {"available": True},
+    })
+    answer = service.answer_unified_question_v1({"chart": "fixture"}, "Meri job change kab hogi", datetime(2026, 9, 9, tzinfo=timezone.utc))
+    assert "ranked from natal" not in answer["answer"].lower()
+    assert "symbolic activation" not in answer["answer"].lower()
