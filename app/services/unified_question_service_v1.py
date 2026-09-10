@@ -53,6 +53,8 @@ _INTERNAL_COPY_MARKERS = (
     "no narrative was returned", "dedicated evidence engine", "not yet been implemented",
     "symbolic activation", "scores represent", "ranked from natal", "event probability",
     "no usable dasha", "methodology", "current calculation could not",
+    "timing compares symbolic", "event intelligence separates", "trajectory layer compares",
+    "combined health & wellbeing outlook", "describes symbolic lifestyle",
 )
 
 
