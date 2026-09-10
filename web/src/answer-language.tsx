@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ChangeEvent } from "react";
 
 export type AnswerLanguage = "hinglish" | "english" | "hindi";
 
@@ -25,30 +25,15 @@ export function withAnswerLanguage(body: BodyInit | null | undefined, language: 
   }
 }
 
-export function AnswerLanguageExperience({ children }: { children: ReactNode }) {
-  const [language, setLanguage] = useState<AnswerLanguage>(() => loadAnswerLanguage());
+export function persistAnswerLanguage(language: AnswerLanguage, storage: Pick<Storage, "setItem"> = window.localStorage) {
+  storage.setItem(STORAGE_KEY, language);
+}
 
-  useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, language);
-  }, [language]);
-
-  useEffect(() => {
-    const originalFetch = window.fetch.bind(window);
-    window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-      if (/\/api\/v1\/conversations\/[^/]+\/ask(?:\?|$)/.test(url) && init?.method?.toUpperCase() === "POST") {
-        return originalFetch(input, { ...init, body: withAnswerLanguage(init.body, language) });
-      }
-      return originalFetch(input, init);
-    };
-    return () => { window.fetch = originalFetch; };
-  }, [language]);
-
-  return <>
-    {children}
-    <div className="answer-language-switcher" role="group" aria-label="Answer language">
-      <span>Answer in</span>
-      {LANGUAGES.map((item) => <button key={item.value} type="button" className={language === item.value ? "active" : ""} aria-pressed={language === item.value} onClick={() => setLanguage(item.value)}>{item.label}</button>)}
-    </div>
-  </>;
+export function AnswerLanguageSelector({ language, onChange }: { language: AnswerLanguage; onChange: (language: AnswerLanguage) => void }) {
+  const selectLanguage = (event: ChangeEvent<HTMLSelectElement>) => onChange(event.target.value as AnswerLanguage);
+  return <label className="answer-language-switcher">Answer in
+    <select aria-label="Answer language" value={language} onChange={selectLanguage}>
+      {LANGUAGES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+    </select>
+  </label>;
 }
