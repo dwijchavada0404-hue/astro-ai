@@ -55,3 +55,14 @@ def test_available_route_hides_internal_methodology_copy(monkeypatch):
     answer = service.answer_unified_question_v1({"chart": "fixture"}, "Meri job change kab hogi", datetime(2026, 9, 9, tzinfo=timezone.utc))
     assert "ranked from natal" not in answer["answer"].lower()
     assert "symbolic activation" not in answer["answer"].lower()
+
+
+def test_available_route_hides_remaining_engine_copy(monkeypatch):
+    monkeypatch.setattr(service, "route_top_level_question_v1", lambda *args, **kwargs: {
+        "available": True, "domain": "education_learning", "route": "education_timing",
+        "answer": "Education timing compares symbolic study, skill-development and research activation across dasha periods.",
+        "result": {"available": True},
+    })
+    answer = service.answer_unified_question_v1({"chart": "fixture"}, "When should I study?", datetime(2026, 9, 9, tzinfo=timezone.utc))
+    assert "timing compares symbolic" not in answer["answer"].lower()
+    assert "guesswork" in answer["answer"].lower()
