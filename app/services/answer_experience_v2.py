@@ -143,6 +143,24 @@ def present_answer_v2(routed: dict[str, Any], language: AnswerLanguage = "hingli
         future = _range(_timing_period(result, "future"))
         if future:
             return {"hinglish":f"Foreign travel ya overseas exposure ke liye {future} ka period aapke chart mein comparatively stronger dikh raha hai. Is dauran travel, long-distance movement aur foreign connection ke signals zyada active hote hain. Ye opportunity ka period hai, travel ya visa ki guarantee nahi.","english":f"Your chart shows {future} as a comparatively stronger period for foreign travel or overseas exposure. Travel, long-distance movement and foreign-connection indicators are more active in this phase. It suggests opportunity, not a guarantee of travel or visa approval.","hindi":f"विदेश यात्रा या विदेशी अवसरों के लिए {future} का समय आपकी कुंडली में तुलनात्मक रूप से अधिक मजबूत दिखाई देता है। इस दौरान यात्रा, लंबी दूरी और विदेशी संपर्क के संकेत अधिक सक्रिय रहते हैं। यह अवसर का संकेत है, यात्रा या वीज़ा की गारंटी नहीं।"}[language]
+        if domain == "travel_journeys":
+            route = str(_dict(routed.get("result")).get("route") or "")
+            if route == "travel_journeys_safety_boundary_v1":
+                return {
+                    "hinglish": "Main aapki kundli ke travel aur mobility themes par reading de sakta hoon, lekin visa approval, exact destination ya travel safety ki fixed prediction nahi dunga.",
+                    "english": "I can read the travel and mobility themes in your chart, but I cannot give a fixed prediction about visa approval, an exact destination or travel safety.",
+                    "hindi": "मैं आपकी कुंडली में यात्रा और गतिशीलता के विषयों पर रीडिंग दे सकता हूँ, लेकिन वीज़ा स्वीकृति, सटीक स्थान या यात्रा की सुरक्षा की निश्चित भविष्यवाणी नहीं दूँगा।",
+                }[language]
+            synthesis = _dict(result.get("synthesis"))
+            event_result = _dict(result.get("event_result"))
+            focus = event_result.get("label") or synthesis.get("strongest_area")
+            if isinstance(focus, str):
+                focus_text = focus.replace("_", " ")
+                return {
+                    "hinglish": f"Aapki kundli mein travel ke liye {focus_text} ka pattern zyada strong dikh raha hai. Iska matlab zaroori nahi ki ek fixed trip ho, lekin travel, movement ya exposure ke opportunities is theme ke through zyada aa sakte hain.",
+                    "english": f"Your chart shows a stronger travel pattern around {focus_text}. This does not guarantee a fixed trip, but travel, movement or exposure opportunities can arise more through this theme.",
+                    "hindi": f"आपकी कुंडली में यात्रा के लिए {focus_text} का पैटर्न अधिक मजबूत दिखाई देता है। इसका अर्थ किसी निश्चित यात्रा की गारंटी नहीं है, लेकिन यात्रा, आवागमन या नए अनुभवों के अवसर इस विषय के माध्यम से अधिक आ सकते हैं।",
+                }[language]
 
     if isinstance(raw, str) and raw.strip():
         return re.sub(r"\b(\d{4}-\d{2}-\d{2})(?:T[^\s,.;)]*)?\b", lambda m: _month(m.group(1)) or m.group(0), raw.strip())
