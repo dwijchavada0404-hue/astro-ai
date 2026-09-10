@@ -139,19 +139,19 @@ def _fallback_narrative(routed: dict[str, Any], language: AnswerLanguage) -> str
     domain = str(routed.get("domain") or "")
     messages = {
         "hinglish": {
-            "marriage": "Is sawaal ke liye chart signals mil rahe hain, lekin current calculation se reliable marriage conclusion complete nahi ho paaya. Main incomplete ya invented prediction dene ke bajay is reading ko dobara calculate karne ki zarurat bata raha hoon.",
-            "family_children": "Is sawaal ke liye family/parenting signals mil rahe hain, lekin current calculation se reliable timing window complete nahi ho paayi. Main incomplete ya invented date dene ke bajay is reading ko dobara calculate karne ki zarurat bata raha hoon.",
-            "default": "Is sawaal ke liye main abhi clear, reliable reading nahi de paa raha hoon. Main guesswork ya artificial prediction dene ke bajay yahin rukunga.",
+            "marriage": "Is sawaal par abhi chart se itna clear indication nahi ban raha ki main aapko meaningful marriage reading de sakun. Isliye main guesswork ya artificial prediction nahi dunga.",
+            "family_children": "Family aur parenting ke is sawaal par abhi chart se itna clear timing indication nahi ban raha ki main meaningful reading de sakun. Isliye main koi date ya prediction invent nahi karunga.",
+            "default": "Is sawaal par abhi chart se itna clear indication nahi ban raha ki main aapko meaningful reading de sakun. Main guesswork ya artificial prediction nahi dunga.",
         },
         "english": {
-            "marriage": "The chart signals were found, but the current calculation could not complete a reliable marriage conclusion. Rather than inventing a prediction, this reading needs to be recalculated.",
-            "family_children": "The family/parenting signals were found, but the current calculation could not complete a reliable timing window. Rather than inventing a date, this reading needs to be recalculated.",
-            "default": "I cannot give a clear, reliable reading for this question right now. Rather than guess or invent a prediction, I will leave it there.",
+            "marriage": "The chart does not show a clear enough indication here for me to give you a meaningful marriage reading. Rather than guess or invent a prediction, I will not overstate it.",
+            "family_children": "The chart does not show a clear enough timing indication here for me to give you a meaningful family or parenting reading. Rather than invent a date or prediction, I will not overstate it.",
+            "default": "The chart does not show a clear enough indication here for me to give you a meaningful reading. Rather than guess or invent a prediction, I will not overstate it.",
         },
         "hindi": {
-            "marriage": "कुंडली में संकेत मिले हैं, लेकिन वर्तमान गणना विश्वसनीय विवाह निष्कर्ष पूरा नहीं कर पाई। अनुमान गढ़ने के बजाय इस रीडिंग की दोबारा गणना आवश्यक है।",
-            "family_children": "परिवार और पालन-पोषण के संकेत मिले हैं, लेकिन वर्तमान गणना विश्वसनीय समय-सीमा पूरी नहीं कर पाई। कोई तारीख गढ़ने के बजाय इस रीडिंग की दोबारा गणना आवश्यक है।",
-            "default": "मैं अभी इस प्रश्न के लिए स्पष्ट और विश्वसनीय रीडिंग नहीं दे सकता। अनुमान या कृत्रिम भविष्यवाणी देने के बजाय मैं यहीं रुकूँगा।",
+            "marriage": "इस प्रश्न पर कुंडली से इतना स्पष्ट संकेत नहीं बन रहा कि मैं आपको सार्थक विवाह रीडिंग दे सकूँ। अनुमान या कृत्रिम भविष्यवाणी देने के बजाय मैं बात को बढ़ा-चढ़ाकर नहीं कहूँगा।",
+            "family_children": "परिवार और पालन-पोषण के इस प्रश्न पर कुंडली से इतना स्पष्ट समय-संकेत नहीं बन रहा कि मैं आपको सार्थक रीडिंग दे सकूँ। कोई तारीख या भविष्यवाणी गढ़ने के बजाय मैं बात को बढ़ा-चढ़ाकर नहीं कहूँगा।",
+            "default": "इस प्रश्न पर कुंडली से इतना स्पष्ट संकेत नहीं बन रहा कि मैं आपको सार्थक रीडिंग दे सकूँ। अनुमान या कृत्रिम भविष्यवाणी देने के बजाय मैं बात को बढ़ा-चढ़ाकर नहीं कहूँगा।",
         },
     }
     selected = messages[language]
