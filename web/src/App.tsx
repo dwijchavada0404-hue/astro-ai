@@ -27,7 +27,7 @@ export function filterConversations(conversations: Conversation[], query: string
   return conversations.filter((conversation) => conversation.title.toLocaleLowerCase().includes(clean));
 }
 
-export function displayMessageContent(content: string | undefined, role: Message["role"]): string {
+export function displayMessageContent(content: string | null | undefined, role: Message["role"]): string {
   if (content?.trim()) return content;
   return role === "assistant"
     ? "I couldn’t prepare a clear reading for that question. Please try asking it again in a moment."
