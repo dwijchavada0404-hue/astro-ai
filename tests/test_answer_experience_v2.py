@@ -69,6 +69,21 @@ def test_foreign_travel_answer_is_not_engine_debug_copy():
     assert "Location events are ranked" not in answer
 
 
+def test_health_answer_is_natural_and_non_medical():
+    routed = {"domain":"health_wellbeing","result":{"synthesis":{"strongest_area":"stress_balance","strongest_future_period":{"start":"2027-01-01","end":"2027-09-30"}}}}
+    answer = present_answer_v2(routed)
+    assert "stress balance" in answer
+    assert "Jan 2027 – Sep 2027" in answer
+    assert "medical prediction" in answer
+
+
+def test_health_safety_boundary_is_natural_in_hindi():
+    routed = {"domain":"health_wellbeing","result":{"route":"health_wellbeing_safety_boundary_v1"}}
+    answer = present_answer_v2(routed, "hindi")
+    assert "चिकित्सकीय सलाह" in answer
+    assert "disease" not in answer.lower()
+
+
 def test_raw_iso_dates_are_cleaned_for_fallback_domains():
     routed = {"domain":"career","answer":"A supportive phase runs from 2027-02-12 to 2027-10-19."}
     assert present_answer_v2(routed, "english") == "A supportive phase runs from Feb 2027 to Oct 2027."
