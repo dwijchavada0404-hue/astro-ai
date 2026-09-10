@@ -7,6 +7,7 @@ import "./styles.css";
 import "./backup.css";
 import "./chart-viewer.css";
 import "./reading-progress.css";
+import "./answer-language.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
