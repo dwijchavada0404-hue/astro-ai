@@ -3,6 +3,7 @@ import type { User } from "oidc-client-ts";
 import { apiDownload, apiRequest, checkHealth, type BirthProfile, type Conversation, type Message } from "./api";
 import { createAuthRuntime, usableToken } from "./auth";
 import { parseAstroAiBackup } from "./backup";
+import { AnswerLanguageSelector, loadAnswerLanguage, persistAnswerLanguage, withAnswerLanguage, type AnswerLanguage } from "./answer-language";
 import { BirthChartViewer } from "./chart-viewer";
 
 type View = "chat" | "profiles";
@@ -162,6 +163,7 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState("");
+  const [answerLanguage, setAnswerLanguage] = useState<AnswerLanguage>(() => loadAnswerLanguage());
   const [selectedProfileId, setSelectedProfileId] = useState("");
   const [conversationSearch, setConversationSearch] = useState("");
   const [busy, setBusy] = useState(false);
@@ -203,6 +205,8 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView?.({ behavior: "smooth", block: "end" });
   }, [messages, asking]);
+
+  useEffect(() => { persistAnswerLanguage(answerLanguage); }, [answerLanguage]);
 
   const openConversation = async (id: string) => {
     setActiveId(id);
@@ -289,7 +293,7 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
     try {
       const data = await apiRequest<{ user_message: Message; assistant_message: Message }>(`/api/v1/conversations/${activeId}/ask`, token, {
         method: "POST",
-        body: JSON.stringify({ question: clean, reference_moment: new Date().toISOString() }),
+        body: withAnswerLanguage(JSON.stringify({ question: clean, reference_moment: new Date().toISOString() }), answerLanguage),
       });
       setMessages((current) => [...current.filter((item) => !item.message_id.startsWith("local-")), data.user_message, data.assistant_message]);
       if (isFirstQuestion) {
@@ -359,7 +363,7 @@ export function Workspace({ token, user, onSignOut }: { token: string; user: Use
         {view === "profiles" ? <Profiles token={token} profiles={profiles} onCreated={refresh} onDataDeleted={onSignOut} /> : (
           <div className="chat">
             {!activeId ? <EmptyChat profiles={profiles} selectedProfileId={selectedProfileId} onSelectProfile={setSelectedProfileId} onStart={startConversation} onProfiles={() => setView("profiles")} /> : (
-              <><div className="messages">{messages.length === 0 && <div className="prompt"><div className="star">✦</div><h3>What would you like to understand?</h3><p>Your answer will use the saved chart linked to this conversation.</p><div className="starter-questions" aria-label="Question starters">{STARTER_QUESTIONS.map((starter) => <button key={starter} type="button" onClick={() => chooseStarterQuestion(starter)} disabled={busy || asking}>{starter}</button>)}</div></div>}{messages.map((item) => <article key={item.message_id} className={`message ${item.role}`}><span>{item.role === "assistant" ? "✦" : "You"}</span><div>{item.content || "No narrative was returned."}{item.domain && <small>{item.domain}</small>}{item.role === "assistant" && item.content && <><button className="answer-copy" type="button" aria-label="Copy answer" onClick={() => copyAnswer(item)}>{copiedMessageId === item.message_id ? "Copied" : "Copy"}</button>{evidenceLabels(item.payload).length > 0 && <><button className="answer-evidence" type="button" aria-expanded={evidenceOpenId === item.message_id} onClick={() => setEvidenceOpenId((current) => current === item.message_id ? null : item.message_id)}>{evidenceOpenId === item.message_id ? "Hide supporting factors" : "Why this answer?"}</button>{evidenceOpenId === item.message_id && <ul className="evidence-list">{evidenceLabels(item.payload).map((label) => <li key={label}>{label}</li>)}</ul>}</>}</>}</div></article>)}{asking && <article className="message assistant thinking" role="status"><span>✦</span><div>Calculating chart factors and timing<span className="thinking-dots">…</span></div></article>}<div ref={messagesEndRef} /></div><form className="composer" onSubmit={ask}><textarea aria-label="Ask AstroAI" value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={(event) => { if (shouldSubmitQuestion(event.key, event.shiftKey)) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder="Ask about career, marriage, finances, travel…" maxLength={1000} disabled={busy} /><button disabled={busy || !question.trim()}>{busy ? "…" : "↑"}</button></form><p className="composer-disclaimer">Astrology is for reflection and entertainment—not medical, legal, financial or other professional advice.</p></>
+              <><div className="messages">{messages.length === 0 && <div className="prompt"><div className="star">✦</div><h3>What would you like to understand?</h3><p>Your answer will use the saved chart linked to this conversation.</p><div className="starter-questions" aria-label="Question starters">{STARTER_QUESTIONS.map((starter) => <button key={starter} type="button" onClick={() => chooseStarterQuestion(starter)} disabled={busy || asking}>{starter}</button>)}</div></div>}{messages.map((item) => <article key={item.message_id} className={`message ${item.role}`}><span>{item.role === "assistant" ? "✦" : "You"}</span><div>{item.content || "No narrative was returned."}{item.domain && <small>{item.domain}</small>}{item.role === "assistant" && item.content && <><button className="answer-copy" type="button" aria-label="Copy answer" onClick={() => copyAnswer(item)}>{copiedMessageId === item.message_id ? "Copied" : "Copy"}</button>{evidenceLabels(item.payload).length > 0 && <><button className="answer-evidence" type="button" aria-expanded={evidenceOpenId === item.message_id} onClick={() => setEvidenceOpenId((current) => current === item.message_id ? null : item.message_id)}>{evidenceOpenId === item.message_id ? "Hide supporting factors" : "Why this answer?"}</button>{evidenceOpenId === item.message_id && <ul className="evidence-list">{evidenceLabels(item.payload).map((label) => <li key={label}>{label}</li>)}</ul>}</>}</>}</div></article>)}{asking && <article className="message assistant thinking" role="status"><span>✦</span><div>Calculating chart factors and timing<span className="thinking-dots">…</span></div></article>}<div ref={messagesEndRef} /></div><div className="composer-controls"><AnswerLanguageSelector language={answerLanguage} onChange={setAnswerLanguage} /><form className="composer" onSubmit={ask}><textarea aria-label="Ask AstroAI" value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={(event) => { if (shouldSubmitQuestion(event.key, event.shiftKey)) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder="Ask about career, marriage, finances, travel…" maxLength={1000} disabled={busy} /><button disabled={busy || !question.trim()}>{busy ? "…" : "↑"}</button></form></div><p className="composer-disclaimer">Astrology is for reflection and entertainment—not medical, legal, financial or other professional advice.</p></>
             )}
           </div>
         )}
