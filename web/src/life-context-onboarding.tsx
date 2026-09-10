@@ -6,6 +6,9 @@ export type BasicLifeContext = {
   ownsHome: "yes" | "no" | "prefer_not_to_say";
   homeAchievedMonth?: string;
 };
+type OnboardingRelationshipStatus = BasicLifeContext["relationshipStatus"] | "";
+type OnboardingChildrenStatus = BasicLifeContext["hasChildren"] | "";
+type OnboardingHomeStatus = BasicLifeContext["ownsHome"] | "";
 
 // V2 intentionally re-opens the one-time context prompt for existing users so
 // they can add home/property reality context introduced after V1.
@@ -33,11 +36,15 @@ function storedContext(): BasicLifeContext | null {
   } catch { return null; }
 }
 
+export function hasCompleteLifeContextSelection(value: { relationshipStatus: OnboardingRelationshipStatus; hasChildren: OnboardingChildrenStatus; ownsHome: OnboardingHomeStatus }): value is BasicLifeContext {
+  return Boolean(value.relationshipStatus && value.hasChildren && value.ownsHome);
+}
+
 export function LifeContextOnboarding({ children }: PropsWithChildren) {
   const [show, setShow] = useState(false);
-  const [relationshipStatus, setRelationshipStatus] = useState<BasicLifeContext["relationshipStatus"]>("single");
-  const [hasChildren, setHasChildren] = useState<BasicLifeContext["hasChildren"]>("no");
-  const [ownsHome, setOwnsHome] = useState<BasicLifeContext["ownsHome"]>("no");
+  const [relationshipStatus, setRelationshipStatus] = useState<OnboardingRelationshipStatus>("");
+  const [hasChildren, setHasChildren] = useState<OnboardingChildrenStatus>("");
+  const [ownsHome, setOwnsHome] = useState<OnboardingHomeStatus>("");
   const [homeAchievedMonth, setHomeAchievedMonth] = useState("");
 
   useEffect(() => {
@@ -59,14 +66,16 @@ export function LifeContextOnboarding({ children }: PropsWithChildren) {
   }, []);
 
   const save = () => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ relationshipStatus, hasChildren, ownsHome, homeAchievedMonth: ownsHome === "yes" ? homeAchievedMonth : "" } satisfies BasicLifeContext));
+    const selection = { relationshipStatus, hasChildren, ownsHome };
+    if (!hasCompleteLifeContextSelection(selection)) return;
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...selection, homeAchievedMonth: selection.ownsHome === "yes" ? homeAchievedMonth : "" } satisfies BasicLifeContext));
     setShow(false);
   };
 
   return <>{children}{show && <div role="dialog" aria-modal="true" aria-labelledby="life-context-title" style={{ position:"fixed",inset:0,zIndex:1000,background:"rgba(7,9,20,.72)",display:"grid",placeItems:"center",padding:20 }}><section style={{ width:"min(520px, 100%)",maxHeight:"90vh",overflowY:"auto",background:"#fff",color:"#171526",borderRadius:20,padding:28,boxShadow:"0 24px 80px rgba(0,0,0,.35)" }}><div className="eyebrow">A little real-life context</div><h2 id="life-context-title">Help AstroAI understand where you are today</h2><p>This prevents the chart from predicting milestones that have already happened. You can choose “Prefer not to say”.</p>
-    <label style={{display:"grid",gap:8,marginTop:18}}>Relationship status<select aria-label="Relationship status" value={relationshipStatus} onChange={(e)=>setRelationshipStatus(e.target.value as BasicLifeContext["relationshipStatus"])} style={{padding:12,borderRadius:10}}><option value="single">Single</option><option value="in_relationship">In a relationship</option><option value="engaged">Engaged</option><option value="married">Married</option><option value="separated">Separated</option><option value="divorced">Divorced</option><option value="widowed">Widowed</option><option value="prefer_not_to_say">Prefer not to say</option></select></label>
-    <label style={{display:"grid",gap:8,marginTop:18}}>Do you have children?<select aria-label="Children status" value={hasChildren} onChange={(e)=>setHasChildren(e.target.value as BasicLifeContext["hasChildren"])} style={{padding:12,borderRadius:10}}><option value="no">No</option><option value="yes">Yes</option><option value="prefer_not_to_say">Prefer not to say</option></select></label>
-    <label style={{display:"grid",gap:8,marginTop:18}}>Have you already bought or owned a home/property?<select aria-label="Home ownership status" value={ownsHome} onChange={(e)=>setOwnsHome(e.target.value as BasicLifeContext["ownsHome"])} style={{padding:12,borderRadius:10}}><option value="no">No</option><option value="yes">Yes</option><option value="prefer_not_to_say">Prefer not to say</option></select></label>
+    <label style={{display:"grid",gap:8,marginTop:18}}>Relationship status<select aria-label="Relationship status" value={relationshipStatus} onChange={(e)=>setRelationshipStatus(e.target.value as OnboardingRelationshipStatus)} style={{padding:12,borderRadius:10}}><option value="" disabled>Select an option</option><option value="single">Single</option><option value="in_relationship">In a relationship</option><option value="engaged">Engaged</option><option value="married">Married</option><option value="separated">Separated</option><option value="divorced">Divorced</option><option value="widowed">Widowed</option><option value="prefer_not_to_say">Prefer not to say</option></select></label>
+    <label style={{display:"grid",gap:8,marginTop:18}}>Do you have children?<select aria-label="Children status" value={hasChildren} onChange={(e)=>setHasChildren(e.target.value as OnboardingChildrenStatus)} style={{padding:12,borderRadius:10}}><option value="" disabled>Select an option</option><option value="no">No</option><option value="yes">Yes</option><option value="prefer_not_to_say">Prefer not to say</option></select></label>
+    <label style={{display:"grid",gap:8,marginTop:18}}>Have you already bought or owned a home/property?<select aria-label="Home ownership status" value={ownsHome} onChange={(e)=>setOwnsHome(e.target.value as OnboardingHomeStatus)} style={{padding:12,borderRadius:10}}><option value="" disabled>Select an option</option><option value="no">No</option><option value="yes">Yes</option><option value="prefer_not_to_say">Prefer not to say</option></select></label>
     {ownsHome === "yes" && <label style={{display:"grid",gap:8,marginTop:18}}>When did you first buy/own it? <small>(optional)</small><input aria-label="Home achieved month" type="month" value={homeAchievedMonth} onChange={(e)=>setHomeAchievedMonth(e.target.value)} style={{padding:12,borderRadius:10}} /></label>}
-    <button className="primary" type="button" onClick={save} style={{marginTop:24}}>Save and continue →</button><p style={{fontSize:12,opacity:.7,marginTop:14}}>These are user-provided facts only. AstroAI does not infer marital, parenting or property ownership status from your birth chart.</p></section></div>}</>;
+    <button className="primary" type="button" onClick={save} disabled={!hasCompleteLifeContextSelection({ relationshipStatus, hasChildren, ownsHome })} style={{marginTop:24}}>Save and continue →</button><p style={{fontSize:12,opacity:.7,marginTop:14}}>These are user-provided facts only. AstroAI does not infer marital, parenting or property ownership status from your birth chart.</p></section></div>}</>;
 }
