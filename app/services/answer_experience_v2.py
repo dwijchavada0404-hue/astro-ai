@@ -94,6 +94,12 @@ def present_answer_v2(routed: dict[str, Any], language: AnswerLanguage = "hingli
             return {"hinglish":f"Aapke chart mein property ya ghar se jude matters ke liye {future} ka period zyada supportive dikh raha hai. Ye first purchase ki guarantee nahi, balki property-related opportunity ka stronger phase hai.","english":f"Your chart shows {future} as a more supportive period for home or property matters. It is not a guarantee of a first purchase, but a stronger property-related opportunity phase.","hindi":f"आपकी कुंडली में घर या संपत्ति से जुड़े मामलों के लिए {future} का समय अधिक अनुकूल दिखाई देता है। यह पहली खरीद की गारंटी नहीं, बल्कि संपत्ति संबंधी अवसरों का मजबूत चरण है।"}[language]
 
     if domain == "family_children":
+        if _dict(result).get("children_question_boundary") == "child_count":
+            return {
+                "hinglish": "Aapki kundli se family aur children ke yog, parenting pattern aur stronger family-growth periods dekhe ja sakte hain, lekin exact kitne bachche honge us number ko certainty ke saath fix karna reliable nahi hai. Isliye main 1, 2 ya 3 jaisa artificial number invent nahi karunga. Family aur children ke actual indications aur stronger timing periods ko meaningful reading maana ja sakta hai.",
+                "english": "Your chart can be read for family and children themes, parenting patterns, and stronger family-growth periods, but an exact number of future children cannot be fixed reliably. I will not invent a number such as one, two, or three. The meaningful reading is in the actual family and children indications and their stronger timing periods.",
+                "hindi": "आपकी कुंडली से परिवार और बच्चों के योग, पालन-पोषण का पैटर्न और परिवार-वृद्धि के मजबूत समय देखे जा सकते हैं, लेकिन भविष्य में कितने बच्चे होंगे, यह संख्या निश्चित रूप से बताना विश्वसनीय नहीं है। इसलिए मैं एक, दो या तीन जैसी कृत्रिम संख्या नहीं बताऊँगा। सार्थक रीडिंग परिवार और बच्चों के वास्तविक संकेतों तथा उनके मजबूत समयों में है।",
+            }[language]
         past, future = _range(_timing_period(result, "past")), _range(_timing_period(result, "future"))
         if future:
             past_text = {"hinglish":f" Isse pehle {past} bhi family/parenting themes ke liye strong raha tha." if past else "","english":f" An earlier strong family/parenting phase was {past}." if past else "","hindi":f" इससे पहले {past} भी परिवार/पालन-पोषण के विषयों के लिए मजबूत समय था।" if past else ""}[language]
