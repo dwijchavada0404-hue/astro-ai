@@ -78,6 +78,10 @@ def present_answer_v2(routed: dict[str, Any], language: AnswerLanguage = "hingli
     result = _deep_result(routed); domain = str(routed.get("domain") or ""); raw = routed.get("answer") or routed.get("reason")
 
     if domain == "marriage":
+        if str(result.get("event") or "") == "spouse_appearance":
+            themes = result.get("strongest_themes")
+            theme_text = ", ".join(str(theme).replace("_", " ") for theme in themes[:3]) if isinstance(themes, list) and themes else "overall appearance and presence"
+            return {"hinglish":f"Aapki kundli mein future spouse ke appearance aur presence ke liye {theme_text} jaise broad themes zyada dikh rahe hain. Isse exact height, colour ya fixed physical features ki prediction na samjhein—ye sirf general impression ke indications hain.","english":f"Your chart shows broader themes such as {theme_text} for a future spouse's appearance and presence. Do not read this as a prediction of exact height, complexion or fixed physical features; these are only general impressions.","hindi":f"आपकी कुंडली में भावी जीवनसाथी के रूप और व्यक्तित्व की उपस्थिति के लिए {theme_text} जैसे व्यापक संकेत दिखाई देते हैं। इसे सटीक कद, रंग या निश्चित शारीरिक विशेषताओं की भविष्यवाणी न मानें; ये केवल सामान्य प्रभाव के संकेत हैं।"}[language]
         if isinstance(raw, str):
             pathway = _love_arranged(raw, language)
             if pathway: return pathway
