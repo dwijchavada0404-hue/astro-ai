@@ -180,3 +180,11 @@ def test_location_settlement_answer_is_distinct_from_short_travel():
     assert "Jan 2027 – Sep 2027" in answer
     assert "visa, immigration, citizenship" in answer
     assert not answer.startswith("Foreign travel")
+
+
+def test_spouse_appearance_answer_is_natural_and_not_an_exact_physical_prediction():
+    routed = {"domain":"marriage","result":{"event":"spouse_appearance","strongest_themes":["graceful_presence","expressive_features"]}}
+    answer = present_answer_v2(routed)
+    assert "graceful presence, expressive features" in answer
+    assert "exact height" in answer
+    assert "support score" not in answer.lower()
