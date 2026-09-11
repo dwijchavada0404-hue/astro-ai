@@ -160,6 +160,16 @@ def present_answer_v2(routed: dict[str, Any], language: AnswerLanguage = "hingli
             timing_text = {"hinglish": f" {future} ke aas-paas is area mein effort aur clarity ke liye comparatively supportive phase dikh raha hai." if future else "", "english": f" Around {future}, this looks like a comparatively supportive phase for effort and clarity in this area." if future else "", "hindi": f" {future} के आसपास इस क्षेत्र में प्रयास और स्पष्टता के लिए तुलनात्मक रूप से सहायक समय दिखाई देता है।" if future else ""}[language]
             return {"hinglish": f"Aapki kundli mein {focus_text} ka theme zyada important dikh raha hai.{timing_text} Isse fixed destiny na samjhein; aapki choices aur real-life actions hi is potential ko direction dete hain.", "english": f"Your chart places more emphasis on {focus_text}.{timing_text} This is not a fixed destiny; your choices and real-life actions are what give this potential direction.", "hindi": f"आपकी कुंडली में {focus_text} का विषय अधिक महत्वपूर्ण दिखाई देता है।{timing_text} इसे निश्चित भाग्य न मानें; आपकी पसंद और वास्तविक जीवन के कार्य ही इस संभावना को दिशा देते हैं।"}[language]
 
+    if domain == "friends_social_community":
+        synthesis = _dict(result.get("synthesis"))
+        event_result = _dict(result.get("event_result"))
+        future = _range(_timing_period(result, "future")) or _range(synthesis.get("strongest_future_period"))
+        focus = event_result.get("label") or synthesis.get("strongest_area")
+        if isinstance(focus, str) or future:
+            focus_text = str(focus or "friendship and social connection").replace("_", " ")
+            timing_text = {"hinglish": f" {future} ke aas-paas is area mein connection aur participation ke liye comparatively supportive phase dikh raha hai." if future else "", "english": f" Around {future}, this looks like a comparatively supportive phase for connection and participation in this area." if future else "", "hindi": f" {future} के आसपास इस क्षेत्र में जुड़ाव और भागीदारी के लिए तुलनात्मक रूप से सहायक समय दिखाई देता है।" if future else ""}[language]
+            return {"hinglish": f"Aapki kundli mein {focus_text} ka social theme zyada strong dikh raha hai.{timing_text} Isse kisi specific person ke behaviour ya friendship outcome ki fixed prediction na samjhein.", "english": f"Your chart shows a stronger social theme around {focus_text}.{timing_text} This is not a fixed prediction about any specific person's behaviour or a friendship outcome.", "hindi": f"आपकी कुंडली में {focus_text} का सामाजिक विषय अधिक मजबूत दिखाई देता है।{timing_text} इसे किसी विशेष व्यक्ति के व्यवहार या मित्रता के परिणाम की निश्चित भविष्यवाणी न मानें।"}[language]
+
     if domain in {"location_settlement", "travel_journeys"}:
         future = _range(_timing_period(result, "future"))
         if future:
