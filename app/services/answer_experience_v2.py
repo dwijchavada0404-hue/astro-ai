@@ -170,6 +170,17 @@ def present_answer_v2(routed: dict[str, Any], language: AnswerLanguage = "hingli
             timing_text = {"hinglish": f" {future} ke aas-paas is area mein connection aur participation ke liye comparatively supportive phase dikh raha hai." if future else "", "english": f" Around {future}, this looks like a comparatively supportive phase for connection and participation in this area." if future else "", "hindi": f" {future} के आसपास इस क्षेत्र में जुड़ाव और भागीदारी के लिए तुलनात्मक रूप से सहायक समय दिखाई देता है।" if future else ""}[language]
             return {"hinglish": f"Aapki kundli mein {focus_text} ka social theme zyada strong dikh raha hai.{timing_text} Isse kisi specific person ke behaviour ya friendship outcome ki fixed prediction na samjhein.", "english": f"Your chart shows a stronger social theme around {focus_text}.{timing_text} This is not a fixed prediction about any specific person's behaviour or a friendship outcome.", "hindi": f"आपकी कुंडली में {focus_text} का सामाजिक विषय अधिक मजबूत दिखाई देता है।{timing_text} इसे किसी विशेष व्यक्ति के व्यवहार या मित्रता के परिणाम की निश्चित भविष्यवाणी न मानें।"}[language]
 
+    if domain == "parents_elders":
+        route = str(_dict(routed.get("result")).get("route") or "")
+        if route == "parents_elders_safety_boundary_v1":
+            return {"hinglish":"Main parent/elder relationship, guidance, responsibility aur boundaries ke themes par reading de sakta hoon, lekin unki health, lifespan, intentions ya character ki prediction nahi dunga.","english":"I can discuss themes of relationship, guidance, responsibility and boundaries involving parents or elders, but I cannot predict their health, lifespan, intentions or character.","hindi":"मैं माता-पिता या बुजुर्गों से जुड़े संबंध, मार्गदर्शन, जिम्मेदारी और सीमाओं के विषयों पर रीडिंग दे सकता हूँ, लेकिन उनके स्वास्थ्य, जीवनकाल, इरादों या चरित्र की भविष्यवाणी नहीं दूँगा।"}[language]
+        synthesis = _dict(result.get("synthesis")); event_result = _dict(result.get("event_result"))
+        future = _range(_timing_period(result, "future")) or _range(synthesis.get("strongest_future_period")); focus = event_result.get("label") or synthesis.get("strongest_area")
+        if isinstance(focus, str) or future:
+            focus_text = str(focus or "family support and responsibility").replace("_", " ")
+            timing_text = {"hinglish": f" {future} ke aas-paas is theme par attention dena comparatively supportive ho sakta hai." if future else "", "english": f" Around {future}, giving attention to this theme may be comparatively supportive." if future else "", "hindi": f" {future} के आसपास इस विषय पर ध्यान देना तुलनात्मक रूप से सहायक हो सकता है।" if future else ""}[language]
+            return {"hinglish":f"Aapki kundli mein parents/elders ke context mein {focus_text} ka theme zyada important dikh raha hai.{timing_text} Isse kisi other person ke behaviour ya outcome ki fixed prediction na samjhein.","english":f"Your chart places more emphasis on {focus_text} in the context of parents or elders.{timing_text} This is not a fixed prediction about another person's behaviour or outcome.","hindi":f"आपकी कुंडली में माता-पिता या बुजुर्गों के संदर्भ में {focus_text} का विषय अधिक महत्वपूर्ण दिखाई देता है।{timing_text} इसे किसी अन्य व्यक्ति के व्यवहार या परिणाम की निश्चित भविष्यवाणी न मानें।"}[language]
+
     if domain in {"location_settlement", "travel_journeys"}:
         future = _range(_timing_period(result, "future"))
         if future:
