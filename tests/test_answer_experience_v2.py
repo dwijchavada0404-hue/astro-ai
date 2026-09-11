@@ -90,7 +90,7 @@ def test_parents_elders_answer_keeps_other_person_boundary():
     answer = present_answer_v2(routed)
     assert "guidance mentorship" in answer
     assert "Jan 2027 – Sep 2027" in answer
-    assert "another person's behaviour" in answer
+    assert "other person ke behaviour" in answer
 
 
 def test_foreign_travel_answer_is_not_engine_debug_copy():
