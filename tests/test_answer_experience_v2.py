@@ -101,6 +101,21 @@ def test_siblings_answer_keeps_specific_person_boundary():
     assert "specific person" in answer
 
 
+def test_legal_conflict_answer_is_natural_and_not_a_case_prediction():
+    routed = {"domain":"legal_disputes_conflict","result":{"synthesis":{"strongest_area":"negotiation_mediation","strongest_future_period":{"start":"2027-01-01","end":"2027-09-30"}}}}
+    answer = present_answer_v2(routed)
+    assert "negotiation mediation" in answer
+    assert "Jan 2027 – Sep 2027" in answer
+    assert "legal outcome" in answer
+
+
+def test_legal_conflict_safety_boundary_is_natural_in_each_language():
+    routed = {"domain":"legal_disputes_conflict","result":{"route":"legal_disputes_conflict_safety_boundary_v1"}}
+    assert "case ka result" in present_answer_v2(routed)
+    assert "court verdict" in present_answer_v2(routed, "english")
+    assert "अदालत का फैसला" in present_answer_v2(routed, "hindi")
+
+
 def test_foreign_travel_answer_is_not_engine_debug_copy():
     routed = {"domain":"location_settlement","answer":"Location events are ranked from natal patterns and available dasha timing; scores describe activation, not event probability.","result":{"event_result":{"future":{"timing_period":{"start":"2027-01-01","end":"2027-09-30"}}}}}
     answer = present_answer_v2(routed)
