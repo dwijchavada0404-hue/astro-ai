@@ -132,3 +132,24 @@ def test_chart_must_be_non_empty_dictionary():
 def test_life_context_type_is_validated():
     with pytest.raises(ValueError, match="life_context"):
         module.answer_unified_question_v1(CHART, "How is my career?", NOW, life_context=[])  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("raw", [
+    "The longer-term Travel & Journeys trajectory is adaptive mobility, with a near-term direction of expansion.",
+    "The combined Legal, Disputes & Conflict outlook is negotiation and resolution emphasis.",
+])
+def test_raw_engine_trajectory_and_synthesis_copy_use_natural_fallback(monkeypatch, raw):
+    monkeypatch.setattr(
+        module,
+        "route_top_level_question_v1",
+        lambda chart, question, moment, life_context=None: {
+            "available": True,
+            "domain": "career",
+            "route": "top_level_to_career",
+            "answer": raw,
+            "result": {},
+        },
+    )
+    result = module.answer_unified_question_v1(CHART, "How is my career?", NOW)
+    assert result["answer"] != raw
+    assert "clear indication" in result["answer"]

@@ -55,7 +55,11 @@ _INTERNAL_COPY_MARKERS = (
     "no usable dasha", "methodology", "current calculation could not",
     "timing compares symbolic", "event intelligence separates", "trajectory layer compares",
     "combined health & wellbeing outlook", "describes symbolic lifestyle",
-    "events are ranked from natal",
+    "events are ranked from natal", "location events are ranked",
+    "combined friends, social networks & community outlook", "combined parents & elders outlook",
+    "combined siblings & communication outlook", "combined travel & journeys outlook",
+    "combined purpose & personal growth outlook", "combined legal, disputes & conflict outlook",
+    "the longer-term ",
 )
 
 
