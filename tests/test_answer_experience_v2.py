@@ -156,3 +156,18 @@ def test_health_safety_boundary_is_natural_in_hindi():
 def test_raw_iso_dates_are_cleaned_for_fallback_domains():
     routed = {"domain":"career","answer":"A supportive phase runs from 2027-02-12 to 2027-10-19."}
     assert present_answer_v2(routed, "english") == "A supportive phase runs from Feb 2027 to Oct 2027."
+
+
+def test_life_settlement_answer_uses_natural_combined_timing_without_a_deadline():
+    routed = {"domain":"life_settlement","result":{"timing":{"strongest_convergence_window":{"start":"2027-01-01","end":"2027-09-30"}}}}
+    answer = present_answer_v2(routed)
+    assert "Jan 2027 – Sep 2027" in answer
+    assert "fixed deadline" in answer
+    assert "cross-domain" not in answer.lower()
+
+
+def test_life_settlement_overview_uses_natural_foundations():
+    routed = {"domain":"life_settlement","result":{"synthesis":{"strongest_domains":["career","property_home"]}}}
+    answer = present_answer_v2(routed, "english")
+    assert "career, property home" in answer
+    assert "fixed settled-life outcome" in answer
