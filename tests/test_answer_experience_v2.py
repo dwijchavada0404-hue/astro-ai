@@ -171,3 +171,12 @@ def test_life_settlement_overview_uses_natural_foundations():
     answer = present_answer_v2(routed, "english")
     assert "career, property home" in answer
     assert "fixed settled-life outcome" in answer
+
+
+def test_location_settlement_answer_is_distinct_from_short_travel():
+    routed = {"domain":"location_settlement","result":{"primary_intent":"foreign_settlement","event_result":{"label":"establishing a longer-term base outside the place of origin","future":{"timing_period":{"start":"2027-01-01","end":"2027-09-30"}}}}}
+    answer = present_answer_v2(routed)
+    assert "longer-term base" in answer
+    assert "Jan 2027 – Sep 2027" in answer
+    assert "visa, immigration, citizenship" in answer
+    assert not answer.startswith("Foreign travel")
