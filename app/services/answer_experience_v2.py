@@ -189,6 +189,22 @@ def present_answer_v2(routed: dict[str, Any], language: AnswerLanguage = "hingli
             timing_text = {"hinglish": f" {future} ke aas-paas is area mein effort comparatively supportive ho sakta hai." if future else "", "english": f" Around {future}, effort in this area may be comparatively supportive." if future else "", "hindi": f" {future} के आसपास इस क्षेत्र में प्रयास तुलनात्मक रूप से सहायक हो सकता है।" if future else ""}[language]
             return {"hinglish":f"Aapki kundli mein {focus_text} ka theme zyada important dikh raha hai.{timing_text} Isse kisi sibling ya specific person ke behaviour ki fixed prediction na samjhein.","english":f"Your chart places more emphasis on {focus_text}.{timing_text} This is not a fixed prediction about a sibling or any specific person's behaviour.","hindi":f"आपकी कुंडली में {focus_text} का विषय अधिक महत्वपूर्ण दिखाई देता है।{timing_text} इसे किसी भाई-बहन या विशेष व्यक्ति के व्यवहार की निश्चित भविष्यवाणी न मानें।"}[language]
 
+    if domain == "legal_disputes_conflict":
+        route = str(result.get("route") or "")
+        if route == "legal_disputes_conflict_safety_boundary_v1":
+            return {
+                "hinglish": "Main conflict, negotiation, communication, boundaries aur resolution ke themes par kundli-based reflection de sakta hoon, lekin case ka result, guilt, liability, arrest, court verdict ya settlement ki prediction nahi dunga. Kisi real legal matter ke liye qualified legal professional ki advice ko priority dein.",
+                "english": "I can offer chart-based reflection on conflict, negotiation, communication, boundaries and resolution themes, but I cannot predict a case result, guilt, liability, arrest, a court verdict or a settlement. For any real legal matter, please prioritise advice from a qualified legal professional.",
+                "hindi": "मैं संघर्ष, बातचीत, संचार, सीमाओं और समाधान के विषयों पर कुंडली-आधारित चिंतन दे सकता हूँ, लेकिन केस का परिणाम, दोष, दायित्व, गिरफ्तारी, अदालत का फैसला या समझौते की भविष्यवाणी नहीं दूँगा। किसी वास्तविक कानूनी मामले में योग्य कानूनी विशेषज्ञ की सलाह को प्राथमिकता दें।",
+            }[language]
+        synthesis = _dict(result.get("synthesis")); event_result = _dict(result.get("event_result"))
+        future = _range(_timing_period(result, "future")) or _range(synthesis.get("strongest_future_period"))
+        focus = event_result.get("event") or event_result.get("label") or synthesis.get("strongest_area")
+        if isinstance(focus, str) or future:
+            focus_text = str(focus or "conflict management and constructive communication").replace("_", " ")
+            timing_text = {"hinglish": f" {future} ke aas-paas is area mein calm communication, documentation aur practical boundaries par focus karna comparatively useful ho sakta hai." if future else "", "english": f" Around {future}, focusing on calm communication, documentation and practical boundaries may be comparatively useful." if future else "", "hindi": f" {future} के आसपास शांत संवाद, दस्तावेज़ीकरण और व्यावहारिक सीमाओं पर ध्यान देना तुलनात्मक रूप से उपयोगी हो सकता है।" if future else ""}[language]
+            return {"hinglish": f"Aapki kundli mein {focus_text} ka conflict-management theme zyada important dikh raha hai.{timing_text} Isse legal outcome ki prediction na samjhein; real dispute mein facts aur qualified legal advice hi sabse important hain.", "english": f"Your chart places more emphasis on the conflict-management theme of {focus_text}.{timing_text} This is not a prediction of a legal outcome; in a real dispute, the facts and qualified legal advice matter most.", "hindi": f"आपकी कुंडली में {focus_text} का संघर्ष-प्रबंधन विषय अधिक महत्वपूर्ण दिखाई देता है।{timing_text} इसे कानूनी परिणाम की भविष्यवाणी न मानें; वास्तविक विवाद में तथ्य और योग्य कानूनी सलाह ही सबसे महत्वपूर्ण हैं।"}[language]
+
     if domain in {"location_settlement", "travel_journeys"}:
         future = _range(_timing_period(result, "future"))
         if future:
