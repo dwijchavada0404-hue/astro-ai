@@ -85,6 +85,14 @@ def test_social_answer_is_natural_without_specific_person_claims():
     assert "specific person" in answer
 
 
+def test_parents_elders_answer_keeps_other_person_boundary():
+    routed = {"domain":"parents_elders","result":{"synthesis":{"strongest_area":"guidance_mentorship","strongest_future_period":{"start":"2027-01-01","end":"2027-09-30"}}}}
+    answer = present_answer_v2(routed)
+    assert "guidance mentorship" in answer
+    assert "Jan 2027 – Sep 2027" in answer
+    assert "another person's behaviour" in answer
+
+
 def test_foreign_travel_answer_is_not_engine_debug_copy():
     routed = {"domain":"location_settlement","answer":"Location events are ranked from natal patterns and available dasha timing; scores describe activation, not event probability.","result":{"event_result":{"future":{"timing_period":{"start":"2027-01-01","end":"2027-09-30"}}}}}
     answer = present_answer_v2(routed)
