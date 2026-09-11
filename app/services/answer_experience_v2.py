@@ -215,6 +215,18 @@ def present_answer_v2(routed: dict[str, Any], language: AnswerLanguage = "hingli
         if foundation_text:
             return {"hinglish":f"Aapki kundli mein life stability ke liye {foundation_text} relatively important foundations dikh rahi hain. In areas mein practical progress aur balance par focus karna zyada meaningful rahega; astrology ek fixed settled-life outcome guarantee nahi karti.","english":f"Your chart shows {foundation_text} as relatively important foundations for life stability. Focusing on practical progress and balance in these areas can be more meaningful; astrology does not guarantee a fixed settled-life outcome.","hindi":f"आपकी कुंडली में जीवन की स्थिरता के लिए {foundation_text} अपेक्षाकृत महत्वपूर्ण आधार दिखाई देते हैं। इन क्षेत्रों में व्यावहारिक प्रगति और संतुलन पर ध्यान देना अधिक सार्थक हो सकता है; ज्योतिष जीवन के निश्चित रूप से सेटल होने की गारंटी नहीं देता।"}[language]
 
+    if domain == "location_settlement":
+        event_result = _dict(result.get("event_result"))
+        future = _range(_timing_period(result, "future")) or _range(_dict(event_result.get("future")).get("timing_period"))
+        intent = str(result.get("primary_intent") or result.get("event_key") or "")
+        focus = event_result.get("label")
+        settlement_intent = intent in {"foreign_settlement", "long_distance_residence"}
+        default_focus = "longer-term residence or a change of home base" if settlement_intent else "relocation or foreign exposure"
+        focus_text = str(focus or default_focus).replace("_", " ")
+        if future or focus:
+            timing_text = {"hinglish": f" {future} ke aas-paas is direction mein movement ke signals comparatively zyada active dikh rahe hain." if future else "", "english": f" Around {future}, indicators for movement in this direction are comparatively more active." if future else "", "hindi": f" {future} के आसपास इस दिशा में बदलाव के संकेत तुलनात्मक रूप से अधिक सक्रिय दिखाई देते हैं।" if future else ""}[language]
+            return {"hinglish":f"Aapki kundli mein {focus_text} ka pattern dikh raha hai.{timing_text} Isse visa, immigration, citizenship ya kisi specific country mein permanent settlement ki guarantee na samjhein; real opportunities aur decisions sabse important rahenge.","english":f"Your chart shows a pattern around {focus_text}.{timing_text} Do not treat this as a guarantee of a visa, immigration status, citizenship or permanent settlement in a specific country; real opportunities and decisions matter most.","hindi":f"आपकी कुंडली में {focus_text} का पैटर्न दिखाई देता है।{timing_text} इसे वीज़ा, इमिग्रेशन, नागरिकता या किसी विशेष देश में स्थायी बसने की गारंटी न मानें; वास्तविक अवसर और निर्णय सबसे महत्वपूर्ण हैं।"}[language]
+
     if domain in {"location_settlement", "travel_journeys"}:
         future = _range(_timing_period(result, "future"))
         if future:
