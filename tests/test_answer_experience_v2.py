@@ -69,6 +69,14 @@ def test_education_answer_uses_natural_timing_without_guarantees():
     assert "guarantee" in answer
 
 
+def test_purpose_answer_is_natural_and_not_fixed_destiny():
+    routed = {"domain":"purpose_personal_growth","result":{"synthesis":{"strongest_area":"creative_expression","strongest_future_period":{"start":"2027-01-01","end":"2027-09-30"}}}}
+    answer = present_answer_v2(routed)
+    assert "creative expression" in answer
+    assert "Jan 2027 – Sep 2027" in answer
+    assert "fixed destiny" in answer
+
+
 def test_foreign_travel_answer_is_not_engine_debug_copy():
     routed = {"domain":"location_settlement","answer":"Location events are ranked from natal patterns and available dasha timing; scores describe activation, not event probability.","result":{"event_result":{"future":{"timing_period":{"start":"2027-01-01","end":"2027-09-30"}}}}}
     answer = present_answer_v2(routed)
