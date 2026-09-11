@@ -153,3 +153,27 @@ def test_raw_engine_trajectory_and_synthesis_copy_use_natural_fallback(monkeypat
     result = module.answer_unified_question_v1(CHART, "How is my career?", NOW)
     assert result["answer"] != raw
     assert "clear indication" in result["answer"]
+
+
+@pytest.mark.parametrize(("domain", "raw"), [
+    ("location_settlement", "Location timing compares symbolic relocation, foreign-exposure and longer-term settlement activation across dasha periods."),
+    ("purpose_personal_growth", "Purpose and growth events are ranked from natal themes and available dasha timing; scores describe symbolic activation."),
+    ("travel_journeys", "Travel event intelligence separates symbolic international and mobility activations without asserting a trip."),
+    ("siblings_communication", "The longer-term Siblings & Communication trajectory is adaptive communication."),
+    ("legal_disputes_conflict", "The combined Legal, Disputes & Conflict outlook is negotiation and resolution emphasis."),
+])
+def test_cross_domain_engine_copy_never_becomes_primary_answer(monkeypatch, domain, raw):
+    monkeypatch.setattr(
+        module,
+        "route_top_level_question_v1",
+        lambda chart, question, moment, life_context=None: {
+            "available": True,
+            "domain": domain,
+            "route": f"top_level_to_{domain}",
+            "answer": raw,
+            "result": {},
+        },
+    )
+    result = module.answer_unified_question_v1(CHART, "Give me a reading", NOW)
+    assert result["answer"] != raw
+    assert not any(fragment in result["answer"].lower() for fragment in ("timing compares symbolic", "event intelligence separates", "combined legal, disputes", "longer-term siblings"))
