@@ -181,6 +181,14 @@ def present_answer_v2(routed: dict[str, Any], language: AnswerLanguage = "hingli
             timing_text = {"hinglish": f" {future} ke aas-paas is theme par attention dena comparatively supportive ho sakta hai." if future else "", "english": f" Around {future}, giving attention to this theme may be comparatively supportive." if future else "", "hindi": f" {future} के आसपास इस विषय पर ध्यान देना तुलनात्मक रूप से सहायक हो सकता है।" if future else ""}[language]
             return {"hinglish":f"Aapki kundli mein parents/elders ke context mein {focus_text} ka theme zyada important dikh raha hai.{timing_text} Isse kisi other person ke behaviour ya outcome ki fixed prediction na samjhein.","english":f"Your chart places more emphasis on {focus_text} in the context of parents or elders.{timing_text} This is not a fixed prediction about another person's behaviour or outcome.","hindi":f"आपकी कुंडली में माता-पिता या बुजुर्गों के संदर्भ में {focus_text} का विषय अधिक महत्वपूर्ण दिखाई देता है।{timing_text} इसे किसी अन्य व्यक्ति के व्यवहार या परिणाम की निश्चित भविष्यवाणी न मानें।"}[language]
 
+    if domain == "siblings_communication":
+        synthesis = _dict(result.get("synthesis")); event_result = _dict(result.get("event_result"))
+        future = _range(_timing_period(result, "future")) or _range(synthesis.get("strongest_future_period")); focus = event_result.get("label") or synthesis.get("strongest_area")
+        if isinstance(focus, str) or future:
+            focus_text = str(focus or "communication and collaboration").replace("_", " ")
+            timing_text = {"hinglish": f" {future} ke aas-paas is area mein effort comparatively supportive ho sakta hai." if future else "", "english": f" Around {future}, effort in this area may be comparatively supportive." if future else "", "hindi": f" {future} के आसपास इस क्षेत्र में प्रयास तुलनात्मक रूप से सहायक हो सकता है।" if future else ""}[language]
+            return {"hinglish":f"Aapki kundli mein {focus_text} ka theme zyada important dikh raha hai.{timing_text} Isse kisi sibling ya specific person ke behaviour ki fixed prediction na samjhein.","english":f"Your chart places more emphasis on {focus_text}.{timing_text} This is not a fixed prediction about a sibling or any specific person's behaviour.","hindi":f"आपकी कुंडली में {focus_text} का विषय अधिक महत्वपूर्ण दिखाई देता है।{timing_text} इसे किसी भाई-बहन या विशेष व्यक्ति के व्यवहार की निश्चित भविष्यवाणी न मानें।"}[language]
+
     if domain in {"location_settlement", "travel_journeys"}:
         future = _range(_timing_period(result, "future"))
         if future:
