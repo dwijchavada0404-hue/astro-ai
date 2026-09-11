@@ -119,7 +119,7 @@ def test_legal_conflict_safety_boundary_is_natural_in_each_language():
 def test_foreign_travel_answer_is_not_engine_debug_copy():
     routed = {"domain":"location_settlement","answer":"Location events are ranked from natal patterns and available dasha timing; scores describe activation, not event probability.","result":{"event_result":{"future":{"timing_period":{"start":"2027-01-01","end":"2027-09-30"}}}}}
     answer = present_answer_v2(routed)
-    assert "Foreign travel" in answer
+    assert "relocation or foreign exposure" in answer
     assert "Jan 2027 – Sep 2027" in answer
     assert "Location events are ranked" not in answer
 
