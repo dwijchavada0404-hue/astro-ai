@@ -36,6 +36,7 @@ class AstroAIQuestionV1Request(BaseModel):
     birth: BirthInput
     question: str = Field(min_length=1, max_length=1000)
     reference_moment: datetime
+    answer_language: Literal["hinglish", "english", "hindi"] = "hinglish"
     life_context: LifeContextV1 | None = None
     life_context_updates: LifeContextV1 | None = None
 
@@ -111,6 +112,7 @@ def _answer_question_service(
     question: str,
     reference_moment: datetime,
     life_context: dict[str, Any] | None,
+    answer_language: Literal["hinglish", "english", "hindi"] = "hinglish",
 ) -> dict[str, Any]:
     # New hardening tests/integrations may replace the service seam directly.
     if answer_unified_question_v1 is not _ORIGINAL_ANSWER_UNIFIED_QUESTION_V1:
@@ -119,6 +121,7 @@ def _answer_question_service(
             question,
             reference_moment,
             life_context=life_context,
+            answer_language=answer_language,
         )
     # Preserve the legacy module-level router seam used by existing callers.
     if route_top_level_question_v1 is not _ORIGINAL_ROUTE_TOP_LEVEL_QUESTION_V1:
@@ -133,6 +136,7 @@ def _answer_question_service(
         question,
         reference_moment,
         life_context=life_context,
+        answer_language=answer_language,
     )
 
 
@@ -151,6 +155,7 @@ def answer_astroai_question_v1(payload: AstroAIQuestionV1Request):
             cleaned_question,
             payload.reference_moment,
             effective_context,
+            answer_language=payload.answer_language,
         )
 
         routed = response.get("result", {})
