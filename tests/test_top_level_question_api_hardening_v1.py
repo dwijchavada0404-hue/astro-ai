@@ -15,7 +15,7 @@ def test_api_delegates_to_hardened_service_and_preserves_envelope(monkeypatch):
     monkeypatch.setattr(module, "build_chart", lambda birth: {"birth": {"place": birth.place}, "houses": {"1": {}}})
     seen = {}
 
-    def fake_service(chart, question, reference_moment, life_context=None):
+    def fake_service(chart, question, reference_moment, life_context=None, answer_language="hinglish"):
         seen.update(chart=chart, question=question, reference_moment=reference_moment, life_context=life_context)
         return {
             "api_contract_version": "v1",
@@ -51,7 +51,7 @@ def test_api_merges_life_context_updates_before_service(monkeypatch):
     monkeypatch.setattr(module, "build_chart", lambda birth: {"birth": {}, "houses": {"1": {}}})
     captured = {}
 
-    def fake_service(chart, question, reference_moment, life_context=None):
+    def fake_service(chart, question, reference_moment, life_context=None, answer_language="hinglish"):
         captured["life_context"] = life_context
         return {
             "api_contract_version": "v1", "status": "answered", "question": question,
@@ -110,3 +110,36 @@ def test_request_model_caps_question_length():
             question="x" * 1001,
             reference_moment=NOW,
         )
+
+
+def test_api_passes_answer_language_to_hardened_service(monkeypatch):
+    monkeypatch.setattr(module, "build_chart", lambda birth: {"birth": {"place": birth.place}, "houses": {"1": {}}})
+    captured = {}
+
+    def fake_service(chart, question, reference_moment, life_context=None, answer_language="hinglish"):
+        captured["answer_language"] = answer_language
+        return {
+            "api_contract_version": "v1",
+            "status": "answered",
+            "question": question,
+            "reference_moment": reference_moment.isoformat(),
+            "domain": "career",
+            "route": "top_level_to_career",
+            "answer": "answer",
+            "answer_language": answer_language,
+            "limitation": None,
+            "result": {"available": True, "domain": "career", "route": "top_level_to_career"},
+            "meta": {"deterministic_router": True, "reality_override_enabled": False, "guaranteed_outcome": False},
+        }
+
+    monkeypatch.setattr(module, "answer_unified_question_v1", fake_service)
+    payload = module.AstroAIQuestionV1Request(
+        birth=BIRTH,
+        question="How is my career?",
+        reference_moment=NOW,
+        answer_language="hindi",
+    )
+    response = module.answer_astroai_question_v1(payload)
+
+    assert captured["answer_language"] == "hindi"
+    assert response["answer_language"] == "hindi"
