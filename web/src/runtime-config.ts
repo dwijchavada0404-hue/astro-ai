@@ -9,8 +9,6 @@ export type FrontendRuntimeConfig = {
 
 type FrontendEnv = Record<string, string | undefined>;
 
-const STAGING_API_FALLBACK = "https://astro-ai-production-54a7.up.railway.app";
-
 function clean(value: string | undefined): string {
   return value?.trim() || "";
 }
@@ -33,7 +31,7 @@ export function resolveFrontendRuntime(env: FrontendEnv): FrontendRuntimeConfig 
   const environment: FrontendRuntimeConfig["environment"] = rawEnvironment;
   const production = environment === "production";
 
-  const apiUrl = clean(env.VITE_ASTROAI_API_URL) || (production ? "" : STAGING_API_FALLBACK);
+  const apiUrl = clean(env.VITE_ASTROAI_API_URL) || (environment === "development" ? "http://127.0.0.1:8000" : "");
   const oidcAuthority = clean(env.VITE_OIDC_AUTHORITY);
   const oidcClientId = clean(env.VITE_OIDC_CLIENT_ID);
   const oidcAudience = clean(env.VITE_OIDC_AUDIENCE);

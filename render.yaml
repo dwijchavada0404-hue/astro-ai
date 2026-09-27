@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: astro-ai-api
+    runtime: docker
+    plan: free
+    branch: main
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /readyz
+    autoDeploy: true
+    envVars:
+      - key: ASTROAI_ENVIRONMENT
+        value: production
+      - key: ASTROAI_APP_NAME
+        value: AstroAI
+      - key: ASTROAI_DOCS_ENABLED
+        value: "false"
+      - key: ASTROAI_API_AUTH_REQUIRED
+        value: "true"
+      - key: ASTROAI_AUTH_ENABLED
+        value: "true"
+      - key: ASTROAI_AUTH_JWT_ALGORITHM
+        value: RS256
+      - key: ASTROAI_AUTH_JWKS_URL
+        sync: false
+      - key: ASTROAI_AUTH_JWT_ISSUER
+        sync: false
+      - key: ASTROAI_AUTH_JWT_AUDIENCE
+        sync: false
+      - key: ASTROAI_DATABASE_URL
+        sync: false
+      - key: ASTROAI_CORS_ORIGINS
+        sync: false
+      - key: ASTROAI_TRUSTED_HOSTS
+        value: "astro-ai-api.onrender.com"
+      - key: ASTROAI_GEOCODING_PROVIDER
+        sync: false
+      - key: ASTROAI_GEOCODING_API_KEY
+        sync: false
