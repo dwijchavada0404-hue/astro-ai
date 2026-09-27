@@ -51,7 +51,7 @@ def test_api_merges_life_context_updates_before_service(monkeypatch):
     monkeypatch.setattr(module, "build_chart", lambda birth: {"birth": {}, "houses": {"1": {}}})
     captured = {}
 
-    def fake_service(chart, question, reference_moment, life_context=None):
+    def fake_service(chart, question, reference_moment, life_context=None, answer_language="hinglish"):
         captured["life_context"] = life_context
         return {
             "api_contract_version": "v1", "status": "answered", "question": question,
