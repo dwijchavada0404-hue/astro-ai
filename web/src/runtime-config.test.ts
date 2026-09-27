@@ -32,9 +32,15 @@ describe("production frontend runtime", () => {
     expect(() => resolveFrontendRuntime({ ...production, VITE_ASTROAI_API_URL: "https://localhost:8000" })).toThrow(/localhost/);
   });
 
-  it("preserves staging compatibility when production mode is not selected", () => {
+  it("fails closed for staging when the API URL is not configured", () => {
+    expect(() => resolveFrontendRuntime({ VITE_ASTROAI_ENVIRONMENT: "staging" })).not.toThrow();
     const runtime = resolveFrontendRuntime({ VITE_ASTROAI_ENVIRONMENT: "staging" });
-    expect(runtime.apiUrl).toContain("railway.app");
+    expect(runtime.apiUrl).toBe("");
     expect(runtime.oidcAuthority).toBe("");
+  });
+
+  it("keeps local development on the local API by default", () => {
+    const runtime = resolveFrontendRuntime({ VITE_ASTROAI_ENVIRONMENT: "development" });
+    expect(runtime.apiUrl).toBe("http://127.0.0.1:8000");
   });
 });
